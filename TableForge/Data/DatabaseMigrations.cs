@@ -1,0 +1,101 @@
+using Microsoft.Data.Sqlite;
+
+namespace TableForge.Data;
+
+/// <summary>Minimal schema versioning via PRAGMA user_version. Migration N brings the database to version N.</summary>
+public static class DatabaseMigrations
+{
+    private static readonly string[] Migrations =
+    [
+        // 1: initial schema
+        """
+        CREATE TABLE Collections (
+            Id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name       TEXT NOT NULL,
+            CreatedUtc TEXT NOT NULL
+        );
+
+        CREATE TABLE Tables (
+            Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            CollectionId INTEGER NOT NULL REFERENCES Collections(Id),
+            Name         TEXT NOT NULL,
+            DiceCount    INTEGER NOT NULL CHECK (DiceCount >= 1),
+            DiceSides    INTEGER NOT NULL CHECK (DiceSides >= 2),
+            CreatedUtc   TEXT NOT NULL,
+            UpdatedUtc   TEXT NOT NULL
+        );
+        CREATE INDEX IX_Tables_CollectionId ON Tables(CollectionId);
+
+        CREATE TABLE ResultSets (
+            Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            TableId   INTEGER NOT NULL REFERENCES Tables(Id) ON DELETE CASCADE,
+            Name      TEXT NOT NULL DEFAULT '',
+            SortOrder INTEGER NOT NULL
+        );
+        CREATE INDEX IX_ResultSets_TableId ON ResultSets(TableId);
+
+        CREATE TABLE Entries (
+            Id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            ResultSetId        INTEGER NOT NULL REFERENCES ResultSets(Id) ON DELETE CASCADE,
+            MinValue           INTEGER NOT NULL,
+            MaxValue           INTEGER NOT NULL,
+            DisplayText        TEXT NOT NULL,
+            DisplayRange       TEXT NULL,
+            LinkedTableId      INTEGER NULL REFERENCES Tables(Id),
+            UnresolvedLinkName TEXT NULL,
+            SortOrder          INTEGER NOT NULL,
+            CHECK (MinValue <= MaxValue)
+        );
+        CREATE INDEX IX_Entries_ResultSetId ON Entries(ResultSetId);
+        CREATE INDEX IX_Entries_LinkedTableId ON Entries(LinkedTableId);
+        """,
+
+        // 2: recent tables (LastUsedUtc) and recent roll history. History rows are snapshots: they keep the
+        // table's name and the rendered result as text, and only loosely point at the table (set to NULL if it is deleted).
+        """
+        ALTER TABLE Tables ADD COLUMN LastUsedUtc TEXT NULL;
+
+        CREATE TABLE RollHistory (
+            Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            TableId   INTEGER NULL REFERENCES Tables(Id) ON DELETE SET NULL,
+            TableName TEXT NOT NULL,
+            DiceText  TEXT NOT NULL,
+            RollValue INTEGER NOT NULL,
+            ResultText TEXT NOT NULL,
+            RolledUtc TEXT NOT NULL
+        );
+        CREATE INDEX IX_RollHistory_TableId ON RollHistory(TableId);
+        """,
+    ];
+
+    public static int CurrentVersion => Migrations.Length;
+
+    /// <summary>Migrates up to <paramref name="upToVersion"/> (default: everything). Older versions are used to test upgrades.</summary>
+    public static void Apply(SqliteConnection connection, int upToVersion = int.MaxValue)
+    {
+        var target = Math.Min(upToVersion, CurrentVersion);
+        var version = GetVersion(connection);
+        if (version > CurrentVersion)
+            throw new InvalidOperationException(
+                $"This database is schema version {version}, but this build only understands up to {CurrentVersion}.");
+
+        for (var next = version + 1; next <= target; next++)
+        {
+            using var tx = connection.BeginTransaction();
+            using var cmd = connection.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = Migrations[next - 1];
+            cmd.ExecuteNonQuery();
+            cmd.CommandText = $"PRAGMA user_version = {next}"; // PRAGMA cannot be parameterized; next is an int we control
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+        }
+    }
+
+    public static int GetVersion(SqliteConnection connection)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA user_version";
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+}

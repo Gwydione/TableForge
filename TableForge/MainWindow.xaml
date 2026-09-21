@@ -1,0 +1,213 @@
+<Window x:Class="TableForge.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TableForge.ViewModels"
+        xmlns:views="clr-namespace:TableForge.Views"
+        xmlns:app="clr-namespace:TableForge"
+        Title="TableForge — RPG Rollable Tables"
+        Width="1200" Height="820" MinWidth="1000" MinHeight="640"
+        FontSize="14">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- A flat, list-like button for the Recent Tables and Recent Rolls rows. -->
+        <Style x:Key="RowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E6EDF7" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E6EDF7" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A table's name (trimmed if long) with its dice on the right. -->
+        <DataTemplate x:Key="TableRow">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                <TextBlock Grid.Column="1" Text="{Binding Dice}" Foreground="#777" Margin="8,0,0,0" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:PasteViewModel}"><views:PasteView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ReviewViewModel}"><views:ReviewView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RollViewModel}"><views:RollView /></DataTemplate>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" BorderBrush="#DDD" BorderThickness="0,1,0,0" Background="#F6F6F6" Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Status}" Foreground="#444" MinHeight="18" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" />
+                <TextBlock Grid.Column="1" x:Name="VersionText" Text="{x:Static app:AppInfo.Version}" Foreground="#888" Margin="12,0,0,0" />
+            </Grid>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- The whole left pane scrolls if the window is short, so nothing in it is ever out of reach. -->
+            <ScrollViewer Grid.Column="0" x:Name="LeftScroll" Margin="12,12,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Collection" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <ComboBox x:Name="CollectionBox" ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}"
+                              DisplayMemberPath="Name" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="NewCollectionBox" Text="{Binding NewCollectionName, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Name for a new collection (press Enter to create it)">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding CreateCollectionCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Grid.Column="1" Content="New collection" Margin="6,0,0,0" Padding="8,2"
+                                Command="{Binding CreateCollectionCommand}" />
+                    </Grid>
+
+                    <Button x:Name="PasteTableButton" Content="Paste Table…" Padding="8,6" Margin="0,0,0,16"
+                            Command="{Binding PasteTableCommand}" />
+
+                    <TextBlock Text="Tables" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBox x:Name="TableFilterBox" Margin="0,0,0,6" ToolTip="Filter tables by name. Enter opens the first match; Escape clears."
+                             Text="{Binding TableFilter, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding OpenFirstMatchCommand}" />
+                            <KeyBinding Key="Escape" Command="{Binding ClearFilterCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <!-- Recent tables: the few most recently opened in this collection. Not narrowed by the filter. -->
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding HasRecentTables, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Recent" Foreground="#555" Margin="0,0,0,2" />
+                        <ItemsControl x:Name="RecentTablesList" ItemsSource="{Binding RecentTables}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource RowButton}"
+                                            Command="{Binding DataContext.OpenRecentTableCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TableRow}" />
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="All tables" Foreground="#555" Margin="0,8,0,0" />
+                    </StackPanel>
+
+                    <!-- Arrow keys only move the highlight; Enter or a click opens the table (so browsing never opens or "uses" tables). -->
+                    <ListBox x:Name="TablesList" ItemsSource="{Binding Tables}" SelectedItem="{Binding HighlightedTable}"
+                             MinHeight="90" MaxHeight="220" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ItemTemplate="{StaticResource TableRow}">
+                        <ListBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding OpenTableCommand}" />
+                        </ListBox.InputBindings>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <EventSetter Event="PreviewMouseLeftButtonUp" Handler="TableItem_MouseUp" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Edit table" Padding="8,4" Margin="0,0,3,0" Command="{Binding EditTableCommand}" />
+                        <Button Grid.Column="1" Content="Delete table" Padding="8,4" Margin="3,0,0,0" Command="{Binding DeleteTableCommand}" />
+                    </Grid>
+
+                    <!-- Recent rolls: the last 10 rolls anywhere, newest first. Compact; hover for the full snapshot. Clicking reopens the table (nothing else). -->
+                    <StackPanel Margin="0,10,0,0" Visibility="{Binding HasRecentRolls, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Recent rolls" FontWeight="SemiBold" Margin="0,0,0,2" />
+                        <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="RecentRollsList" ItemsSource="{Binding RecentRolls}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource RowButton}" ToolTip="{Binding FullText}"
+                                                Command="{Binding DataContext.OpenRecentRollCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding TableName}" TextTrimming="CharacterEllipsis">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsDeleted}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#888" />
+                                                                        <Setter Property="FontStyle" Value="Italic" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="1" Text="{Binding RollDisplay}" FontWeight="SemiBold" Margin="8,0,0,0" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="#777" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Column="1" BorderBrush="#DDD" BorderThickness="1,0,0,0">
+                <Grid>
+                    <ContentControl Content="{Binding Current}" IsTabStop="False" />
+                    <TextBlock x:Name="EmptyStateBlock" Text="{Binding EmptyStateText}" Foreground="#777" TextWrapping="Wrap" TextAlignment="Center"
+                               MaxWidth="440" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Current}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

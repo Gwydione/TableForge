@@ -1,0 +1,230 @@
+<UserControl x:Class="TableForge.Views.ReviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="InfoBrush" Color="#EAF1FB" />
+        <SolidColorBrush x:Key="InfoText" Color="#3A5573" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFF4D6" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#FFE1E1" />
+        <SolidColorBrush x:Key="WarningText" Color="#7A5200" />
+        <SolidColorBrush x:Key="ErrorText" Color="#A00000" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" FontSize="20" FontWeight="SemiBold">
+            <Run Text="{Binding HeadingTitle, Mode=OneWay}" /><Run Text="{Binding HeadingDetail, Mode=OneWay}" Foreground="#666" FontSize="14" FontWeight="Normal" />
+        </TextBlock>
+
+        <Grid Grid.Row="1" Margin="0,10,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                <TextBlock Text="Table name" Foreground="#555" />
+                <TextBox x:Name="NameBox" Text="{Binding TableName, UpdateSourceTrigger=PropertyChanged}" Padding="4" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Width="130">
+                <TextBlock Text="Dice" Foreground="#555" />
+                <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="For example d6, d10, d20, d100, 2d6" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Result set selector: each set has its own name and its own independently ranged rows. -->
+        <DockPanel Grid.Row="2" Margin="0,0,0,8">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
+                <Button Content="Add result set" Padding="10,3" Command="{Binding AddResultSetCommand}" />
+                <Button Content="Delete result set" Padding="10,3" Margin="6,0,0,0" Command="{Binding DeleteResultSetCommand}"
+                        ToolTip="A table always keeps at least one result set." />
+            </StackPanel>
+            <ListBox x:Name="ResultSetTabs" ItemsSource="{Binding ResultSets}" SelectedItem="{Binding SelectedResultSet}"
+                     BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="6,2">
+                            <TextBlock Text="{Binding DisplayName}" />
+                            <TextBlock Text=" ⚠" Foreground="{StaticResource WarningText}"
+                                       Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" MinWidth="140" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="3*" MinWidth="440" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Original text" Foreground="#555" />
+                <TextBox x:Name="SourceBox" Text="{Binding SourceText, Mode=OneWay}" IsReadOnly="True"
+                         IsReadOnlyCaretVisible="True" IsInactiveSelectionHighlightEnabled="True"
+                         FontFamily="Consolas" TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center" Background="Transparent" />
+
+            <DockPanel Grid.Column="2">
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Result set name" Foreground="#555" />
+                        <TextBox x:Name="SetNameBox" Text="{Binding SelectedResultSet.Name, UpdateSourceTrigger=PropertyChanged}" Padding="3"
+                                 ToolTip="For example: Ambient, Noise, General Feature" />
+                    </StackPanel>
+                    <Button x:Name="PasteRowsToggle" Grid.Column="1" Content="Paste rows into this set…" VerticalAlignment="Bottom" Margin="8,0,0,0" Padding="10,3"
+                            Command="{Binding TogglePasteRowsCommand}"
+                            ToolTip="Add copied rows to the selected result set only" />
+                </Grid>
+
+                <!-- Recovery tool for imperfect copies: rows only, no new table, dice or result sets. Not modal. -->
+                <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8" BorderBrush="#BBB" BorderThickness="1" CornerRadius="3" Background="#FAFAFA"
+                        Visibility="{Binding IsPasteRowsOpen, Converter={StaticResource BoolToVis}}">
+                    <Border.InputBindings>
+                        <!-- Escape closes this temporary area (from anywhere inside it); Ctrl+Enter adds the pasted rows. -->
+                        <KeyBinding Key="Escape" Command="{Binding TogglePasteRowsCommand}" />
+                        <KeyBinding Key="Return" Modifiers="Ctrl" Command="{Binding AppendPastedRowsCommand}" />
+                    </Border.InputBindings>
+                    <StackPanel>
+                        <TextBlock Foreground="#555" TextWrapping="Wrap">
+                            <Run Text="Paste copied rows for" /> <Run Text="{Binding SelectedResultSet.DisplayName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=". Only numbered rows are read; the table name, dice and other result sets are not changed." />
+                        </TextBlock>
+                        <TextBox x:Name="PasteRowsBox" Text="{Binding PasteRowsText, UpdateSourceTrigger=PropertyChanged}" Margin="0,6,0,6"
+                                 AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Consolas" Height="80"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Add to end" Padding="12,3" Command="{Binding AppendPastedRowsCommand}" />
+                            <Button Content="Replace all rows" Padding="12,3" Margin="6,0,0,0" Command="{Binding ReplacePastedRowsCommand}" />
+                            <Button Content="Close" Padding="12,3" Margin="6,0,0,0" Command="{Binding TogglePasteRowsCommand}" />
+                            <TextBlock Text="{Binding PasteRowsMessage}" Foreground="#555" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Grid DockPanel.Dock="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="28" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
+                    <TextBlock Grid.Column="2" Text="Result text" Foreground="#555" Margin="4,0,0,0" />
+                    <TextBlock Grid.Column="3" Text="Linked table" Foreground="#555" Margin="4,0,0,0" />
+                </Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <ItemsControl x:Name="RowsList" ItemsSource="{Binding SelectedResultSet.Rows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="RowBorder" Padding="0,3" Margin="0,0,0,2" CornerRadius="3">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="28" />
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="28" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="{Binding Number}" Foreground="#888" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
+                                            <TextBox Grid.Column="1" Text="{Binding RangeText, UpdateSourceTrigger=PropertyChanged}" Padding="3" Margin="0,0,4,0" FontFamily="Consolas" />
+                                            <TextBox Grid.Column="2" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Padding="3" TextWrapping="Wrap" />
+                                            <StackPanel Grid.Column="3" Margin="4,0,0,0">
+                                                <ComboBox ItemsSource="{Binding LinkChoices}" SelectedItem="{Binding SelectedLink}" DisplayMemberPath="Label" Padding="3" />
+                                                <TextBox Text="{Binding UnresolvedName, UpdateSourceTrigger=PropertyChanged}" Padding="3" Margin="0,3,0,0"
+                                                         ToolTip="Name of the table this should link to"
+                                                         Visibility="{Binding IsUnresolvedLink, Converter={StaticResource BoolToVis}}" />
+                                            </StackPanel>
+                                            <!-- Not a tab stop: Tab walks range → text → link on each row without stopping at every ✕. -->
+                                            <Button Grid.Column="4" Content="✕" Margin="4,0,0,0" Padding="0" Height="24" VerticalAlignment="Top"
+                                                    IsTabStop="False" ToolTip="Delete this row" Command="{Binding DeleteCommand}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Notes}"
+                                                       TextWrapping="Wrap" FontSize="12" Margin="4,2,0,0" Visibility="Collapsed"
+                                                       x:Name="NotesText" />
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding HasNotes}" Value="True">
+                                            <Setter TargetName="NotesText" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <!-- Information, then warning, then error: later triggers win, so the most serious note styles the row. -->
+                                        <DataTrigger Binding="{Binding HasInfo}" Value="True">
+                                            <Setter TargetName="RowBorder" Property="Background" Value="{StaticResource InfoBrush}" />
+                                            <Setter TargetName="NotesText" Property="Foreground" Value="{StaticResource InfoText}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasWarning}" Value="True">
+                                            <Setter TargetName="RowBorder" Property="Background" Value="{StaticResource WarningBrush}" />
+                                            <Setter TargetName="NotesText" Property="Foreground" Value="{StaticResource WarningText}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasError}" Value="True">
+                                            <Setter TargetName="RowBorder" Property="Background" Value="{StaticResource ErrorBrush}" />
+                                            <Setter TargetName="NotesText" Property="Foreground" Value="{StaticResource ErrorText}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="Add row" HorizontalAlignment="Left" Padding="10,3" Margin="30,4,0,0" Command="{Binding SelectedResultSet.AddRowCommand}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="4" MaxHeight="100" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding Blockers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StringFormat=✖ {0}}" Foreground="{StaticResource ErrorText}" TextWrapping="Wrap" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding TableNotes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StringFormat=⚠ {0}}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding InfoNotes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StringFormat=ℹ {0}}" Foreground="{StaticResource InfoText}" TextWrapping="Wrap" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding ValidationNotes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StringFormat=⚠ {0}}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding SaveError}" Foreground="{StaticResource ErrorText}" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="5" Margin="0,10,0,0" LastChildFill="True">
+            <Button DockPanel.Dock="Left" Content="Save Table" Padding="18,6" Command="{Binding SaveCommand}" />
+            <Button DockPanel.Dock="Left" Content="Cancel" Padding="18,6" Margin="8,0,0,0" Command="{Binding CancelCommand}" />
+            <TextBlock Text="Gaps and overlaps are shown as warnings and do not prevent saving." Foreground="#777"
+                       VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+    </Grid>
+</UserControl>

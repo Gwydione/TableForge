@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TableForge.Tests/TableForge.Tests.csproj" />
+  <Project Path="TableForge/TableForge.csproj" />
+</Solution>
