@@ -67,6 +67,25 @@
                                                                     </Style>
                                                                 </TextBlock.Style>
                                                             </TextBlock>
+                                                            <!-- Dice expressions found inside the text above, offered as separate, user-triggered rolls.
+                                                                 Auxiliary only: rolling one never changes the text itself. -->
+                                                            <ItemsControl ItemsSource="{Binding InlineActions}" Margin="0,4,0,0"
+                                                                          Visibility="{Binding ShowInlineActions, Converter={StaticResource BoolToVis}}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                                            <TextBlock FontFamily="Consolas" Foreground="#555" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                                       Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                                                                                <Run Text="{Binding DisplayExpression, Mode=OneWay}" FontWeight="SemiBold" />
+                                                                                <Run Text=" → " />
+                                                                                <Run Text="{Binding ResultsText, Mode=OneWay}" />
+                                                                            </TextBlock>
+                                                                            <Button Content="{Binding RollLabel}" Command="{Binding RollCommand}"
+                                                                                    Padding="10,3" VerticalAlignment="Center" />
+                                                                        </StackPanel>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
                                                             <!-- A link is only ever followed by the user, and never rolls the destination. -->
                                                             <Button Content="{Binding FollowLabel}" Command="{Binding FollowCommand}"
                                                                     HorizontalAlignment="Left" Padding="14,5" Margin="0,4,0,0"
@@ -94,6 +113,9 @@
             <StackPanel x:Name="RollControls" Margin="0,6,0,0">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RollButton" Content="Roll" FontSize="18" Padding="32,8" Command="{Binding RollCommand}" />
+                <!-- Shown only while a visual (dddice) roll is in the air; the table result appears when the dice settle. -->
+                <TextBlock x:Name="RollStatusText" Text="{Binding RollStatus}" AutomationProperties.AutomationId="RollStatus"
+                           FontSize="16" Foreground="#555" VerticalAlignment="Center" Margin="14,0,0,0" />
                 <TextBlock Text="or enter a roll:" Foreground="#666" VerticalAlignment="Center" Margin="24,0,8,0" />
                 <TextBox x:Name="ManualBox" Width="70" Padding="4" VerticalContentAlignment="Center"
                          Text="{Binding ManualRollText, UpdateSourceTrigger=PropertyChanged}">
@@ -107,7 +129,63 @@
             </StackPanel>
 
             <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" Margin="0,24,0,6" />
-            <ItemsControl ItemsSource="{Binding ResultSets}">
+
+            <!-- Result sets that are genuine parallel outputs of one roll (same row count, same range at every row):
+                 shown as one aligned multi-column grid instead of separate stacked sections, mirroring the Review
+                 screen (see RollStepViewModel.IsAligned). Each column is still its own independent result set
+                 underneath — only the presentation is grouped. -->
+            <Grid Margin="0,0,0,2" Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ItemsControl x:Name="AlignedRollHeaders" Grid.Column="1" ItemsSource="{Binding ResultSets}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Width="230" Margin="4,0,0,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+            <ItemsControl x:Name="AlignedRollRowsList" ItemsSource="{Binding AlignedRows}"
+                          Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="4,2" CornerRadius="3">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMatched}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource MatchBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding RangeLabel}" FontFamily="Consolas" Foreground="#555" Width="90" />
+                                <ItemsControl ItemsSource="{Binding Cells}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Text}" Width="230" TextWrapping="Wrap" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Single result set, or several independent sets that are not parallel outputs (e.g. Ambient/Noise):
+                 shown one at a time, stacked, as before. -->
+            <ItemsControl x:Name="ResultSetsList" ItemsSource="{Binding ResultSets}"
+                          Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Margin="0,0,0,10">

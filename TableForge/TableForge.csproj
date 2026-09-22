@@ -7,8 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 
-    <!-- V1 Release Candidate 1. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.0.0-rc1</Version>
+    <!-- V1 Release Candidate 7. Version drives the file version, the product version and the number shown in the app. -->
+    <Version>1.0.0-rc7</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>TableForge</Product>
     <Description>TableForge - RPG Rollable Tables</Description>
     <AssemblyName>TableForge</AssemblyName>
@@ -16,6 +17,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The page that hosts dddice-js inside the WebView2. Loaded from disk through a virtual host name, so it is a real https origin. -->
+    <Content Include="Assets\dddice-host.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

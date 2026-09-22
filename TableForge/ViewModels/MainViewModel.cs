@@ -161,7 +161,18 @@ public sealed class MainViewModel : ObservableObject
     public string Status { get => _status; private set => Set(ref _status, value); }
 
     /// <summary>The workflow screen currently shown (Paste, Review or Roll view model), or null.</summary>
-    public object? Current { get => _current; private set => Set(ref _current, value); }
+    public object? Current
+    {
+        get => _current;
+        private set
+        {
+            var old = _current;
+            if (Set(ref _current, value) && old is RollViewModel leaving) leaving.CancelRoll(); // a dice roll still in the air belongs to the screen being left
+        }
+    }
+
+    /// <summary>The Built-in / dddice choice, when the dice provider is a <see cref="DiceProviderViewModel"/> (it is in the app; tests may use a plain provider).</summary>
+    public DiceProviderViewModel? DiceProviders => _dice as DiceProviderViewModel;
 
     public ICommand CreateCollectionCommand { get; }
     public ICommand PasteTableCommand { get; }
@@ -321,7 +332,8 @@ public sealed class MainViewModel : ObservableObject
     private RollViewModel NewRollSession(RollableTable table)
     {
         MarkUsed(table.Id);
-        return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll);
+        return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
+            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null);
     }
 
     private void MarkUsed(long tableId)

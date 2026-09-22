@@ -1,0 +1,19 @@
+# Build output (all projects)
+[Bb]in/
+[Oo]bj/
+
+# publish.ps1 deletes and recreates this from scratch on every run
+/publish/
+
+# Visual Studio / Rider local state
+.vs/
+*.user
+
+# Local databases and logs that must never be committed
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Screenshots/logs from the dddice research spike: not needed to build or run TableForge
+TableForge.DddiceSpike/evidence/

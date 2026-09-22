@@ -160,6 +160,36 @@ public sealed class ResultSetEditorViewModel : ObservableObject
 }
 
 /// <summary>
+/// One row of the aligned multi-column view: the range shared by every result set at this row (they are parallel
+/// outputs of one roll, so their ranges are kept in step), plus each result set's own cell for that row, in result-set
+/// order. Purely a presentation grouping — each cell is still the same <see cref="EntryRowViewModel"/> that the
+/// per-set editor would show, wrapping its own independent <see cref="EntryDraft"/>, so nothing about the underlying
+/// result sets is merged.
+/// </summary>
+public sealed class AlignedRowViewModel : ObservableObject
+{
+    public AlignedRowViewModel(IReadOnlyList<EntryRowViewModel> cells, Action<AlignedRowViewModel> delete)
+    {
+        Cells = cells;
+        DeleteCommand = new RelayCommand(() => delete(this));
+    }
+
+    /// <summary>This row's cell in each result set, in the same order as <see cref="ReviewViewModel.ResultSets"/>.</summary>
+    public IReadOnlyList<EntryRowViewModel> Cells { get; }
+
+    public int Number => Cells[0].Number;
+
+    /// <summary>Shared across every column: setting it writes the same range to every result set's row, keeping them aligned.</summary>
+    public string RangeText
+    {
+        get => Cells[0].RangeText;
+        set { foreach (var cell in Cells) cell.RangeText = value; }
+    }
+
+    public ICommand DeleteCommand { get; }
+}
+
+/// <summary>
 /// The Review screen: original text beside the editable interpretation, with parser issues and
 /// validation facts attached to the content they concern. Also used to edit an already saved table.
 /// </summary>
@@ -177,6 +207,9 @@ public sealed class ReviewViewModel : ObservableObject
     private bool _isPasteRowsOpen;
     private string _pasteRowsText = "";
     private string _pasteRowsMessage = "";
+    private string _cleanupMessage = "";
+    private Action? _undoCleanup;
+    private bool _isAligned;
 
     public ReviewViewModel(TableImportDraft draft, Collection collection, AppDatabase db, Action<RollableTable> saved, Action cancelled)
     {
@@ -215,6 +248,12 @@ public sealed class ReviewViewModel : ObservableObject
         TogglePasteRowsCommand = new RelayCommand(() => { IsPasteRowsOpen = !IsPasteRowsOpen; PasteRowsMessage = ""; });
         AppendPastedRowsCommand = new RelayCommand(() => ApplyPastedRows(replace: false), () => !string.IsNullOrWhiteSpace(PasteRowsText));
         ReplacePastedRowsCommand = new RelayCommand(() => ApplyPastedRows(replace: true), () => !string.IsNullOrWhiteSpace(PasteRowsText));
+        JoinWithPreviousRowCommand = new RelayCommand(JoinWithPreviousRow, () => SelectedRow is not null);
+        DehyphenateSelectedCommand = new RelayCommand(DehyphenateSelected, () => SelectedRow is not null);
+        RemoveEmptyRowsCommand = new RelayCommand(RemoveEmptyRows);
+        NormalizeTextCommand = new RelayCommand(NormalizeText);
+        UndoCleanupCommand = new RelayCommand(UndoCleanup, () => _undoCleanup is not null);
+        AddAlignedRowCommand = new RelayCommand(AddAlignedRow);
         Refresh();
     }
 
@@ -253,6 +292,22 @@ public sealed class ReviewViewModel : ObservableObject
     /// <summary>The selected result set's rows.</summary>
     public ObservableCollection<EntryRowViewModel> Rows => _selectedResultSet.Rows;
 
+    /// <summary>
+    /// True when every result set has at least one row, the same number of rows as every other, and, row for row, the
+    /// same range — evidence that they are parallel outputs of one shared roll (Difficulty/Modifier, not independent
+    /// lists like Ambient/Noise) rather than a coincidence. Recomputed on every <see cref="Refresh"/>, so a table that
+    /// starts aligned and is edited out of alignment (or the reverse) switches views automatically and safely: nothing
+    /// about the result sets themselves is merged or lost either way.
+    /// </summary>
+    public bool IsAligned { get => _isAligned; private set { if (Set(ref _isAligned, value)) Raise(nameof(IsNotAligned)); } }
+
+    public bool IsNotAligned => !IsAligned;
+
+    /// <summary>The aligned view of the rows, one entry per row position across every result set. Empty unless <see cref="IsAligned"/>.</summary>
+    public ObservableCollection<AlignedRowViewModel> AlignedRows { get; } = [];
+
+    public ICommand AddAlignedRowCommand { get; }
+
     /// <summary>Parser issues about the table as a whole (heading, dice, unrecognized lines).</summary>
     public ObservableCollection<string> TableNotes { get; } = [];
 
@@ -268,8 +323,22 @@ public sealed class ReviewViewModel : ObservableObject
     public bool CanSave { get => _canSave; private set => Set(ref _canSave, value); }
     public string SaveError { get => _saveError; private set => Set(ref _saveError, value); }
 
-    /// <summary>Row the user is working in; the view uses it to show the matching lines of the original text.</summary>
-    public EntryRowViewModel? SelectedRow { get => _selectedRow; set => Set(ref _selectedRow, value); }
+    /// <summary>
+    /// Row the user is working in; the view uses it to show the matching lines of the original text. Selecting a row
+    /// also selects the result set that owns it, so the per-set tools (Join, Dehyphenate, Remove Empty Rows, Paste
+    /// rows into this set) act on the right column even when a row was reached through the aligned multi-column view
+    /// rather than the result-set tabs.
+    /// </summary>
+    public EntryRowViewModel? SelectedRow
+    {
+        get => _selectedRow;
+        set
+        {
+            if (!Set(ref _selectedRow, value)) return;
+            if (value is not null && ResultSets.FirstOrDefault(s => s.Rows.Contains(value)) is { } owner)
+                SelectedResultSet = owner;
+        }
+    }
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -290,6 +359,175 @@ public sealed class ReviewViewModel : ObservableObject
     public ICommand TogglePasteRowsCommand { get; }
     public ICommand AppendPastedRowsCommand { get; }
     public ICommand ReplacePastedRowsCommand { get; }
+
+    // ---- PDF copy/paste cleanup --------------------------------------------------------------
+
+    /// <summary>What the last cleanup action did, or why it did nothing. Shared by every cleanup command below.</summary>
+    public string CleanupMessage { get => _cleanupMessage; private set => Set(ref _cleanupMessage, value); }
+
+    /// <summary>True once a cleanup action has something to undo. Only the single most recent one can be undone.</summary>
+    public bool CanUndoCleanup => _undoCleanup is not null;
+
+    public ICommand JoinWithPreviousRowCommand { get; }
+    public ICommand DehyphenateSelectedCommand { get; }
+    public ICommand RemoveEmptyRowsCommand { get; }
+    public ICommand NormalizeTextCommand { get; }
+    public ICommand UndoCleanupCommand { get; }
+
+    /// <summary>
+    /// Ctrl+J. Joins <see cref="SelectedRow"/> into the row above it in the same result set: the usual shape of a PDF
+    /// line-wrap that came through as its own row. Refuses (with a message, nothing changed) when there is no previous
+    /// row to join into, or when the selected row carries its own range — that is very likely a real row, not a
+    /// continuation, and joining it would destroy it.
+    /// </summary>
+    private void JoinWithPreviousRow()
+    {
+        var set = SelectedResultSet;
+        var row = SelectedRow;
+        if (row is null) { CleanupMessage = "Select a continuation row first."; return; }
+        if (!set.Rows.Contains(row)) { CleanupMessage = "Select a row in the current result set."; return; }
+
+        var index = set.Rows.IndexOf(row);
+        if (index == 0) { CleanupMessage = "This is the first row of the result set: there is no previous row to join into."; return; }
+        if (row.RangeText.Trim().Length > 0)
+        {
+            CleanupMessage = "This row has its own range, so it was not joined. Clear the range first if it is really a continuation.";
+            return;
+        }
+
+        var previous = set.Rows[index - 1];
+        var previousNumber = previous.Number;
+        var rowNumber = row.Number;
+        var oldPreviousText = previous.Text;
+        var draftIndex = set.Draft.Entries.IndexOf(row.Draft);
+
+        previous.Text = TextCleanup.JoinContinuationText(previous.Text, row.Text);
+        set.Draft.Entries.RemoveAt(draftIndex);
+        set.Rows.RemoveAt(index);
+        for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
+        SelectedRow = previous;
+
+        SetUndoCleanup(() =>
+        {
+            previous.Text = oldPreviousText;
+            set.Draft.Entries.Insert(draftIndex, row.Draft);
+            set.Rows.Insert(index, row);
+            for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
+            SelectedRow = row;
+        });
+
+        CleanupMessage = $"Joined row {rowNumber} into row {previousNumber}.";
+        Refresh();
+    }
+
+    /// <summary>
+    /// Removes a PDF line-wrap hyphen from the selected row's result text ("magnifi- cent" → "magnificent"). Applies
+    /// only to the selected row, never globally, so legitimate hyphenated words elsewhere are never at risk.
+    /// </summary>
+    private void DehyphenateSelected()
+    {
+        var row = SelectedRow;
+        if (row is null) { CleanupMessage = "Select a row to dehyphenate."; return; }
+        if (!TextCleanup.TryDehyphenate(row.Text, out var result))
+        {
+            CleanupMessage = "No line-wrap hyphenation was found in the selected row.";
+            return;
+        }
+
+        var old = row.Text;
+        row.Text = result;
+        SetUndoCleanup(() => row.Text = old);
+        CleanupMessage = "Removed line-wrap hyphenation from the selected row.";
+    }
+
+    /// <summary>Removes rows in the selected result set with no range and no result text (whitespace-only counts as empty).</summary>
+    private void RemoveEmptyRows()
+    {
+        var set = SelectedResultSet;
+        var removed = new List<(int Index, EntryDraft Draft, EntryRowViewModel Row)>();
+        for (var i = 0; i < set.Rows.Count; i++)
+        {
+            var row = set.Rows[i];
+            if (row.RangeText.Trim().Length == 0 && row.Text.Trim().Length == 0)
+                removed.Add((i, row.Draft, row));
+        }
+
+        if (removed.Count == 0) { CleanupMessage = "No empty rows were found in this result set."; return; }
+
+        foreach (var (_, draft, row) in removed)
+        {
+            set.Draft.Entries.Remove(draft);
+            set.Rows.Remove(row);
+        }
+        for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
+        if (SelectedRow is not null && removed.Any(r => r.Row == SelectedRow)) SelectedRow = null;
+
+        SetUndoCleanup(() =>
+        {
+            foreach (var (index, draft, row) in removed)
+            {
+                set.Draft.Entries.Insert(Math.Min(index, set.Draft.Entries.Count), draft);
+                set.Rows.Insert(Math.Min(index, set.Rows.Count), row);
+            }
+            for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
+        });
+
+        CleanupMessage = $"Removed {removed.Count} empty {(removed.Count == 1 ? "row" : "rows")} from {set.DisplayName}.";
+        Refresh();
+    }
+
+    /// <summary>
+    /// Fixes non-breaking spaces, repeated whitespace and the fi/fl ligatures across the table name, every result set's
+    /// name, and every row's range and result text — plus, for range fields only, rewriting the span separator to a
+    /// plain hyphen. Purely character-level and conservative: never touches punctuation or wording in result prose,
+    /// and never alters dice text embedded in a row ("4D6+5" stays "4D6+5").
+    /// </summary>
+    private void NormalizeText()
+    {
+        var undoSteps = new List<Action>();
+
+        void Apply(Func<string> get, Action<string> set, Func<string?, string> normalize)
+        {
+            var before = get();
+            var after = normalize(before);
+            if (after == before) return;
+            set(after);
+            undoSteps.Add(() => set(before));
+        }
+
+        Apply(() => TableName, v => TableName = v, TextCleanup.NormalizeGeneralText);
+        foreach (var set in ResultSets)
+        {
+            Apply(() => set.Name, v => set.Name = v, TextCleanup.NormalizeGeneralText);
+            foreach (var row in set.Rows)
+            {
+                Apply(() => row.RangeText, v => row.RangeText = v, TextCleanup.NormalizeRangeText);
+                Apply(() => row.Text, v => row.Text = v, TextCleanup.NormalizeGeneralText);
+            }
+        }
+
+        if (undoSteps.Count == 0) { CleanupMessage = "Nothing needed normalizing."; return; }
+
+        SetUndoCleanup(() => { for (var i = undoSteps.Count - 1; i >= 0; i--) undoSteps[i](); });
+        CleanupMessage = $"Normalized {undoSteps.Count} {(undoSteps.Count == 1 ? "field" : "fields")}.";
+    }
+
+    private void SetUndoCleanup(Action undo)
+    {
+        _undoCleanup = undo;
+        Raise(nameof(CanUndoCleanup));
+    }
+
+    private void UndoCleanup()
+    {
+        var undo = _undoCleanup;
+        if (undo is null) return;
+        _undoCleanup = null;
+        undo();
+        Raise(nameof(CanUndoCleanup));
+        CleanupMessage = "Undone.";
+        Refresh();
+    }
 
     /// <summary>
     /// Interprets <see cref="PasteRowsText"/> as entry rows only and adds them to the selected result set, after its
@@ -346,7 +584,8 @@ public sealed class ReviewViewModel : ObservableObject
     private void AddResultSet()
     {
         // A new set starts with one row spanning the whole legal range, so it is immediately valid and easy to split.
-        var full = DiceExpression.TryParse(DiceText, out var dice) ? $"{dice.Min}-{dice.Max}" : "1";
+        // (A d66 has no single row that covers everything without also covering impossible numbers, so it starts with its first tens row.)
+        var full = !DiceExpression.TryParse(DiceText, out var dice) ? "1" : dice.IsD66 ? "11-16" : $"{dice.Min}-{dice.Max}";
         var draft = new ResultSetDraft { Entries = [new EntryDraft { RangeText = full }] };
         _draft.ResultSets.Add(draft);
 
@@ -392,6 +631,18 @@ public sealed class ReviewViewModel : ObservableObject
         Refresh();
     }
 
+    /// <summary>Adds one row to every result set at once, keeping them aligned. Only offered while <see cref="IsAligned"/>.</summary>
+    private void AddAlignedRow()
+    {
+        foreach (var set in ResultSets) AddRow(set);
+    }
+
+    /// <summary>Removes this row's cell from every result set: deleting a row of the aligned view deletes that whole roll.</summary>
+    private void DeleteAlignedRow(AlignedRowViewModel row)
+    {
+        foreach (var cell in row.Cells) DeleteRow(cell);
+    }
+
     /// <summary>None, an unresolved name, every table in the collection, plus a stand-in for any linked table not in that list.</summary>
     private static List<LinkChoice> BuildLinkChoices(TableImportDraft draft, IReadOnlyList<TableSummary> tables)
     {
@@ -424,6 +675,8 @@ public sealed class ReviewViewModel : ObservableObject
             if (issue.Code == ParseIssueCode.NoEntries && ResultSets.Any(s => s.Rows.Count > 0)) continue;
             (issue.Severity == ParseIssueSeverity.Info ? InfoNotes : TableNotes).Add(issue.Message);
         }
+        if (TextCleanup.ContainsReplacementCharacter(TableName))
+            TableNotes.Add("The table name contains a character that could not be copied correctly from the source PDF. Review it before saving.");
 
         // Per row: the parser's issues for it, plus any range error found now.
         var rowNotes = new List<List<List<(NoteLevel Level, string Message)>>>();
@@ -450,6 +703,12 @@ public sealed class ReviewViewModel : ObservableObject
                     parsedInSet.Add((i, range));
                 else
                     list.Add((NoteLevel.Error, error!));
+
+                // The source PDF's font mapping was already broken before TableForge saw the clipboard; guessing the
+                // missing character would just be a different wrong answer, so this only ever flags it for review.
+                if (TextCleanup.ContainsReplacementCharacter(row.Text) || TextCleanup.ContainsReplacementCharacter(row.RangeText))
+                    list.Add((NoteLevel.Warning, "This text contains a character that could not be copied correctly from the source PDF. Review it before saving."));
+
                 notes.Add(list);
             }
             rowNotes.Add(notes);
@@ -480,6 +739,9 @@ public sealed class ReviewViewModel : ObservableObject
                     ValidationKind.Gap => $"No row covers {span}.",
                     ValidationKind.Overlap => $"Rows {rows[0] + 1} and {rows[1] + 1} both cover {span}.",
                     ValidationKind.BelowMinimum => $"Row {rows[0] + 1} includes {span}, below the lowest roll ({d.FormatValue(d.Min)}).",
+                    ValidationKind.ImpossibleValue => f.Start == f.End
+                        ? $"Row {rows[0] + 1}: {span} is not a possible d66 result (each digit must be 1 to 6)."
+                        : $"Row {rows[0] + 1}: {span} are not possible d66 results (each digit must be 1 to 6).",
                     _ => $"Row {rows[0] + 1} includes {span}, above the highest roll ({d.FormatValue(d.Max)}).",
                 };
                 ValidationNotes.Add(ResultSets.Count > 1 ? $"{ResultSets[s].DisplayName}: {message}" : message);
@@ -499,7 +761,33 @@ public sealed class ReviewViewModel : ObservableObject
         CanSave = _draft.TryBuildTable(_collection.Id, out _, out var errors);
         foreach (var e in errors) Blockers.Add(e);
         SaveError = "";
+
+        IsAligned = ComputeIsAligned();
+        AlignedRows.Clear();
+        if (IsAligned)
+        {
+            var count = ResultSets[0].Rows.Count;
+            for (var i = 0; i < count; i++)
+                AlignedRows.Add(new AlignedRowViewModel(ResultSets.Select(s => s.Rows[i]).ToList(), DeleteAlignedRow));
+        }
+
         CommandManager.InvalidateRequerySuggested(); // e.g. whether the last result set can still be deleted
+    }
+
+    /// <summary>See <see cref="ReviewViewModel.IsAligned"/>: two or more result sets, all with the same non-zero row
+    /// count, and the same range text at every row position.</summary>
+    private bool ComputeIsAligned()
+    {
+        if (ResultSets.Count < 2) return false;
+        var count = ResultSets[0].Rows.Count;
+        if (count == 0) return false;
+        if (ResultSets.Any(s => s.Rows.Count != count)) return false;
+        for (var i = 0; i < count; i++)
+        {
+            var range = ResultSets[0].Rows[i].RangeText;
+            if (ResultSets.Any(s => s.Rows[i].RangeText != range)) return false;
+        }
+        return true;
     }
 
     private void Save()

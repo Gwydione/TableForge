@@ -20,7 +20,7 @@ public class HistoryDataTests
     }
 
     [Fact]
-    public void A_version_1_database_migrates_to_version_2_and_keeps_all_existing_data()
+    public void A_version_1_database_migrates_to_the_current_version_and_keeps_all_existing_data()
     {
         using var temp = new TempDatabase();
         using (var raw = new SqliteConnection($"Data Source={temp.Path};Pooling=False;Foreign Keys=True"))
@@ -52,7 +52,7 @@ public class HistoryDataTests
         using (var raw = new SqliteConnection($"Data Source={temp.Path};Pooling=False"))
         {
             raw.Open();
-            Assert.Equal(2, DatabaseMigrations.GetVersion(raw));
+            Assert.Equal(4, DatabaseMigrations.GetVersion(raw));
             Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
         }
 

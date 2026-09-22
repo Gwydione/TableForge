@@ -69,4 +69,25 @@ internal static class ParserCorpus
         new("row-only-paste", "01-30 Cold air\n31-65 Damp\nstone\n66-70 A        71-00 B", DiceExpression.Parse("d100"), RowsOnly: true),
         new("row-only-paste-malformed", "D6 OTHER TABLE\nNOISE\n1-3 Hiss\nstray words", DiceExpression.Parse("d6"), RowsOnly: true),
     ];
+
+    /// <summary>RC2 additions: the real Broken Shores failures and their neighbours.</summary>
+    public static readonly IReadOnlyList<Case> Rc2Cases =
+    [
+        new("rc2-standalone-number-paragraphs", StandaloneParagraphTests.WhyDoYouGoOn),
+        new("rc2-standalone-range-second-paragraph", "d8 Weather\n\n1-3\n\nFair skies.\n\nBroken Shores 12\n\n4-8\nGrey."),
+        new("rc2-standalone-number-line-kept-as-text", "d12 Reasons\n1\n\nYou will wait\n10 days for the rain to stop.\n\n2\n\nThe next reason."),
+        new("rc2-standalone-stray-prose-first", "d6 Loot\n\nChoose one reason.\n\n1\n\nFirst.\n\n2\n\nSecond."),
+        new("rc2-continuation-columns-single-space", ContinuationColumnTests.Syllables()),
+        new("rc2-continuation-columns-with-gaps", ContinuationColumnTests.Syllables(separator: "        ")),
+        new("rc2-continuation-two-lines-not-split", "d100 Names\n01-25 Ash 51-75 Kel\n26-50 Bar 76-00 Lor"),
+        new("rc2-continuation-incoherent-not-split", "d100 Names\n01-02 A 51-52 W\n03-04 B 53-54 X\n07-08 C 55-56 Y\n09-10 D 57-58 Z"),
+        new("rc2-price-like-block-not-split", "d20 Shop\n1 Item1 21 gp\n2 Item2 22 gp\n3 Item3 23 gp\n4 Item4 24 gp\n5 Item5 25 gp"),
+        new("rc2-parallel-outputs-difficulty", ParallelOutputTests.Difficulty),
+        new("rc2-parallel-outputs-column-gaps", "D6 NAME TYPE\n1 Ash    Elf\n2 Bar    Orc\n3-4 Cor    Elf\n5-6 Dun    Dwarf"),
+        new("rc2-parallel-not-applied-to-ordinary-title", "D6 RANDOM ENCOUNTER\n1 Goblin ambush\n2 Wolves in the woods\n3-6 A quiet road"),
+        new("rc2-heading-repeated-columns", "D100 SYLLABLE D100 SYLLABLE D100 SYLLABLE\n1-50 Ael\n51-100 Wulf"),
+        new("rc2-heading-second-dice-ambiguous", "D100 GIVEN NAME D100 SURNAME\n1-50 Ael\n51-100 Wulf"),
+        new("rc2-row-only-standalone", "1\n\nFirst paragraph\nwrapped.\n\n2\n\nSecond.", DiceExpression.Parse("d12"), RowsOnly: true),
+        new("rc2-row-only-flattened-columns", ContinuationColumnTests.Syllables().Split("\n\n")[1], DiceExpression.Parse("d100"), RowsOnly: true),
+    ];
 }

@@ -10,8 +10,16 @@ public sealed class AppDatabase : IDisposable
 {
     private readonly SqliteConnection _connection;
 
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TableForge", "tableforge.db");
+    /// <summary>Developer/test override: a folder to use instead of %LOCALAPPDATA%\TableForge for ALL of TableForge's data (database, dice choice, WebView2 profile).</summary>
+    public const string DataFolderVariable = "TABLEFORGE_DATA_DIR";
+
+    public static string DefaultPath => Path.Combine(ResolveDataFolder(Environment.GetEnvironmentVariable(DataFolderVariable)), "tableforge.db");
+
+    /// <summary>The data folder: <paramref name="overrideFolder"/> when one is given, otherwise the normal per-user location.</summary>
+    public static string ResolveDataFolder(string? overrideFolder) =>
+        string.IsNullOrWhiteSpace(overrideFolder)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TableForge")
+            : Path.GetFullPath(overrideFolder.Trim());
 
     public AppDatabase(string path)
     {
@@ -83,8 +91,8 @@ public sealed class AppDatabase : IDisposable
             table.CreatedUtc = now;
             using var insert = Command(tx,
                 """
-                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, CreatedUtc, UpdatedUtc)
-                VALUES ($collection, $name, $count, $sides, $created, $updated);
+                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, CreatedUtc, UpdatedUtc)
+                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $created, $updated);
                 SELECT last_insert_rowid();
                 """);
             AddTableParameters(insert, table);
@@ -96,7 +104,7 @@ public sealed class AppDatabase : IDisposable
             using var update = Command(tx,
                 """
                 UPDATE Tables
-                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, UpdatedUtc = $updated
+                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, UpdatedUtc = $updated
                 WHERE Id = $id
                 """);
             AddTableParameters(update, table);
@@ -152,7 +160,7 @@ public sealed class AppDatabase : IDisposable
         RollableTable? table;
         using (var cmd = _connection.CreateCommand())
         {
-            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, CreatedUtc, UpdatedUtc FROM Tables WHERE Id = $id";
+            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention FROM Tables WHERE Id = $id";
             cmd.Parameters.AddWithValue("$id", id);
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
@@ -161,9 +169,9 @@ public sealed class AppDatabase : IDisposable
                 Id = reader.GetInt64(0),
                 CollectionId = reader.GetInt64(1),
                 Name = reader.GetString(2),
-                Dice = new DiceExpression(reader.GetInt32(3), reader.GetInt32(4)),
-                CreatedUtc = ParseUtc(reader.GetString(5)),
-                UpdatedUtc = ParseUtc(reader.GetString(6)),
+                Dice = new DiceExpression(reader.GetInt32(3), reader.GetInt32(4), reader.GetInt32(5), (RollConvention)reader.GetInt32(8)),
+                CreatedUtc = ParseUtc(reader.GetString(6)),
+                UpdatedUtc = ParseUtc(reader.GetString(7)),
             };
         }
 
@@ -216,12 +224,12 @@ public sealed class AppDatabase : IDisposable
     public IReadOnlyList<TableSummary> GetTableSummaries(long collectionId)
     {
         using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT Id, Name, DiceCount, DiceSides FROM Tables WHERE CollectionId = $c ORDER BY Name COLLATE NOCASE, Id";
+        cmd.CommandText = "SELECT Id, Name, DiceCount, DiceSides, DiceModifier, DiceConvention FROM Tables WHERE CollectionId = $c ORDER BY Name COLLATE NOCASE, Id";
         cmd.Parameters.AddWithValue("$c", collectionId);
         using var reader = cmd.ExecuteReader();
         var list = new List<TableSummary>();
         while (reader.Read())
-            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3))));
+            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), (RollConvention)reader.GetInt32(5))));
         return list;
     }
 
@@ -289,7 +297,7 @@ public sealed class AppDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText =
             """
-            SELECT Id, Name, DiceCount, DiceSides FROM Tables
+            SELECT Id, Name, DiceCount, DiceSides, DiceModifier, DiceConvention FROM Tables
             WHERE CollectionId = $c AND LastUsedUtc IS NOT NULL
             ORDER BY LastUsedUtc DESC, Id DESC
             LIMIT $limit
@@ -299,7 +307,7 @@ public sealed class AppDatabase : IDisposable
         using var reader = cmd.ExecuteReader();
         var list = new List<TableSummary>();
         while (reader.Read())
-            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3))));
+            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), (RollConvention)reader.GetInt32(5))));
         return list;
     }
 
@@ -396,6 +404,8 @@ public sealed class AppDatabase : IDisposable
         cmd.Parameters.AddWithValue("$name", table.Name);
         cmd.Parameters.AddWithValue("$count", table.Dice.Count);
         cmd.Parameters.AddWithValue("$sides", table.Dice.Sides);
+        cmd.Parameters.AddWithValue("$modifier", table.Dice.Modifier);
+        cmd.Parameters.AddWithValue("$convention", (int)table.Dice.Convention);
         cmd.Parameters.AddWithValue("$updated", FormatUtc(table.UpdatedUtc));
     }
 

@@ -26,6 +26,24 @@ public enum ParseIssueCode
 
     /// <summary>Rows appeared before the first heading and were placed in an unnamed result set.</summary>
     UnnamedResultSet,
+
+    /// <summary>Row numbers stood on their own lines, so the paragraph after each number was attached to it.</summary>
+    ParagraphsAttached,
+
+    /// <summary>A row that began as a lone number took more than one paragraph (a page header or footer may have slipped in).</summary>
+    MultipleParagraphs,
+
+    /// <summary>A line starting with a number was kept as paragraph text because it did not continue the numbering.</summary>
+    NumberedLineKeptAsText,
+
+    /// <summary>The heading was printed once per column ("D100 SYLLABLE D100 SYLLABLE") and was read as a single heading.</summary>
+    HeadingRepeated,
+
+    /// <summary>The heading holds several dice expressions or headings that do not repeat, so it was left as one heading.</summary>
+    AmbiguousHeading,
+
+    /// <summary>The heading's words were read as separate output columns that share one roll, creating several result sets.</summary>
+    ParallelOutputsSplit,
 }
 
 /// <summary>What part of the draft an issue is about, so the Review UI can highlight it.</summary>

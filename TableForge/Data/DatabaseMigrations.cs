@@ -66,6 +66,18 @@ public static class DatabaseMigrations
         );
         CREATE INDEX IX_RollHistory_TableId ON RollHistory(TableId);
         """,
+
+        // 3: one optional fixed modifier per table's dice (2d6+1, d20-2). Existing tables get 0, so they are unchanged.
+        // The dice stay structured (count, sides, modifier); they are not turned into a free-form expression string.
+        """
+        ALTER TABLE Tables ADD COLUMN DiceModifier INTEGER NOT NULL DEFAULT 0 CHECK (DiceModifier BETWEEN -1000 AND 1000);
+        """,
+
+        // 4: how the faces of a table's dice are read. 0 = add them up (every existing table, unchanged), 1 = d66 (two d6 as tens and ones).
+        // The convention is stored beside count, sides and modifier; a d66 is stored as 2 d6 with convention 1, never as a 66-sided die.
+        """
+        ALTER TABLE Tables ADD COLUMN DiceConvention INTEGER NOT NULL DEFAULT 0 CHECK (DiceConvention IN (0, 1));
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

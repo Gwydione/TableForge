@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Threading;
 using System.Windows.Media;
 using System.Windows.Threading;
 using TableForge.Data;
@@ -80,16 +81,26 @@ internal sealed class UiHarness : IDisposable
         Layout();
     }
 
-    /// <summary>Raises a plain key press (no modifiers) on an element, as the keyboard would.</summary>
-    public void Press(FrameworkElement target, System.Windows.Input.Key key)
+    /// <summary>
+    /// Raises a plain key press (no modifiers) on an element, as the keyboard would. WPF matches key bindings against the
+    /// machine's real modifier-key state, so a modifier held down elsewhere at that instant can make a press miss; when an
+    /// <paramref name="until"/> condition is given, the press is repeated, with a short settling pause between attempts,
+    /// until its effect is visible.
+    /// </summary>
+    public void Press(FrameworkElement target, System.Windows.Input.Key key, Func<bool>? until = null)
     {
-        Layout();
-        target.RaiseEvent(new System.Windows.Input.KeyEventArgs(
-            System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(target)!, 0, key)
+        for (var attempt = 0; attempt < 6; attempt++)
         {
-            RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent,
-        });
-        Layout();
+            if (attempt > 0) Thread.Sleep(30);
+            Layout();
+            target.RaiseEvent(new System.Windows.Input.KeyEventArgs(
+                System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(target)!, 0, key)
+            {
+                RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent,
+            });
+            Layout();
+            if (until is null || until()) return;
+        }
     }
 
     /// <summary>The element that currently has logical keyboard focus in the window.</summary>

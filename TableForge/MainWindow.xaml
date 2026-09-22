@@ -65,7 +65,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding Status}" Foreground="#444" MinHeight="18" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" />
-                <TextBlock Grid.Column="1" x:Name="VersionText" Text="{x:Static app:AppInfo.Version}" Foreground="#888" Margin="12,0,0,0" />
+                <TextBlock Grid.Column="1" x:Name="VersionText" Text="{x:Static app:AppInfo.VersionAndBuild}" Foreground="#888" Margin="12,0,0,0" />
             </Grid>
         </Border>
 
@@ -149,6 +149,27 @@
                         <Button Grid.Column="1" Content="Delete table" Padding="8,4" Margin="3,0,0,0" Command="{Binding DeleteTableCommand}" />
                     </Grid>
 
+                    <!-- Which dice roll the tables. Built-in is the default and needs nothing; dddice shows real 3D dice and needs the internet. -->
+                    <StackPanel x:Name="DiceChoice" Margin="0,14,0,0" DataContext="{Binding DiceProviders}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Dice" FontWeight="SemiBold" Margin="0,0,0,2" />
+                        <RadioButton x:Name="BuiltInRadio" GroupName="DiceProvider" Content="Built-in" Margin="0,2,0,0"
+                                     AutomationProperties.AutomationId="DiceProviderBuiltIn"
+                                     IsChecked="{Binding IsBuiltInSelected, Mode=TwoWay}" />
+                        <RadioButton x:Name="DddiceRadio" GroupName="DiceProvider" Content="dddice (3D dice, needs internet)" Margin="0,2,0,0"
+                                     AutomationProperties.AutomationId="DiceProviderDddice"
+                                     IsEnabled="{Binding IsDddiceAvailable}"
+                                     IsChecked="{Binding IsDddiceSelected, Mode=TwoWay}" />
+                    </StackPanel>
+
                     <!-- Recent rolls: the last 10 rolls anywhere, newest first. Compact; hover for the full snapshot. Clicking reopens the table (nothing else). -->
                     <StackPanel Margin="0,10,0,0" Visibility="{Binding HasRecentRolls, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="Recent rolls" FontWeight="SemiBold" Margin="0,0,0,2" />
@@ -191,7 +212,55 @@
             </ScrollViewer>
 
             <Border Grid.Column="1" BorderBrush="#DDD" BorderThickness="1,0,0,0">
-                <Grid>
+              <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- dddice's dice tumble here (a WebView2 is placed in DiceHost). Only shown while dddice is chosen.
+                     The message strip sits BELOW the dice, not over them: a WebView draws in its own window and would hide anything on top. -->
+                <Border x:Name="DicePanel" Grid.Row="0" Background="#FF243B2C" DataContext="{Binding DiceProviders}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ShowDicePanel}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Border x:Name="DiceHost" Height="190" />
+                        <Grid Background="#FF17281D" MinHeight="34">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="DiceStatusText" Text="{Binding Message}" AutomationProperties.AutomationId="DiceStatus"
+                                       Foreground="#FFE8F5EA" Margin="12,7" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,4,8,4">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowFailure}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Button x:Name="UseBuiltInButton" Content="Use Built-in Dice" Padding="10,3" Margin="0,0,6,0"
+                                        AutomationProperties.AutomationId="UseBuiltInDice" Command="{Binding UseBuiltInCommand}" />
+                                <Button x:Name="DiceRetryButton" Content="Try again" Padding="10,3"
+                                        AutomationProperties.AutomationId="DiceRetry" Command="{Binding RetryCommand}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Grid Grid.Row="1">
                     <ContentControl Content="{Binding Current}" IsTabStop="False" />
                     <TextBlock x:Name="EmptyStateBlock" Text="{Binding EmptyStateText}" Foreground="#777" TextWrapping="Wrap" TextAlignment="Center"
                                MaxWidth="440" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -207,6 +276,7 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </Grid>
+              </Grid>
             </Border>
         </Grid>
     </DockPanel>

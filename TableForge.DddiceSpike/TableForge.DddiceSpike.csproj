@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- EXPERIMENTAL dddice spike. Dev-only, not part of the release. Delete this folder and its line in TableForge.slnx to remove it. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>TableForge.DddiceSpike</AssemblyName>
+    <RootNamespace>TableForge.DddiceSpike</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+    <ProjectReference Include="..\TableForge\TableForge.csproj" />
+    <Content Include="Assets\dddice-host.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

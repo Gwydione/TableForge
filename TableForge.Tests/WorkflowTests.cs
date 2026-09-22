@@ -18,6 +18,9 @@ internal sealed class FixedDice(int value) : IDiceProvider
         Calls++;
         return Value;
     }
+
+    // The production abstraction is asynchronous; an immediate provider just hands back a completed task.
+    public Task<int> RollAsync(DiceExpression expression, CancellationToken cancellationToken) => Task.FromResult(Roll(expression));
 }
 
 /// <summary>The Milestone 1 path — paste, review, correct, save, reload, roll — through the view models and a real database.</summary>
@@ -87,7 +90,7 @@ public class WorkflowTests
         // Bad dice and empty name also block.
         review.Rows[7].RangeText = "9-10";
         Assert.True(review.CanSave);
-        review.DiceText = "d6+1";
+        review.DiceText = "d6*1";
         Assert.False(review.CanSave);
         review.DiceText = "2d6";
         Assert.True(review.CanSave); // valid dice; the mismatch with the rows is only a validation note

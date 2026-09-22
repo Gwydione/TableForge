@@ -75,7 +75,7 @@ public class StartupTests
         using var raw = Raw(path);
         raw.Open();
         Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
-        Assert.Equal(2, DatabaseMigrations.GetVersion(raw));
+        Assert.Equal(4, DatabaseMigrations.GetVersion(raw));
     }
 
     [Fact]
@@ -235,7 +235,7 @@ public class StartupTests
 
         var message = DatabaseOpenError.Describe(path, error);
         Assert.Contains($"schema version {DatabaseMigrations.CurrentVersion + 3}", message);
-        Assert.Contains("only understands up to 2", message);
+        Assert.Contains($"only understands up to {DatabaseMigrations.CurrentVersion}", message);
         using var again = Raw(path);
         again.Open();
         Assert.Equal(DatabaseMigrations.CurrentVersion + 3, DatabaseMigrations.GetVersion(again)); // never downgraded
@@ -337,10 +337,10 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_V1_release_candidate_1()
+    public void The_build_identifies_itself_as_V1_release_candidate_7()
     {
-        Assert.Equal("1.0.0-rc1", AppInfo.Version);
-        Assert.Contains("<Version>1.0.0-rc1</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Equal("1.0.0-rc7", AppInfo.Version);
+        Assert.Contains("<Version>1.0.0-rc7</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
     }
 
     [Fact]
@@ -364,6 +364,6 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("1.0.0-rc1", readme);
+        Assert.Contains("1.0.0-rc7", readme);
     }
 }

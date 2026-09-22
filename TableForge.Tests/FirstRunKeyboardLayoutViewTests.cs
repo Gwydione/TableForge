@@ -27,7 +27,7 @@ public class FirstRunViewTests
 
             // ---- create the first collection with the keyboard ----------------------------------
             nameBox.Text = "Solo Play";
-            ui.Press(nameBox, Key.Enter);
+            ui.Press(nameBox, Key.Enter, until: () => ui.Main.SelectedCollection is not null);
             Assert.Equal("Solo Play", ui.Main.SelectedCollection?.Name);
             var pasteButton = ui.One<Button>(b => b.Name == "PasteTableButton");
             Assert.True(pasteButton.IsEnabled);                    // Paste Table is available immediately
@@ -56,7 +56,7 @@ public class FirstRunViewTests
 
             var manual = ui.One<TextBox>(t => t.Name == "ManualBox");
             manual.Text = "1";
-            ui.Press(manual, Key.Enter);                           // Enter resolves the typed roll
+            ui.Press(manual, Key.Enter, until: () => ui.Texts().Any(t => t.Text == "Rolled 1"));   // Enter resolves the typed roll
             Assert.Contains(ui.Texts(), t => t.Text == "Rolled 1");
             Assert.Contains(ui.Texts(), t => t.Text == "Backpack" && t.FontSize == 26);
 
@@ -68,14 +68,14 @@ public class FirstRunViewTests
 
             var filter = ui.One<TextBox>(t => t.Name == "TableFilterBox");
             filter.Text = "starting";
-            ui.Press(filter, Key.Enter);                           // Enter opens the first match
+            ui.Press(filter, Key.Enter, until: () => ui.Main.Current is RollViewModel);   // Enter opens the first match
             Assert.Equal("Random Starting Gear", ((RollViewModel)ui.Main.Current!).Title);
 
             Assert.Equal(["Random Starting Gear"], ui.Main.RecentTables.Select(t => t.Name).ToArray());
             Assert.Equal(2, ui.Main.RecentRolls.Count);            // the random roll and the manual one
             Assert.Equal(["1", "9"], ui.Main.RecentRolls.Select(r => r.RollDisplay).ToArray());
 
-            ui.Press(filter, Key.Escape);                          // Escape clears the search
+            ui.Press(filter, Key.Escape, until: () => filter.Text == "");   // Escape clears the search
             Assert.Equal("", filter.Text);
         });
     }
@@ -99,7 +99,7 @@ public class KeyboardViewTests
             Assert.Null(ui.Main.Current);                          // nothing opened while browsing
             Assert.Empty(ui.Main.RecentTables);
 
-            ui.Press(list, Key.Enter);
+            ui.Press(list, Key.Enter, until: () => ui.Main.Current is RollViewModel);
             Assert.Equal(((TableSummary)list.SelectedItem).Name, ((RollViewModel)ui.Main.Current!).Title);
             Assert.Same(ui.One<Button>(b => b.Name == "RollButton"), ui.Focused);
             Assert.Single(ui.Main.RecentTables);
@@ -132,7 +132,7 @@ public class KeyboardViewTests
             Assert.True(box.IsVisible);
             Assert.Same(box, ui.Focused);                          // typing/pasting can start immediately
 
-            ui.Press(box, Key.Escape);
+            ui.Press(box, Key.Escape, until: () => !box.IsVisible);
 
             Assert.False(box.IsVisible);
             Assert.Same(ui.One<Button>(b => b.Name == "PasteRowsToggle"), ui.Focused);
@@ -206,7 +206,7 @@ public class KeyboardViewTests
             var manual = ui.One<TextBox>(t => t.Name == "ManualBox");
             manual.Focus();
             manual.Text = "9";
-            ui.Press(manual, Key.Enter);
+            ui.Press(manual, Key.Enter, until: () => ui.Texts().Any(t => t.Text == "Rolled 9"));
             Assert.Same(manual, ui.Focused);                       // ready for the next number without touching the mouse
 
             ui.Click("Roll Scavenged Items");

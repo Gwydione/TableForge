@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>dddice host (TableForge spike)</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+  // Bridge to TableForge: everything goes out as one JSON-able object through window.chrome.webview.postMessage.
+  const post = m => { try { window.chrome.webview.postMessage(Object.assign({ t: performance.now() }, m)); } catch (e) { } };
+  window.addEventListener('error', e => post({ kind: 'jsError', message: String(e.message) }));
+  window.addEventListener('unhandledrejection', e => post({ kind: 'jsError', message: 'unhandled rejection: ' + String((e.reason && e.reason.message) || e.reason) }));
+  window.__sdkLoadFailed = false;
+</script>
+<script src="https://cdn.dddice.com/js/dddice-latest.js" onerror="window.__sdkLoadFailed = true; post({ kind: 'sdkLoadFailed' });"></script>
+<script>
+  let dd = null;
+  const slim = r => ({
+    uuid: r.uuid, externalId: r.external_id || null, equation: r.equation, total: r.total_value,
+    values: (r.values || []).map(v => ({ type: v.type, value: v.value, dropped: !!v.is_dropped }))
+  });
+  window.tf = {
+    init(token, room, theme) {
+      if (window.__sdkLoadFailed || typeof ThreeDDice === 'undefined') { post({ kind: 'initFailed', message: 'dddice SDK did not load' }); return; }
+      try {
+        dd = new ThreeDDice(document.getElementById('c'), token);
+        dd.start();
+        dd.connect(room);
+        for (const ev of ['roll:started', 'roll:finished', 'roll:fade:started', 'roll:fade:finished']) {
+          dd.on(ev, r => post({ kind: ev, roll: r && r.uuid ? slim(r) : null }));
+        }
+        // "ready" only once the realtime room channel is subscribed: a roll made before that is created on the server but its animation is never delivered.
+        dd.api.onConnectionError(err => post({ kind: 'initFailed', message: 'room connection error: ' + JSON.stringify(err) }));
+        dd.api.onConnect(members => post({ kind: 'ready', members: members ? members.length : null }));
+      } catch (e) { post({ kind: 'initFailed', message: String((e && e.message) || e) }); }
+    },
+    roll(dice, operator, externalId) {
+      if (!dd) { post({ kind: 'rollError', message: 'not initialised' }); return; }
+      const opts = { external_id: externalId };
+      if (operator) opts.operator = operator;
+      try {
+        Promise.resolve(dd.roll(dice, opts))
+          .then(r => post({ kind: 'rollCreated', externalId, roll: r ? slim(r) : null }))
+          .catch(e => post({ kind: 'rollError', externalId, message: String((e && (e.response && e.response.status ? 'HTTP ' + e.response.status + ' ' : '') + e.message) || e) }));
+      } catch (e) { post({ kind: 'rollError', externalId, message: String((e && e.message) || e) }); }
+    },
+    clear() { if (dd) dd.clear(); }
+  };
+  post({ kind: 'pageLoaded' });
+</script>
+</body>
+</html>

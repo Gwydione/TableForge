@@ -48,7 +48,7 @@ public sealed class TableImportDraft
         if (string.IsNullOrWhiteSpace(TableName)) errors.Add("Table name is required.");
 
         var haveDice = DiceExpression.TryParse(DiceText, out var dice);
-        if (!haveDice) errors.Add($"Dice expression '{DiceText}' is not supported (examples: d6, d10, d20, d100, 2d6).");
+        if (!haveDice) errors.Add($"Dice expression '{DiceText}' is not supported. Use a dice expression such as d20, 2d6, or 2d6+1.{DiceExpression.UnsupportedHint(DiceText)}");
 
         if (ResultSets.Count == 0) errors.Add("There are no result sets to save.");
 

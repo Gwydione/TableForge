@@ -11,6 +11,12 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
+    <UserControl.InputBindings>
+        <!-- Join With Previous Row: joins the selected continuation row into the row above it. Safe anywhere in this
+             screen — no WPF text control uses Ctrl+J for anything of its own. -->
+        <KeyBinding Key="J" Modifiers="Ctrl" Command="{Binding JoinWithPreviousRowCommand}" />
+    </UserControl.InputBindings>
+
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -36,7 +42,7 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Width="130">
                 <TextBlock Text="Dice" Foreground="#555" />
-                <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="For example d6, d10, d20, d100, 2d6" />
+                <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="A dice expression such as d20, 2d6, or 2d6+1" />
             </StackPanel>
         </Grid>
 
@@ -47,8 +53,14 @@
                 <Button Content="Delete result set" Padding="10,3" Margin="6,0,0,0" Command="{Binding DeleteResultSetCommand}"
                         ToolTip="A table always keeps at least one result set." />
             </StackPanel>
+            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#555" Margin="6,2"
+                       Text="One roll, shown as columns below — Difficulty, Modifier, etc."
+                       Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}" />
+            <!-- Hidden while the result sets are shown as one aligned multi-column table below: there is nothing to
+                 switch between when every set is visible at once. Add/Delete result set stay available either way. -->
             <ListBox x:Name="ResultSetTabs" ItemsSource="{Binding ResultSets}" SelectedItem="{Binding SelectedResultSet}"
-                     BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                     BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
@@ -82,7 +94,7 @@
             <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center" Background="Transparent" />
 
             <DockPanel Grid.Column="2">
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -96,6 +108,20 @@
                             Command="{Binding TogglePasteRowsCommand}"
                             ToolTip="Add copied rows to the selected result set only" />
                 </Grid>
+
+                <!-- PDF copy/paste cleanup: deterministic, visible, conservative fixes for how text copies imperfectly. -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="Join With Previous Row" Padding="8,3" Command="{Binding JoinWithPreviousRowCommand}"
+                            ToolTip="Ctrl+J — join the selected continuation row into the row above it" />
+                    <Button Content="Dehyphenate Selected Row" Padding="8,3" Margin="6,0,0,0" Command="{Binding DehyphenateSelectedCommand}"
+                            ToolTip="Remove a PDF line-wrap hyphen from the selected row's result text (&quot;magnifi- cent&quot; → &quot;magnificent&quot;)" />
+                    <Button Content="Remove Empty Rows" Padding="8,3" Margin="6,0,0,0" Command="{Binding RemoveEmptyRowsCommand}"
+                            ToolTip="Remove rows in this result set with no range and no result text" />
+                    <Button Content="Normalize Text" Padding="8,3" Margin="6,0,0,0" Command="{Binding NormalizeTextCommand}"
+                            ToolTip="Fix non-breaking spaces, repeated whitespace and fi/fl ligatures across the whole table" />
+                    <Button Content="Undo Last Cleanup" Padding="8,3" Margin="6,0,0,0" Command="{Binding UndoCleanupCommand}" />
+                    <TextBlock Text="{Binding CleanupMessage}" Foreground="#555" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" />
+                </StackPanel>
 
                 <!-- Recovery tool for imperfect copies: rows only, no new table, dice or result sets. Not modal. -->
                 <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8" BorderBrush="#BBB" BorderThickness="1" CornerRadius="3" Background="#FAFAFA"
@@ -120,19 +146,23 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-                <Grid DockPanel.Dock="Top">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="160" />
-                        <ColumnDefinition Width="28" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
-                    <TextBlock Grid.Column="2" Text="Result text" Foreground="#555" Margin="4,0,0,0" />
-                    <TextBlock Grid.Column="3" Text="Linked table" Foreground="#555" Margin="4,0,0,0" />
-                </Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel DockPanel.Dock="Top" Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="28" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="28" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="Result text" Foreground="#555" Margin="4,0,0,0" />
+                        <TextBlock Grid.Column="3" Text="Linked table" Foreground="#555" Margin="4,0,0,0" />
+                    </Grid>
+                </StackPanel>
+                <!-- One result set at a time: its own name, notes and tools apply to just these rows. Used whenever the
+                     result sets are not aligned (a single-result-set table, or independent sets like Ambient/Noise). -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <ItemsControl x:Name="RowsList" ItemsSource="{Binding SelectedResultSet.Rows}">
                             <ItemsControl.ItemTemplate>
@@ -189,6 +219,70 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <Button Content="Add row" HorizontalAlignment="Left" Padding="10,3" Margin="30,4,0,0" Command="{Binding SelectedResultSet.AddRowCommand}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Every result set shown as one aligned table: one range column shared by every row, then one column per
+                     result set. Used only when ReviewViewModel.IsAligned says the sets are genuinely parallel outputs of
+                     the same roll (same row count, same range at every row) — each column is still its own independent
+                     result set underneath (AlignedRowViewModel just groups the same per-set row view models by position),
+                     so nothing here merges the domain model. -->
+                <StackPanel DockPanel.Dock="Top" Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+                    <Grid Margin="0,0,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="28" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
+                        <ItemsControl Grid.Column="2" ItemsSource="{Binding ResultSets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="230" Margin="4,0,0,0" Padding="3"
+                                             ToolTip="This column's result set name, e.g. Difficulty, Modifier" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <ItemsControl x:Name="AlignedRowsList" ItemsSource="{Binding AlignedRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0,3" Margin="0,0,0,2" CornerRadius="3">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Number}" Width="28" Foreground="#888" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
+                                            <TextBox Text="{Binding RangeText, UpdateSourceTrigger=PropertyChanged}" Width="80" Padding="3" Margin="0,0,4,0" FontFamily="Consolas" />
+                                            <ItemsControl ItemsSource="{Binding Cells}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Width="230" Margin="4,0,0,0">
+                                                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Padding="3" TextWrapping="Wrap" />
+                                                            <ComboBox ItemsSource="{Binding LinkChoices}" SelectedItem="{Binding SelectedLink}" DisplayMemberPath="Label" Padding="3" Margin="0,3,0,0" />
+                                                            <TextBox Text="{Binding UnresolvedName, UpdateSourceTrigger=PropertyChanged}" Padding="3" Margin="0,3,0,0"
+                                                                     ToolTip="Name of the table this should link to"
+                                                                     Visibility="{Binding IsUnresolvedLink, Converter={StaticResource BoolToVis}}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <!-- Deletes this row from every column: one aligned row is one roll. -->
+                                            <Button Content="✕" Width="28" Margin="4,0,0,0" Padding="0" Height="24" VerticalAlignment="Top"
+                                                    IsTabStop="False" ToolTip="Delete this row from every result set" Command="{Binding DeleteCommand}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="Add row" HorizontalAlignment="Left" Padding="10,3" Margin="30,4,0,0"
+                                ToolTip="Adds one row to every result set, keeping them aligned" Command="{Binding AddAlignedRowCommand}" />
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

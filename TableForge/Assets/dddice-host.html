@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>dddice</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+  // The whole bridge to TableForge: one JSON object per message through window.chrome.webview.postMessage.
+  // Nothing from a TableForge table is ever sent to or through this page: only a guest token, a room, and dice types.
+  const post = m => { try { window.chrome.webview.postMessage(m); } catch (e) { } };
+  window.__sdkLoadFailed = false;
+</script>
+<script src="https://cdn.dddice.com/js/dddice-latest.js" onerror="window.__sdkLoadFailed = true; post({ kind: 'sdkLoadFailed' });"></script>
+<script>
+  let dd = null;
+  const THEME = 'dddice-bees';
+  const slim = r => ({
+    uuid: r.uuid, externalId: r.external_id || null, equation: r.equation, total: r.total_value,
+    values: (r.values || []).map(v => ({ type: v.type, value: v.value }))
+  });
+
+  // Best effort: fetch the free theme's meshes and textures now, so the first real roll does not stall for seconds.
+  async function warmTheme() {
+    const t0 = performance.now();
+    try {
+      const themes = await dd.api.diceBox.list();
+      const theme = (themes || []).find(t => t.id === THEME);
+      if (!theme) return post({ kind: 'warmSkipped' });
+      dd.loadTheme(theme, false, false);
+      const deadline = t0 + 8000;
+      while (dd.loadThemeResources(theme.id, false).length > 0 && performance.now() < deadline)
+        await new Promise(r => setTimeout(r, 100));
+      post({ kind: 'warmed', ms: Math.round(performance.now() - t0) });
+    } catch (e) { post({ kind: 'warmSkipped', message: String((e && e.message) || e) }); }
+  }
+
+  // ---- Framing ---------------------------------------------------------------------------------------------------------------
+  // dddice draws the tray from directly above. Its default camera (distance 50, fov 15) is made for a whole browser window, so in
+  // TableForge's short dice panel a die is a small speck. The SDK's own framing control is the camera distance: nearer = larger dice,
+  // and dice.resize() rebuilds the tray walls from the same camera, so the dice stay inside the view. Fewer dice go nearer.
+  const FRAME_BY_DICE_COUNT = [50, 14, 18, 23, 24, 30, 30, 38, 38, 38];   // index = number of dice; 10 or more use the SDK default (50)
+  const DEFAULT_DISTANCE = 50;
+  // Small dice look small even at the same distance, so they get a little closer; the biggest (d20) a little further.
+  const FRAME_BY_DIE = { d4: 1.0, d6: 0.85, d8: 1.0, d10: 1.0, d10x: 1.0, d12: 1.0, d20: 1.0 };
+  let frameDistance = DEFAULT_DISTANCE;
+
+  // The tray is as wide as the panel, which is very wide next to its height, so a lone die could land anywhere across it. Limit the
+  // tray's width (relative to its height) so the dice stay in a central cluster; big pools get the room they need.
+  const TRAY_ASPECT_SMALL_POOL = 2.4;   // up to 4 dice
+  const TRAY_ASPECT_LARGE_POOL = 4.0;
+  let trayAspect = TRAY_ASPECT_LARGE_POOL;
+
+  function distanceFor(dice) {
+    const n = dice.length;
+    const byCount = n >= FRAME_BY_DICE_COUNT.length ? DEFAULT_DISTANCE : FRAME_BY_DICE_COUNT[n];
+    const byDie = Math.min(...dice.map(d => FRAME_BY_DIE[d.type] || 1));   // the smallest die in the pool decides
+    return Math.min(DEFAULT_DISTANCE, byCount * byDie);
+  }
+
+  // Returns true when the camera moved (the tray walls then need a moment to be rebuilt before dice are thrown into them).
+  function frame(dice) {
+    const distance = distanceFor(dice);
+    if (Math.abs(distance - frameDistance) < 0.01) return false;
+    frameDistance = distance;
+    trayAspect = dice.length <= 4 ? TRAY_ASPECT_SMALL_POOL : TRAY_ASPECT_LARGE_POOL;
+    dd.config.camera.distance = distance;
+    dd.config.camera.position.y = distance;
+    dd.resetCamera();
+    fit();
+    return true;
+  }
+
+  function fit() {
+    const c = document.getElementById('c');
+    if (dd && c.clientWidth > 0 && c.clientHeight > 0) dd.resize(c.clientWidth, c.clientHeight);
+  }
+  window.addEventListener('resize', fit);   // the panel follows the TableForge window: keep the canvas, camera and tray in step
+
+  window.tf = {
+    init(token, room) {
+      if (window.__sdkLoadFailed || typeof ThreeDDice === 'undefined') { post({ kind: 'sdkLoadFailed' }); return; }
+      try {
+        dd = new ThreeDDice(document.getElementById('c'), token);
+        const fullWidth = dd.boardWidth.bind(dd);
+        dd.boardWidth = () => Math.min(fullWidth(), dd.boardHeight() * trayAspect);   // the SDK sizes its tray walls from this
+        dd.start();
+        dd.connect(room);
+        for (const ev of ['roll:started', 'roll:finished'])
+          dd.on(ev, r => post({ kind: ev, roll: r && r.uuid ? slim(r) : null }));
+        dd.api.onConnectionStateChange(state => post({ kind: 'connectionState', state }));
+        dd.api.onConnectionError(err => post({ kind: 'initFailed', message: JSON.stringify(err) }));
+        // "ready" only once the room's realtime channel is subscribed (a roll made earlier would be created but never animated).
+        dd.api.onConnect(async () => { await warmTheme(); post({ kind: 'ready' }); });
+      } catch (e) { post({ kind: 'initFailed', message: String((e && e.message) || e) }); }
+    },
+    roll(dice, externalId) {
+      if (!dd) { post({ kind: 'rollError', message: 'not initialised' }); return; }
+      try {
+        const moved = frame(dice);
+        // resizePhysics is debounced by the SDK (50 ms): when the framing changed, give the new tray walls a moment before throwing.
+        Promise.resolve(new Promise(r => setTimeout(r, moved ? 90 : 0)).then(() => dd.roll(dice, { external_id: externalId })))
+          .catch(e => post({ kind: 'rollError', message: String((e && (e.response && e.response.status ? 'HTTP ' + e.response.status + ' ' : '') + e.message) || e) }));
+      } catch (e) { post({ kind: 'rollError', message: String((e && e.message) || e) }); }
+    },
+    clear() { if (dd) dd.clear(); }
+  };
+  post({ kind: 'pageLoaded' });
+</script>
+</body>
+</html>

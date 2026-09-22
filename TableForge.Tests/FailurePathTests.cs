@@ -64,9 +64,9 @@ public class FailurePathTests
         ((PasteViewModel)main.Current!).InterpretCommand.Execute(null);
         var review = (ReviewViewModel)main.Current!;
 
-        review.DiceText = "d6+2";                             // an unsupported dice expression
+        review.DiceText = "d6*2";                             // an unsupported dice expression
         Assert.False(review.SaveCommand.CanExecute(null));
-        Assert.Contains(review.Blockers, b => b.Contains("d6+2") && b.Contains("not supported"));
+        Assert.Contains(review.Blockers, b => b.Contains("d6*2") && b.Contains("not supported") && b.Contains("2d6+1"));
         review.Rows[0].RangeText = "banana";
         Assert.Contains(review.Blockers, b => b.Contains("Row 1"));
 

@@ -1,0 +1,35 @@
+<Window x:Class="TableForge.DddiceSpike.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="TableForge - dddice SPIKE (experimental, dev only)" Width="1180" Height="760" Background="#FF1E2A22">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Grid.Column="0" Margin="10" LastChildFill="True">
+            <TextBlock DockPanel.Dock="Top" x:Name="StatusText" Foreground="#FFFFD37A" TextWrapping="Wrap" Text="Starting..." Margin="0,0,0,8" />
+
+            <StackPanel DockPanel.Dock="Top">
+                <Button x:Name="TestD20Button" AutomationProperties.AutomationId="TestD20" Content="[Test dddice d20]" Padding="6" Margin="0,0,0,4" IsEnabled="False" Click="TestD20_Click" />
+                <Button x:Name="D20TableButton" AutomationProperties.AutomationId="D20Table" Content="D20 TEST TABLE  [Roll with dddice]" Padding="6" Margin="0,0,0,4" IsEnabled="False" Click="D20Table_Click" />
+                <Button x:Name="TwoD6Button" AutomationProperties.AutomationId="TwoD6Table" Content="2D6+1 TEST TABLE  [Roll with dddice]" Padding="6" Margin="0,0,0,4" IsEnabled="False" Click="TwoD6Table_Click" />
+                <Button x:Name="BuiltInButton" AutomationProperties.AutomationId="BuiltIn" Content="D20 TEST TABLE  [Roll with Built-in]  (fallback)" Padding="6" Margin="0,0,0,8" IsEnabled="False" Click="BuiltIn_Click" />
+                <WrapPanel x:Name="DiceButtons" Margin="0,0,0,8" />
+            </StackPanel>
+
+            <Border DockPanel.Dock="Top" Background="#FF0F1712" BorderBrush="#FF3B5343" BorderThickness="1" Padding="8" Margin="0,0,0,8" MinHeight="70">
+                <TextBlock x:Name="ResultText" AutomationProperties.AutomationId="ResultText" Foreground="White" FontSize="16" TextWrapping="Wrap" Text="(no roll yet)" />
+            </Border>
+
+            <TextBox x:Name="LogBox" Background="#FF0B100D" Foreground="#FFB6E3C0" FontFamily="Consolas" FontSize="11" IsReadOnly="True"
+                     VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" />
+        </DockPanel>
+
+        <Border Grid.Column="1" Background="#FF243B2C" Margin="0,10,10,10">
+            <wv2:WebView2 x:Name="Dice" />
+        </Border>
+    </Grid>
+</Window>

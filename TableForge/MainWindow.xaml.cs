@@ -22,6 +22,9 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>Where dddice's WebView2 lives: a dedicated panel above the roll screen, shown only while dddice is chosen.</summary>
+    public void AttachDiceView(FrameworkElement view) => DiceHost.Child = view;
+
     /// <summary>A brand-new user starts in the collection name box; otherwise the search box, ready to find a table.</summary>
     private void FocusStartingPoint()
     {

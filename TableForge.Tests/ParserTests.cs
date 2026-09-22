@@ -204,7 +204,7 @@ public class ParserTests
     {
         var draft = TableTextParser.Parse("d10 Loot\n1-2 Coin\n3 Gem");
         draft.TableName = " ";
-        draft.DiceText = "d6+1";
+        draft.DiceText = "d6*1";
         draft.ResultSets[0].Entries[0].RangeText = "x";
         draft.ResultSets[0].Entries[1].RangeText = "9-3";
 
