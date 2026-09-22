@@ -61,6 +61,7 @@ internal sealed class UiHarness : IDisposable
     {
         var list = One<ListBox>(l => l.Name == "TablesList");
         list.SelectedItem = list.Items.Cast<TableSummary>().Single(t => t.Name == name); // highlights, as a click or arrow key would
+        list.ScrollIntoView(list.SelectedItem); // a virtualized row needs to be realized before its container exists
         Layout();
         // ...and the click's mouse-up is what opens it (arrow keys alone only highlight).
         var item = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(list.SelectedItem);

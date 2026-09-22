@@ -78,6 +78,22 @@ public static class DatabaseMigrations
         """
         ALTER TABLE Tables ADD COLUMN DiceConvention INTEGER NOT NULL DEFAULT 0 CHECK (DiceConvention IN (0, 1));
         """,
+
+        // 5: one-level folders within a collection. A folder holds only a name; tables opt in via Tables.FolderId,
+        // which is NULL for "Unfiled". Every existing table gets NULL here, so nothing already saved moves anywhere.
+        // Deleting a folder never deletes its tables: ON DELETE SET NULL sends them back to Unfiled.
+        """
+        CREATE TABLE Folders (
+            Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            CollectionId INTEGER NOT NULL REFERENCES Collections(Id),
+            Name         TEXT NOT NULL
+        );
+        CREATE INDEX IX_Folders_CollectionId ON Folders(CollectionId);
+        CREATE UNIQUE INDEX UX_Folders_CollectionId_Name ON Folders(CollectionId, Name COLLATE NOCASE);
+
+        ALTER TABLE Tables ADD COLUMN FolderId INTEGER NULL REFERENCES Folders(Id) ON DELETE SET NULL;
+        CREATE INDEX IX_Tables_FolderId ON Tables(FolderId);
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

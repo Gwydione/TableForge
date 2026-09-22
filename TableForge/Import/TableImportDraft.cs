@@ -14,6 +14,9 @@ public sealed class TableImportDraft
     /// <summary>Dice as text so a bad or unsupported expression can be shown and corrected.</summary>
     public string DiceText { get; set; } = "";
 
+    /// <summary>Zero or one folder in the table's collection. Null means Unfiled.</summary>
+    public long? FolderId { get; set; }
+
     public List<ResultSetDraft> ResultSets { get; set; } = [];
     public List<ParseIssue> Issues { get; set; } = [];
 
@@ -23,6 +26,7 @@ public sealed class TableImportDraft
         TableId = table.Id,
         TableName = table.Name,
         DiceText = table.Dice.ToString(),
+        FolderId = table.FolderId,
         ResultSets = table.ResultSets.Select(s => new ResultSetDraft
         {
             Name = s.Name,
@@ -100,6 +104,7 @@ public sealed class TableImportDraft
             CollectionId = collectionId,
             Name = TableName.Trim(),
             Dice = dice,
+            FolderId = FolderId,
             ResultSets = built,
         };
         return true;

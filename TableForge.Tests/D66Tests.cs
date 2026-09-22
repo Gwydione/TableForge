@@ -741,8 +741,7 @@ public class D66PersistenceTests
 
         using var db = temp.Open();                                           // migrates on open
 
-        Assert.Equal(4, DatabaseMigrations.CurrentVersion);
-        Assert.Equal(4L, Scalar(temp.Path, "PRAGMA user_version"));
+        Assert.Equal(DatabaseMigrations.CurrentVersion, (int)Scalar(temp.Path, "PRAGMA user_version"));
         Assert.Equal(0L, Scalar(temp.Path, "SELECT COUNT(*) FROM Tables WHERE DiceConvention <> 0"));   // nothing became a d66 by itself
         Assert.Equal(5L, Scalar(temp.Path, "SELECT COUNT(*) FROM Tables"));
 

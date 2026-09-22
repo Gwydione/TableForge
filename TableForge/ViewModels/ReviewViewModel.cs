@@ -18,6 +18,12 @@ public sealed record LinkChoice(LinkChoiceKind Kind, long? TableId, string Label
     public override string ToString() => Label;
 }
 
+/// <summary>One option in the table's folder chooser: Unfiled (null id) or a folder in the same collection.</summary>
+public sealed record FolderPickerOption(long? Id, string Name)
+{
+    public override string ToString() => Name;
+}
+
 /// <summary>One editable row of the draft, with the notes attached to it.</summary>
 public sealed class EntryRowViewModel : ObservableObject
 {
@@ -204,6 +210,7 @@ public sealed class ReviewViewModel : ObservableObject
     private string _saveError = "";
     private EntryRowViewModel? _selectedRow;
     private ResultSetEditorViewModel _selectedResultSet;
+    private FolderPickerOption _selectedFolder;
     private bool _isPasteRowsOpen;
     private string _pasteRowsText = "";
     private string _pasteRowsMessage = "";
@@ -220,6 +227,8 @@ public sealed class ReviewViewModel : ObservableObject
         if (draft.ResultSets.Count == 0) draft.ResultSets.Add(new ResultSetDraft());
 
         _linkChoices = BuildLinkChoices(draft, db.GetTableSummaries(collection.Id));
+        FolderOptions = BuildFolderOptions(db.GetFolders(collection.Id));
+        _selectedFolder = FolderOptions.FirstOrDefault(o => o.Id == draft.FolderId) ?? FolderOptions[0];
 
         // Parser issues are attached to the entry they were raised for, so they stay with it as rows are added or removed.
         var issuesByEntry = new Dictionary<EntryDraft, List<ParseIssue>>();
@@ -275,6 +284,19 @@ public sealed class ReviewViewModel : ObservableObject
     {
         get => _draft.DiceText;
         set { if (_draft.DiceText != value) { _draft.DiceText = value; Raise(); Refresh(); } }
+    }
+
+    /// <summary>Unfiled plus every folder in the table's collection. Only these can ever be chosen: a table can never reference another collection's folder.</summary>
+    public IReadOnlyList<FolderPickerOption> FolderOptions { get; }
+
+    public FolderPickerOption SelectedFolder
+    {
+        get => _selectedFolder;
+        set
+        {
+            if (value is null || !Set(ref _selectedFolder, value)) return;
+            _draft.FolderId = value.Id;
+        }
     }
 
     public ObservableCollection<ResultSetEditorViewModel> ResultSets { get; } = [];
@@ -657,6 +679,14 @@ public sealed class ReviewViewModel : ObservableObject
             if (!choices.Any(c => c.Kind == LinkChoiceKind.Table && c.TableId == id))
                 choices.Add(new LinkChoice(LinkChoiceKind.Table, id, $"(table #{id})"));
         return choices;
+    }
+
+    /// <summary>Unfiled first, then every folder in the collection, alphabetical (as <paramref name="folders"/> already is).</summary>
+    private static List<FolderPickerOption> BuildFolderOptions(IReadOnlyList<Folder> folders)
+    {
+        var options = new List<FolderPickerOption> { new(null, "Unfiled") };
+        options.AddRange(folders.Select(f => new FolderPickerOption(f.Id, f.Name)));
+        return options;
     }
 
     // ---- validation and notes ---------------------------------------------------------------

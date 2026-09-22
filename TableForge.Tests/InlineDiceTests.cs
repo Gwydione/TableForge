@@ -287,7 +287,7 @@ public class InlineDiceSessionTests
         var saved = db.SaveTable(InlineFixtures.TableWithText("D20 Construction Supplies", collection.Id));
         var dice = new FixedDice(3);
         var main = new MainViewModel(db, dice);
-        main.OpenRecentTableCommand.Execute(new TableSummary(saved.Id, saved.Name, saved.Dice));
+        main.OpenRecentTableCommand.Execute(new TableSummary(saved.Id, saved.Name, saved.Dice, null, "Unfiled"));
         var session = (RollViewModel)main.Current!;
 
         session.RollCommand.Execute(null);

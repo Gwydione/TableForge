@@ -52,7 +52,6 @@ public class HistoryDataTests
         using (var raw = new SqliteConnection($"Data Source={temp.Path};Pooling=False"))
         {
             raw.Open();
-            Assert.Equal(4, DatabaseMigrations.GetVersion(raw));
             Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
         }
 

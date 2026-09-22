@@ -10,6 +10,16 @@ public sealed class Collection
     public override string ToString() => Name;
 }
 
+/// <summary>One-level grouping of tables inside a single Collection. Folders never nest and never span collections.</summary>
+public sealed class Folder
+{
+    public long Id { get; set; }
+    public long CollectionId { get; set; }
+    public string Name { get; set; } = "";
+
+    public override string ToString() => Name;
+}
+
 /// <summary>What one roll showed, as text: the data stored for Recent Rolls. It never refers to entries.</summary>
 public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText);
 
@@ -23,8 +33,8 @@ public sealed record RollHistoryItem(long Id, long? TableId, string TableName, s
     public string FullText => $"{TableName}\n{DiceText} → {RollDisplay}\n\n{ResultText}";
 }
 
-/// <summary>Lightweight row for listing tables without loading their entries.</summary>
-public sealed record TableSummary(long Id, string Name, DiceExpression Dice)
+/// <summary>Lightweight row for listing tables without loading their entries. <see cref="FolderName"/> is "Unfiled" when <see cref="FolderId"/> is null.</summary>
+public sealed record TableSummary(long Id, string Name, DiceExpression Dice, long? FolderId, string FolderName)
 {
     /// <summary>What a screen reader or UI Automation reads for a row in a table list.</summary>
     public override string ToString() => $"{Name} ({Dice})";
@@ -36,6 +46,10 @@ public sealed class RollableTable
     public long CollectionId { get; set; }
     public string Name { get; set; } = "";
     public DiceExpression Dice { get; set; }
+
+    /// <summary>Zero or one folder in the same collection. Null means Unfiled.</summary>
+    public long? FolderId { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
     public List<ResultSet> ResultSets { get; set; } = [];

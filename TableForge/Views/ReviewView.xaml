@@ -35,6 +35,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="160" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                 <TextBlock Text="Table name" Foreground="#555" />
@@ -43,6 +44,11 @@
             <StackPanel Grid.Column="1" Width="130">
                 <TextBlock Text="Dice" Foreground="#555" />
                 <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="A dice expression such as d20, 2d6, or 2d6+1" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                <TextBlock Text="Folder" Foreground="#555" />
+                <ComboBox x:Name="FolderBox" ItemsSource="{Binding FolderOptions}" SelectedItem="{Binding SelectedFolder}"
+                          DisplayMemberPath="Name" Padding="4" ToolTip="Which folder in this collection the table belongs to" />
             </StackPanel>
         </Grid>
 

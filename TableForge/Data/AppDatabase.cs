@@ -85,14 +85,16 @@ public sealed class AppDatabase : IDisposable
         using var tx = _connection.BeginTransaction();
         var now = DateTime.UtcNow;
         table.UpdatedUtc = now;
+        var isNew = table.Id == 0;
+        ValidateOrNormalizeFolder(tx, table, isNew);
 
-        if (table.Id == 0)
+        if (isNew)
         {
             table.CreatedUtc = now;
             using var insert = Command(tx,
                 """
-                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, CreatedUtc, UpdatedUtc)
-                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $created, $updated);
+                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, CreatedUtc, UpdatedUtc)
+                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $created, $updated);
                 SELECT last_insert_rowid();
                 """);
             AddTableParameters(insert, table);
@@ -104,7 +106,7 @@ public sealed class AppDatabase : IDisposable
             using var update = Command(tx,
                 """
                 UPDATE Tables
-                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, UpdatedUtc = $updated
+                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, FolderId = $folder, UpdatedUtc = $updated
                 WHERE Id = $id
                 """);
             AddTableParameters(update, table);
@@ -160,7 +162,7 @@ public sealed class AppDatabase : IDisposable
         RollableTable? table;
         using (var cmd = _connection.CreateCommand())
         {
-            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention FROM Tables WHERE Id = $id";
+            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention, FolderId FROM Tables WHERE Id = $id";
             cmd.Parameters.AddWithValue("$id", id);
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
@@ -172,6 +174,7 @@ public sealed class AppDatabase : IDisposable
                 Dice = new DiceExpression(reader.GetInt32(3), reader.GetInt32(4), reader.GetInt32(5), (RollConvention)reader.GetInt32(8)),
                 CreatedUtc = ParseUtc(reader.GetString(6)),
                 UpdatedUtc = ParseUtc(reader.GetString(7)),
+                FolderId = reader.IsDBNull(9) ? null : reader.GetInt64(9),
             };
         }
 
@@ -224,14 +227,140 @@ public sealed class AppDatabase : IDisposable
     public IReadOnlyList<TableSummary> GetTableSummaries(long collectionId)
     {
         using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT Id, Name, DiceCount, DiceSides, DiceModifier, DiceConvention FROM Tables WHERE CollectionId = $c ORDER BY Name COLLATE NOCASE, Id";
+        cmd.CommandText =
+            """
+            SELECT t.Id, t.Name, t.DiceCount, t.DiceSides, t.DiceModifier, t.DiceConvention, t.FolderId, f.Name
+            FROM Tables t LEFT JOIN Folders f ON f.Id = t.FolderId
+            WHERE t.CollectionId = $c
+            ORDER BY t.Name COLLATE NOCASE, t.Id
+            """;
         cmd.Parameters.AddWithValue("$c", collectionId);
         using var reader = cmd.ExecuteReader();
         var list = new List<TableSummary>();
-        while (reader.Read())
-            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), (RollConvention)reader.GetInt32(5))));
+        while (reader.Read()) list.Add(ReadTableSummary(reader));
         return list;
     }
+
+    // ---- Folders -------------------------------------------------------------------------------
+
+    public Folder CreateFolder(long collectionId, string name)
+    {
+        var trimmed = RequireFolderName(name);
+        using var tx = _connection.BeginTransaction();
+        EnsureUniqueFolderName(tx, collectionId, trimmed, excludeId: null);
+
+        using var insert = Command(tx, "INSERT INTO Folders (CollectionId, Name) VALUES ($collection, $name); SELECT last_insert_rowid();");
+        insert.Parameters.AddWithValue("$collection", collectionId);
+        insert.Parameters.AddWithValue("$name", trimmed);
+        var id = (long)insert.ExecuteScalar()!;
+        tx.Commit();
+        return new Folder { Id = id, CollectionId = collectionId, Name = trimmed };
+    }
+
+    public void RenameFolder(long folderId, string name)
+    {
+        var trimmed = RequireFolderName(name);
+        using var tx = _connection.BeginTransaction();
+
+        long collectionId;
+        using (var find = Command(tx, "SELECT CollectionId FROM Folders WHERE Id = $id"))
+        {
+            find.Parameters.AddWithValue("$id", folderId);
+            if (find.ExecuteScalar() is not long found) throw new InvalidOperationException($"Folder {folderId} does not exist.");
+            collectionId = found;
+        }
+        EnsureUniqueFolderName(tx, collectionId, trimmed, excludeId: folderId);
+
+        using var update = Command(tx, "UPDATE Folders SET Name = $name WHERE Id = $id");
+        update.Parameters.AddWithValue("$name", trimmed);
+        update.Parameters.AddWithValue("$id", folderId);
+        update.ExecuteNonQuery();
+        tx.Commit();
+    }
+
+    /// <summary>Deletes a folder. Its tables are never deleted: they become Unfiled first, in the same transaction.</summary>
+    /// <returns>False if no such folder exists.</returns>
+    public bool DeleteFolder(long folderId)
+    {
+        using var tx = _connection.BeginTransaction();
+
+        using (var unfile = Command(tx, "UPDATE Tables SET FolderId = NULL WHERE FolderId = $id"))
+        {
+            unfile.Parameters.AddWithValue("$id", folderId);
+            unfile.ExecuteNonQuery();
+        }
+
+        using var delete = Command(tx, "DELETE FROM Folders WHERE Id = $id");
+        delete.Parameters.AddWithValue("$id", folderId);
+        var deleted = delete.ExecuteNonQuery() > 0;
+        tx.Commit();
+        return deleted;
+    }
+
+    /// <summary>A collection's folders, alphabetical case-insensitive (folders never nest, so this is the whole navigation list).</summary>
+    public IReadOnlyList<Folder> GetFolders(long collectionId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT Id, CollectionId, Name FROM Folders WHERE CollectionId = $c ORDER BY Name COLLATE NOCASE, Id";
+        cmd.Parameters.AddWithValue("$c", collectionId);
+        using var reader = cmd.ExecuteReader();
+        var list = new List<Folder>();
+        while (reader.Read())
+            list.Add(new Folder { Id = reader.GetInt64(0), CollectionId = reader.GetInt64(1), Name = reader.GetString(2) });
+        return list;
+    }
+
+    private static string RequireFolderName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Folder name is required.", nameof(name));
+        return name.Trim();
+    }
+
+    /// <summary>Folder names are unique within a collection, case-insensitively; the same name is fine in a different collection.</summary>
+    private void EnsureUniqueFolderName(SqliteTransaction tx, long collectionId, string name, long? excludeId)
+    {
+        using var check = Command(tx,
+            "SELECT COUNT(*) FROM Folders WHERE CollectionId = $c AND Name = $name COLLATE NOCASE AND ($exclude IS NULL OR Id <> $exclude)");
+        check.Parameters.AddWithValue("$c", collectionId);
+        check.Parameters.AddWithValue("$name", name);
+        check.Parameters.AddWithValue("$exclude", (object?)excludeId ?? DBNull.Value);
+        if (Convert.ToInt64(check.ExecuteScalar()) > 0)
+            throw new InvalidOperationException($"A folder named \"{name}\" already exists in this collection.");
+    }
+
+    /// <summary>
+    /// Enforces that a table's folder always belongs to its own collection. A brand-new table (or an existing one
+    /// whose collection is not changing) with a foreign folder is a plain mistake and is rejected outright. An
+    /// existing table whose <see cref="RollableTable.CollectionId"/> is genuinely changing keeps working: its old
+    /// folder cannot possibly belong to the new collection, so it is reset to Unfiled rather than rejected.
+    /// </summary>
+    private void ValidateOrNormalizeFolder(SqliteTransaction tx, RollableTable table, bool isNew)
+    {
+        if (table.FolderId is not { } folderId) return;
+
+        using var find = Command(tx, "SELECT CollectionId FROM Folders WHERE Id = $id");
+        find.Parameters.AddWithValue("$id", folderId);
+        if (find.ExecuteScalar() is not long folderCollectionId)
+            throw new InvalidOperationException($"Folder {folderId} does not exist.");
+
+        if (folderCollectionId == table.CollectionId) return;
+        if (isNew) throw new InvalidOperationException("The selected folder does not belong to this table's collection.");
+
+        using var previous = Command(tx, "SELECT CollectionId FROM Tables WHERE Id = $id");
+        previous.Parameters.AddWithValue("$id", table.Id);
+        var previousCollectionId = (long)previous.ExecuteScalar()!;
+
+        if (previousCollectionId == table.CollectionId)
+            throw new InvalidOperationException("The selected folder does not belong to this table's collection.");
+
+        table.FolderId = null; // the table's collection changed out from under its old folder; it does not follow
+    }
+
+    private static TableSummary ReadTableSummary(SqliteDataReader reader) => new(
+        reader.GetInt64(0), reader.GetString(1),
+        new DiceExpression(reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), (RollConvention)reader.GetInt32(5)),
+        reader.IsDBNull(6) ? null : reader.GetInt64(6),
+        reader.IsDBNull(7) ? "Unfiled" : reader.GetString(7));
 
     /// <summary>
     /// Deletes a table. Entries elsewhere that link to it keep the destination's last name as an
@@ -297,17 +426,17 @@ public sealed class AppDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText =
             """
-            SELECT Id, Name, DiceCount, DiceSides, DiceModifier, DiceConvention FROM Tables
-            WHERE CollectionId = $c AND LastUsedUtc IS NOT NULL
-            ORDER BY LastUsedUtc DESC, Id DESC
+            SELECT t.Id, t.Name, t.DiceCount, t.DiceSides, t.DiceModifier, t.DiceConvention, t.FolderId, f.Name
+            FROM Tables t LEFT JOIN Folders f ON f.Id = t.FolderId
+            WHERE t.CollectionId = $c AND t.LastUsedUtc IS NOT NULL
+            ORDER BY t.LastUsedUtc DESC, t.Id DESC
             LIMIT $limit
             """;
         cmd.Parameters.AddWithValue("$c", collectionId);
         cmd.Parameters.AddWithValue("$limit", limit);
         using var reader = cmd.ExecuteReader();
         var list = new List<TableSummary>();
-        while (reader.Read())
-            list.Add(new TableSummary(reader.GetInt64(0), reader.GetString(1), new DiceExpression(reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4), (RollConvention)reader.GetInt32(5))));
+        while (reader.Read()) list.Add(ReadTableSummary(reader));
         return list;
     }
 
@@ -406,6 +535,7 @@ public sealed class AppDatabase : IDisposable
         cmd.Parameters.AddWithValue("$sides", table.Dice.Sides);
         cmd.Parameters.AddWithValue("$modifier", table.Dice.Modifier);
         cmd.Parameters.AddWithValue("$convention", (int)table.Dice.Convention);
+        cmd.Parameters.AddWithValue("$folder", (object?)table.FolderId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$updated", FormatUtc(table.UpdatedUtc));
     }
 

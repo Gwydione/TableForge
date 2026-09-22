@@ -732,7 +732,7 @@ public class DddiceShellTests
         using (temp)
         using (db)
         {
-            main.OpenRecentTableCommand.Execute(new TableSummary(table.Id, table.Name, table.Dice));
+            main.OpenRecentTableCommand.Execute(new TableSummary(table.Id, table.Name, table.Dice, null, "Unfiled"));
             var session = (RollViewModel)main.Current!;
 
             session.RollCommand.Execute(null);
@@ -755,7 +755,7 @@ public class DddiceShellTests
         using (temp)
         using (db)
         {
-            var summary = new TableSummary(table.Id, table.Name, table.Dice);
+            var summary = new TableSummary(table.Id, table.Name, table.Dice, null, "Unfiled");
             main.OpenRecentTableCommand.Execute(summary);
             var first = (RollViewModel)main.Current!;
             first.RollCommand.Execute(null);

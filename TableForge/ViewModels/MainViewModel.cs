@@ -24,6 +24,32 @@ public sealed class RecentRollViewModel(RollHistoryItem item)
     public string FullText => IsDeleted ? Item.FullText + "\n\n(This table has been deleted.)" : Item.FullText;
 }
 
+/// <summary>
+/// One entry in the folder navigation list: "All Tables", "Unfiled", or a real folder. The two sentinels are
+/// singletons so re-selecting them after a reload is a simple reference match.
+/// </summary>
+public sealed class FolderNavItem
+{
+    public static readonly FolderNavItem AllTables = new(null, "All Tables", isAllTables: true);
+    public static readonly FolderNavItem Unfiled = new(null, "Unfiled", isAllTables: false);
+
+    public FolderNavItem(long folderId, string name) : this((long?)folderId, name, false) { }
+
+    private FolderNavItem(long? folderId, string name, bool isAllTables)
+    {
+        FolderId = folderId;
+        Name = name;
+        IsAllTables = isAllTables;
+    }
+
+    /// <summary>Null for both All Tables and Unfiled; a real folder's id otherwise.</summary>
+    public long? FolderId { get; }
+    public string Name { get; }
+    public bool IsAllTables { get; }
+
+    public override string ToString() => Name;
+}
+
 /// <summary>Shell: pick a collection, find or recall a table, paste/edit/delete tables, roll them, and glance at recent rolls.</summary>
 public sealed class MainViewModel : ObservableObject
 {
@@ -34,7 +60,10 @@ public sealed class MainViewModel : ObservableObject
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
     private TableSummary? _highlightedTable;
+    private FolderNavItem? _selectedFolderNav;
     private string _newCollectionName = "";
+    private string _newFolderName = "";
+    private string _renameFolderName = "";
     private string _tableFilter = "";
     private string _status = "";
     private object? _current;
@@ -49,6 +78,9 @@ public sealed class MainViewModel : ObservableObject
 
         // Every command that touches the database reports a failure in the status bar instead of throwing into WPF.
         CreateCollectionCommand = new RelayCommand(() => Try("create the collection", CreateCollection), () => !string.IsNullOrWhiteSpace(NewCollectionName));
+        NewFolderCommand = new RelayCommand(() => Try("create the folder", CreateFolder), () => SelectedCollection is not null && !string.IsNullOrWhiteSpace(NewFolderName));
+        RenameFolderCommand = new RelayCommand(() => Try("rename the folder", RenameFolder), () => IsRealFolderSelected && !string.IsNullOrWhiteSpace(RenameFolderName));
+        DeleteFolderCommand = new RelayCommand(() => Try("delete the folder", DeleteFolder), () => IsRealFolderSelected);
         PasteTableCommand = new RelayCommand(StartPaste, () => SelectedCollection is not null);
         OpenTableCommand = new RelayCommand(() => Try("open the table", OpenSelectedTable), () => Target is not null);
         EditTableCommand = new RelayCommand(() => Try("open the table for editing", EditSelectedTable), () => Target is not null);
@@ -103,7 +135,10 @@ public sealed class MainViewModel : ObservableObject
 
     public ObservableCollection<Collection> Collections { get; } = [];
 
-    /// <summary>The selected collection's tables that match <see cref="TableFilter"/>.</summary>
+    /// <summary>"All Tables", "Unfiled", then the selected collection's folders, alphabetical. Rebuilt whenever the collection or its folders change.</summary>
+    public ObservableCollection<FolderNavItem> FolderNav { get; } = [];
+
+    /// <summary>The selected collection's tables that match <see cref="TableFilter"/>, and (when no search is active) <see cref="SelectedFolderNav"/>.</summary>
     public ObservableCollection<TableSummary> Tables { get; } = [];
 
     /// <summary>The selected collection's most recently used tables, newest first. Not affected by the filter.</summary>
@@ -118,8 +153,33 @@ public sealed class MainViewModel : ObservableObject
     public Collection? SelectedCollection
     {
         get => _selectedCollection;
-        set { if (Set(ref _selectedCollection, value)) ReloadTables(); }
+        set { if (Set(ref _selectedCollection, value)) { ReloadFolders(); ReloadTables(); } }
     }
+
+    /// <summary>
+    /// The active scope in <see cref="FolderNav"/>: All Tables, Unfiled, or a specific folder. Ignored while
+    /// <see cref="TableFilter"/> has text — search always looks across the whole collection.
+    /// </summary>
+    public FolderNavItem? SelectedFolderNav
+    {
+        get => _selectedFolderNav;
+        set
+        {
+            if (!Set(ref _selectedFolderNav, value)) return;
+            RenameFolderName = value is { IsAllTables: false, FolderId: not null } ? value.Name : "";
+            Raise(nameof(IsRealFolderSelected));
+            ApplyFilter();
+        }
+    }
+
+    /// <summary>True when a real folder (not All Tables or Unfiled) is selected: what Rename and Delete act on.</summary>
+    public bool IsRealFolderSelected => SelectedFolderNav is { IsAllTables: false, FolderId: not null };
+
+    /// <summary>
+    /// Whether each row in <see cref="Tables"/> should show its folder: while searching (results span every
+    /// folder) or while viewing All Tables. Redundant while a specific folder or Unfiled is already the whole view.
+    /// </summary>
+    public bool ShowFolderInList => TableFilter.Trim().Length > 0 || (SelectedFolderNav?.IsAllTables ?? true);
 
     /// <summary>The table shown for rolling. Setting it opens that table.</summary>
     public TableSummary? SelectedTable
@@ -152,6 +212,12 @@ public sealed class MainViewModel : ObservableObject
 
     public string NewCollectionName { get => _newCollectionName; set => Set(ref _newCollectionName, value); }
 
+    /// <summary>Name typed for a new folder in the selected collection.</summary>
+    public string NewFolderName { get => _newFolderName; set => Set(ref _newFolderName, value); }
+
+    /// <summary>Name typed to rename <see cref="SelectedFolderNav"/>; refilled with its current name whenever a real folder becomes selected.</summary>
+    public string RenameFolderName { get => _renameFolderName; set => Set(ref _renameFolderName, value); }
+
     public string TableFilter
     {
         get => _tableFilter;
@@ -175,6 +241,9 @@ public sealed class MainViewModel : ObservableObject
     public DiceProviderViewModel? DiceProviders => _dice as DiceProviderViewModel;
 
     public ICommand CreateCollectionCommand { get; }
+    public ICommand NewFolderCommand { get; }
+    public ICommand RenameFolderCommand { get; }
+    public ICommand DeleteFolderCommand { get; }
     public ICommand PasteTableCommand { get; }
     public ICommand OpenTableCommand { get; }
     public ICommand EditTableCommand { get; }
@@ -208,14 +277,86 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(EmptyStateText));
     }
 
+    /// <summary>
+    /// Rebuilds <see cref="Tables"/> from <see cref="_allTables"/>: scoped to <see cref="SelectedFolderNav"/> when
+    /// there is no search text, or across the whole collection (ignoring the folder scope) once there is — search
+    /// never becomes folder-local.
+    /// </summary>
     private void ApplyFilter()
     {
         var keepId = SelectedTable?.Id;
         var filter = TableFilter.Trim();
+        var scoped = filter.Length > 0 || SelectedFolderNav is null || SelectedFolderNav.IsAllTables
+            ? _allTables
+            : _allTables.Where(t => t.FolderId == SelectedFolderNav.FolderId);
         Tables.Clear();
-        foreach (var t in _allTables.Where(t => filter.Length == 0 || t.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+        foreach (var t in scoped.Where(t => filter.Length == 0 || t.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
             Tables.Add(t);
         SelectWithoutOpening(Tables.FirstOrDefault(t => t.Id == keepId));
+        Raise(nameof(ShowFolderInList));
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="FolderNav"/> for the selected collection. Tries to keep the same kind of selection
+    /// (All Tables stays All Tables, Unfiled stays Unfiled, a folder that still exists stays selected); a folder
+    /// that no longer exists (just deleted, or a different collection was selected) falls back to All Tables.
+    /// </summary>
+    private void ReloadFolders()
+    {
+        var previous = _selectedFolderNav;
+        FolderNav.Clear();
+        FolderNav.Add(FolderNavItem.AllTables);
+        FolderNav.Add(FolderNavItem.Unfiled);
+        if (SelectedCollection is not null)
+            foreach (var f in _db.GetFolders(SelectedCollection.Id))
+                FolderNav.Add(new FolderNavItem(f.Id, f.Name));
+
+        SelectedFolderNav = previous switch
+        {
+            null or { IsAllTables: true } => FolderNav[0],
+            { FolderId: null } => FolderNav[1], // Unfiled
+            { FolderId: long id } => FolderNav.FirstOrDefault(f => !f.IsAllTables && f.FolderId == id) ?? FolderNav[0],
+        };
+    }
+
+    /// <summary>After a folder is created, renamed or deleted: refresh the navigation list and the table list together.</summary>
+    private void ReloadFoldersAndTables()
+    {
+        ReloadFolders();
+        _allTables = SelectedCollection is null ? [] : _db.GetTableSummaries(SelectedCollection.Id).ToList();
+        ApplyFilter();
+    }
+
+    private void CreateFolder()
+    {
+        var folder = _db.CreateFolder(SelectedCollection!.Id, NewFolderName);
+        NewFolderName = "";
+        ReloadFoldersAndTables();
+        SelectedFolderNav = FolderNav.First(f => !f.IsAllTables && f.FolderId == folder.Id);
+        Status = $"Created folder \"{folder.Name}\".";
+    }
+
+    private void RenameFolder()
+    {
+        var target = SelectedFolderNav!;
+        _db.RenameFolder(target.FolderId!.Value, RenameFolderName);
+        var renamedId = target.FolderId.Value;
+        ReloadFoldersAndTables();
+        SelectedFolderNav = FolderNav.First(f => !f.IsAllTables && f.FolderId == renamedId);
+        Status = $"Renamed folder to \"{SelectedFolderNav.Name}\".";
+    }
+
+    private void DeleteFolder()
+    {
+        var target = SelectedFolderNav!;
+        var count = _allTables.Count(t => t.FolderId == target.FolderId);
+        var message = $"Delete \"{target.Name}\"?" +
+            (count == 0 ? "\n\nIt has no tables." : $"\n\nIts {count} {(count == 1 ? "table" : "tables")} will move to Unfiled.");
+        if (!_confirm(message)) return;
+
+        _db.DeleteFolder(target.FolderId!.Value);
+        ReloadFoldersAndTables(); // the deleted folder is gone from FolderNav, so this settles on All Tables
+        Status = $"Deleted folder \"{target.Name}\".";
     }
 
     private void ReloadRecentTables()
@@ -247,15 +388,24 @@ public sealed class MainViewModel : ObservableObject
     private void StartPaste()
     {
         var collection = SelectedCollection!;
+        var defaultFolderId = PasteDefaultFolderId;
         SelectWithoutOpening(null);
         Current = new PasteViewModel(collection, StartReview, () => Current = null);
         Status = "";
 
         void StartReview(TableImportDraft draft)
         {
+            draft.FolderId = defaultFolderId;
             Current = new ReviewViewModel(draft, collection, _db, OnSaved, () => Current = null);
         }
     }
+
+    /// <summary>
+    /// Where a newly pasted table lands: the folder being viewed, if one specifically is (and no search is
+    /// narrowing the list) — otherwise Unfiled. The user can still change it on the Review screen before saving.
+    /// </summary>
+    private long? PasteDefaultFolderId =>
+        TableFilter.Trim().Length == 0 && SelectedFolderNav is { IsAllTables: false, FolderId: long id } ? id : null;
 
     private void EditSelectedTable()
     {

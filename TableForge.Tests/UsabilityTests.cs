@@ -86,7 +86,7 @@ public class UsabilityTests
     {
         // These are what assistive technology reads for items that are displayed through a template.
         Assert.Equal("Dungeon", new Collection { Name = "Dungeon" }.ToString());
-        Assert.Equal("Scavenged Items (d20)", new TableSummary(1, "Scavenged Items", DiceExpression.Parse("d20")).ToString());
+        Assert.Equal("Scavenged Items (d20)", new TableSummary(1, "Scavenged Items", DiceExpression.Parse("d20"), null, "Unfiled").ToString());
         Assert.Equal("Scavenged Items", new LinkChoice(LinkChoiceKind.Table, 7, "Scavenged Items").ToString());
         Assert.Equal("(no link)", new LinkChoice(LinkChoiceKind.None, null, "(no link)").ToString());
 

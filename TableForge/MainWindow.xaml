@@ -40,16 +40,21 @@
             </Setter>
         </Style>
 
-        <!-- A table's name (trimmed if long) with its dice on the right. -->
+        <!-- A table's name (trimmed if long) with its dice on the right, and its folder below when the view calls for it
+             (searching, or All Tables): redundant and hidden while a specific folder or Unfiled is already the whole view. -->
         <DataTemplate x:Key="TableRow">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                <TextBlock Grid.Column="1" Text="{Binding Dice}" Foreground="#777" Margin="8,0,0,0" />
-            </Grid>
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Dice}" Foreground="#777" Margin="8,0,0,0" />
+                </Grid>
+                <TextBlock Text="{Binding FolderName}" FontSize="11" Foreground="#999" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding DataContext.ShowFolderInList, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:PasteViewModel}"><views:PasteView /></DataTemplate>
@@ -98,6 +103,40 @@
 
                     <Button x:Name="PasteTableButton" Content="Paste Table…" Padding="8,6" Margin="0,0,0,16"
                             Command="{Binding PasteTableCommand}" />
+
+                    <!-- Folder navigation: All Tables / Unfiled always present, then this collection's folders (alphabetical, flat — no nesting). -->
+                    <TextBlock Text="Folders" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <ListBox x:Name="FolderNavList" ItemsSource="{Binding FolderNav}" SelectedItem="{Binding SelectedFolderNav}"
+                             DisplayMemberPath="Name" MaxHeight="140" Margin="0,0,0,6"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="NewFolderBox" Text="{Binding NewFolderName, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Name for a new folder in this collection (press Enter to create it)">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding NewFolderCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Grid.Column="1" Content="New folder" Margin="6,0,0,0" Padding="8,2" Command="{Binding NewFolderCommand}" />
+                    </Grid>
+                    <Grid Margin="0,0,0,16" Visibility="{Binding IsRealFolderSelected, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="RenameFolderBox" Text="{Binding RenameFolderName, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Rename the selected folder (press Enter to apply)">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding RenameFolderCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Grid.Column="1" Content="Rename" Margin="6,0,0,0" Padding="8,2" Command="{Binding RenameFolderCommand}" />
+                        <Button Grid.Column="2" Content="Delete" Margin="6,0,0,0" Padding="8,2" Command="{Binding DeleteFolderCommand}" />
+                    </Grid>
 
                     <TextBlock Text="Tables" FontWeight="SemiBold" Margin="0,0,0,4" />
                     <TextBox x:Name="TableFilterBox" Margin="0,0,0,6" ToolTip="Filter tables by name. Enter opens the first match; Escape clears."

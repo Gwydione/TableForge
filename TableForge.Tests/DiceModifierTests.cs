@@ -638,8 +638,7 @@ public class DiceModifierPersistenceTests
 
         using var db = temp.Open();                                   // migrates on open
 
-        Assert.Equal(4, DatabaseMigrations.CurrentVersion);
-        Assert.Equal(4L, Scalar(temp.Path, "PRAGMA user_version"));
+        Assert.Equal(DatabaseMigrations.CurrentVersion, (int)Scalar(temp.Path, "PRAGMA user_version"));
         Assert.Equal(0L, Scalar(temp.Path, "SELECT COUNT(*) FROM Tables WHERE DiceModifier <> 0"));   // every existing table: modifier 0
 
         Assert.Equal([new DiceExpression(1, 20, 0), new DiceExpression(2, 6, 0), new DiceExpression(1, 100, 0)],
