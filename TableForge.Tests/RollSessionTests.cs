@@ -30,7 +30,7 @@ public class RollSessionTests
         Assert.Equal("1x Scavenged Item", line.Text);
         Assert.Equal(LinkState.Resolved, line.Link);
         Assert.Equal("Scavenged Items", line.LinkName);
-        Assert.Equal("Roll Scavenged Items", line.FollowLabel);
+        Assert.Equal("Open Scavenged Items", line.FollowLabel);
         Assert.True(line.ShowFollow);
         Assert.Single(session.Steps);
 
@@ -255,7 +255,7 @@ public class RollSessionTests
 
         session.RollCommand.Execute(null);
         var line = OnlyLine(session);
-        Assert.Equal("Roll Salvage", line.FollowLabel);
+        Assert.Equal("Open Salvage", line.FollowLabel);
         line.FollowCommand!.Execute(null);
         Assert.Equal("Salvage", session.Current.Title);
     }

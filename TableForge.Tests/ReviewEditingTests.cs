@@ -277,7 +277,7 @@ public class ReviewEditingTests
         var roll = (RollViewModel)w.Main.Current!;
         roll.RollCommand.Execute(null);
         Assert.Equal(6, w.Dice.Value);
-        Assert.Equal("Roll Scavenged Items", Assert.Single(roll.Results).FollowLabel);
+        Assert.Equal("Open Scavenged Items", Assert.Single(roll.Results).FollowLabel);
     }
 
     [Fact]
@@ -370,7 +370,7 @@ public class ReviewEditingTests
         roll.RollCommand.Execute(null);
         var line = Assert.Single(roll.Results);
         Assert.Equal(LinkState.Resolved, line.Link);
-        Assert.Equal("Roll Salvage", line.FollowLabel);
+        Assert.Equal("Open Salvage", line.FollowLabel);
     }
 
     [Fact]

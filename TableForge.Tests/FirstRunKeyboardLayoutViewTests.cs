@@ -209,7 +209,7 @@ public class KeyboardViewTests
             ui.Press(manual, Key.Enter, until: () => ui.Texts().Any(t => t.Text == "Rolled 9"));
             Assert.Same(manual, ui.Focused);                       // ready for the next number without touching the mouse
 
-            ui.Click("Roll Scavenged Items");
+            ui.Click("Open Scavenged Items");
             Assert.Same(ui.One<Button>(b => b.Name == "RollButton"), ui.Focused);
         });
     }
@@ -334,7 +334,7 @@ public class LayoutViewTests
             using var ui = Busy(width, height);
             ui.SelectTable("Scavenging");
             for (var i = 0; i < 12; i++) ui.Click("Roll");
-            ui.Click("Roll Scavenged Items");
+            ui.Click("Open Scavenged Items");
             ui.Dice.Value = 12;
             ui.Click("Roll");
 

@@ -13,9 +13,13 @@ internal sealed class FixedDice(int value) : IDiceProvider
     /// <summary>How many times anything asked for a roll.</summary>
     public int Calls { get; private set; }
 
+    /// <summary>Every expression a roll was asked for, in order, as text ("d20", "2d6+1").</summary>
+    public List<string> Requested { get; } = [];
+
     public int Roll(DiceExpression dice)
     {
         Calls++;
+        Requested.Add(dice.ToString());
         return Value;
     }
 

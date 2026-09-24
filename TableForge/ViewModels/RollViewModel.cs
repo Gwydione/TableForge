@@ -131,7 +131,7 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
     public bool ShowLinkedNote => Link == LinkState.Resolved && !IsActive;
     public bool ShowUnresolved => Link == LinkState.Unresolved;
     public bool ShowMissing => Link == LinkState.Missing;
-    public string FollowLabel => $"Roll {LinkName}";
+    public string FollowLabel => $"Open {LinkName}";
     public string LinkedNote => $"→ {LinkName}";
     public string UnresolvedNote => LinkName.Length > 0
         ? $"⚠ Unresolved link to “{LinkName}”: no table is linked."

@@ -135,7 +135,7 @@ public class ImportViewTests
             for (var i = 0; i < 10; i++) ui.Click("Roll");                   // ten rolls of "1x Scavenged Item" in the first step
             Assert.True(scroller.ExtentHeight > scroller.ViewportHeight);
 
-            ui.Click("Roll Scavenged Items");                                // only the latest roll offers the link
+            ui.Click("Open Scavenged Items");                                // only the latest roll offers the link
 
             var roll = (RollViewModel)ui.Main.Current!;
             Assert.Equal(2, roll.Steps.Count);

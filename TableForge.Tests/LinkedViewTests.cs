@@ -164,17 +164,17 @@ public class LinkedViewTests
             ui.SelectTable("Scavenging");
             ui.Click("Roll");
             Assert.Contains(ui.Texts(), t => t.Text == "1x Scavenged Item" && t.FontSize == 26);
-            Assert.True(ui.HasVisibleButton("Roll Scavenged Items"));
+            Assert.True(ui.HasVisibleButton("Open Scavenged Items"));
 
             // Follow: the child becomes current but is NOT rolled.
-            ui.Click("Roll Scavenged Items");
+            ui.Click("Open Scavenged Items");
             Assert.Equal(1, ui.Dice.Calls);
             Assert.Equal(2, ((RollViewModel)ui.Main.Current!).Steps.Count);
             Assert.Contains(ui.Texts(), t => t.Text == "Scavenged Items" && t.FontSize == 24);
             Assert.Contains(ui.Texts(), t => t.Text == "Not rolled yet.");               // the child shows as un-rolled
             Assert.Equal(["Rolled 6"], ui.Texts().Where(t => t.Text.StartsWith("Rolled")).Select(t => t.Text).ToArray());
             Assert.Equal(["1x Scavenged Item"], ui.Texts().Where(t => t.FontSize == 26).Select(t => t.Text).ToArray());
-            Assert.False(ui.HasVisibleButton("Roll Scavenged Items"));                    // parent's action is spent
+            Assert.False(ui.HasVisibleButton("Open Scavenged Items"));                    // parent's action is spent
             Assert.Contains(ui.Texts(), t => t.Text == "→ Scavenged Items");
 
             // Now the user rolls the child: parent context stays visible above it.
@@ -194,6 +194,34 @@ public class LinkedViewTests
     }
 
     [Fact]
+    public void Rolling_a_followed_child_rolls_the_childs_own_dice_and_leaves_the_parent_alone()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(19, (db, c) => Fixtures.SeedTemperature(db, c.Id));
+
+            ui.SelectTable("Temperature");
+            ui.Click("Roll");
+            ui.Click("Open Unusual Temperature");
+            Assert.Contains(ui.Texts(), t => t.Text == "d4 · legal rolls 1–4");
+            Assert.Contains(ui.Texts(), t => t.Text == "Not rolled yet.");
+            Assert.Equal(["d20"], ui.Dice.Requested);                                  // following never rolls
+
+            ui.Dice.Value = 3;
+            ui.Click("Roll");
+
+            Assert.Equal(["d20", "d4"], ui.Dice.Requested);                            // the child's expression, not the parent's
+            var session = (RollViewModel)ui.Main.Current!;
+            Assert.Equal("Unusual Temperature", session.Current.Table.Name);
+            Assert.Single(session.Steps[0].Outcomes);                                   // the parent was not rerolled
+            Assert.Single(session.Steps[1].Outcomes);
+            Assert.DoesNotContain(ui.Texts(), t => t.Text == "Not rolled yet.");
+            Assert.Equal(["Rolled 19", "Rolled 3"], ui.Texts().Where(t => t.Text.StartsWith("Rolled")).Select(t => t.Text).ToArray());
+            Assert.Equal(["Unusual Temperature", "Heatwave"], ui.Texts().Where(t => t.FontSize == 26).Select(t => t.Text).ToArray());
+        });
+    }
+
+    [Fact]
     public void An_unresolved_link_is_shown_as_such_with_no_follow_action()
     {
         Sta.Run(() =>
@@ -205,7 +233,7 @@ public class LinkedViewTests
 
             Assert.Contains(ui.Texts(), t => t.Text == "2x Scavenged Items" && t.FontSize == 26);
             Assert.Contains(ui.Texts(), t => t.Text.StartsWith("⚠ Unresolved link to “Scavenged Items”"));
-            Assert.False(ui.HasVisibleButton("Roll Scavenged Items"));
+            Assert.False(ui.HasVisibleButton("Open Scavenged Items"));
             Assert.Single(((RollViewModel)ui.Main.Current!).Steps);
         });
     }

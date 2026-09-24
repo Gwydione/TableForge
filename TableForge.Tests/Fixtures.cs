@@ -86,6 +86,26 @@ internal static class Fixtures
         return (items, scavenging);
     }
 
+    /// <summary>TEMPERATURE (d20), whose 19–20 row links to UNUSUAL TEMPERATURE (d4). Returns both, with ids assigned.</summary>
+    public static (RollableTable Unusual, RollableTable Temperature) SeedTemperature(TableForge.Data.AppDatabase db, long collectionId)
+    {
+        var unusual = db.SaveTable(new RollableTable
+        {
+            CollectionId = collectionId,
+            Name = "Unusual Temperature",
+            Dice = DiceExpression.Parse("d4"),
+            ResultSets = [Set("", E(1, 1, "Freezing"), E(2, 2, "Cold snap"), E(3, 3, "Heatwave"), E(4, 4, "Scorching"))],
+        });
+        var temperature = db.SaveTable(new RollableTable
+        {
+            CollectionId = collectionId,
+            Name = "Temperature",
+            Dice = DiceExpression.Parse("d20"),
+            ResultSets = [Set("", E(1, 18, "Seasonal"), E(19, 20, "Unusual Temperature", link: unusual.Id))],
+        });
+        return (unusual, temperature);
+    }
+
     public static RollableTable Table(DiceExpression dice, params (int Min, int Max, string Text)[] entries) => new()
     {
         Name = "Test",
