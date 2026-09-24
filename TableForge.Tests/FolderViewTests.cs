@@ -46,6 +46,44 @@ public class FolderViewTests
     }
 
     [Fact]
+    public void Table_list_heading_shows_the_selected_scope_or_search_results_and_recent_is_labelled_recent_tables()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(1, (db, c) =>
+            {
+                var creation = db.CreateFolder(c.Id, "Character Creation");
+                db.CreateFolder(c.Id, "Combat");
+                db.SaveTable(Fixtures.ScavengedItems(c.Id).Also(t => { t.Name = "Backgrounds"; t.FolderId = creation.Id; }));
+            });
+            ui.SelectTable("Backgrounds"); // opening a table puts it in Recent, which makes the headings visible
+            ui.Layout();
+
+            Assert.Equal("Recent tables", ui.One<TextBlock>(t => t.Name == "RecentTablesHeading").Text);
+            var heading = ui.One<TextBlock>(t => t.Name == "TableListHeading");
+            Assert.Equal("All tables", heading.Text);
+
+            var folderNav = ui.One<ListBox>(l => l.Name == "FolderNavList");
+            Select(folderNav, "Character Creation");
+            ui.Layout();
+            Assert.Equal("Character Creation tables", heading.Text);
+
+            Select(folderNav, "Combat");
+            ui.Layout();
+            Assert.Equal("Combat tables", heading.Text);
+
+            Select(folderNav, "Unfiled");
+            ui.Layout();
+            Assert.Equal("Unfiled tables", heading.Text);
+
+            ui.One<TextBox>(t => t.Name == "TableFilterBox").Text = "back";
+            ui.Layout();
+            Assert.Equal("Search results", heading.Text);
+            Assert.True(ui.One<TextBlock>(t => t.Name == "RecentTablesHeading").IsVisible); // Recent stays collection-wide
+        });
+    }
+
+    [Fact]
     public void New_folder_is_immediately_available_in_navigation()
     {
         Sta.Run(() =>

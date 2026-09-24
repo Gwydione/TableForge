@@ -149,7 +149,7 @@
 
                     <!-- Recent tables: the few most recently opened in this collection. Not narrowed by the filter. -->
                     <StackPanel Margin="0,0,0,8" Visibility="{Binding HasRecentTables, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="Recent" Foreground="#555" Margin="0,0,0,2" />
+                        <TextBlock x:Name="RecentTablesHeading" Text="Recent tables" Foreground="#555" Margin="0,0,0,2" />
                         <ItemsControl x:Name="RecentTablesList" ItemsSource="{Binding RecentTables}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -161,7 +161,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="All tables" Foreground="#555" Margin="0,8,0,0" />
+                        <TextBlock x:Name="TableListHeading" Text="{Binding TableListHeading}" Foreground="#555" Margin="0,8,0,0" />
                     </StackPanel>
 
                     <!-- Arrow keys only move the highlight; Enter or a click opens the table (so browsing never opens or "uses" tables). -->

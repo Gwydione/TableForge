@@ -181,6 +181,15 @@ public sealed class MainViewModel : ObservableObject
     /// </summary>
     public bool ShowFolderInList => TableFilter.Trim().Length > 0 || (SelectedFolderNav?.IsAllTables ?? true);
 
+    /// <summary>
+    /// Heading over <see cref="Tables"/>, naming what the list actually holds: "Search results" while searching (search
+    /// ignores the folder scope), otherwise "All tables", "Unfiled tables" or "&lt;folder&gt; tables".
+    /// </summary>
+    public string TableListHeading =>
+        TableFilter.Trim().Length > 0 ? "Search results"
+        : SelectedFolderNav is null or { IsAllTables: true } ? "All tables"
+        : $"{SelectedFolderNav.Name} tables";
+
     /// <summary>The table shown for rolling. Setting it opens that table.</summary>
     public TableSummary? SelectedTable
     {
@@ -294,6 +303,7 @@ public sealed class MainViewModel : ObservableObject
             Tables.Add(t);
         SelectWithoutOpening(Tables.FirstOrDefault(t => t.Id == keepId));
         Raise(nameof(ShowFolderInList));
+        Raise(nameof(TableListHeading));
     }
 
     /// <summary>

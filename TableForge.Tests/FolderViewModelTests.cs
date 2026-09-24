@@ -119,6 +119,53 @@ public class FolderViewModelTests
         Assert.True(w.Main.SelectedFolderNav!.IsAllTables);
     }
 
+    // ---- table list heading --------------------------------------------------------------------------
+
+    [Fact]
+    public void Table_list_heading_names_the_selected_scope_and_follows_folder_changes()
+    {
+        using var w = new World();
+        w.Db.CreateFolder(w.Collection.Id, "Character Creation");
+        w.Db.CreateFolder(w.Collection.Id, "Combat");
+        w.Start();
+        var raised = new List<string?>();
+        w.Main.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        Assert.Equal("All tables", w.Main.TableListHeading);
+
+        w.SelectFolder("Unfiled");
+        Assert.Equal("Unfiled tables", w.Main.TableListHeading);
+
+        w.SelectFolder("Character Creation");
+        Assert.Equal("Character Creation tables", w.Main.TableListHeading);
+
+        w.SelectFolder("Combat");
+        Assert.Equal("Combat tables", w.Main.TableListHeading);
+
+        w.SelectFolder("All Tables");
+        Assert.Equal("All tables", w.Main.TableListHeading);
+        Assert.Equal(4, raised.Count(p => p == nameof(MainViewModel.TableListHeading)));
+    }
+
+    [Fact]
+    public void Table_list_heading_says_search_results_while_searching_regardless_of_folder()
+    {
+        using var w = new World();
+        w.Db.CreateFolder(w.Collection.Id, "Combat");
+        w.Start();
+        w.SelectFolder("Combat");
+
+        w.Main.TableFilter = "weather";
+        Assert.Equal("Search results", w.Main.TableListHeading);
+
+        w.Main.TableFilter = "   ";
+        Assert.Equal("Combat tables", w.Main.TableListHeading); // whitespace-only is not a search, matching the list filter
+
+        w.Main.TableFilter = "x";
+        w.Main.ClearFilterCommand.Execute(null);
+        Assert.Equal("Combat tables", w.Main.TableListHeading);
+    }
+
     // ---- folder commands (create / rename / delete) ------------------------------------------------
 
     [Fact]
