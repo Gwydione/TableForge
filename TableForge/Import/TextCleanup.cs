@@ -117,6 +117,51 @@ public static partial class TextCleanup
         return true;
     }
 
+    /// <summary>
+    /// Ctrl+J with a selection on the raw Paste Table editor: joins every line the selection touches into one line. Each
+    /// line is trimmed, blank lines are dropped, and the rest are joined with exactly one space — a literal join, with no
+    /// dehyphenation and no judgement about paragraphs. It works on whole lines: a selection that starts or ends partway
+    /// through a line still joins that entire line, so the unselected part of it is kept, never cut off. A selection that
+    /// ends at the very start of a line (having taken only the line break before it) does not include that line.
+    /// Returns false, changing nothing, unless the selection touches two or more lines; the caller then falls back to
+    /// <see cref="TryJoinLineWithPrevious"/>. On success, the text from <paramref name="replaceStart"/> for
+    /// <paramref name="replaceLength"/> characters is to be replaced by <paramref name="replacement"/>; everything outside
+    /// that span, including the line breaks before and after it, stays exactly as it was.
+    /// </summary>
+    public static bool TryJoinSelectedLines(string text, int selectionStart, int selectionLength,
+        out int replaceStart, out int replaceLength, out string replacement, out string message)
+    {
+        var t = text ?? "";
+        var start = Math.Clamp(selectionStart, 0, t.Length);
+        var end = Math.Clamp(selectionStart + selectionLength, start, t.Length);
+        var lines = SplitLines(t);
+
+        int LineAt(int index)
+        {
+            var found = 0;
+            for (var i = 0; i < lines.Count && lines[i].ContentStart <= index; i++) found = i;
+            return found;
+        }
+
+        var first = LineAt(start);
+        var last = LineAt(end);
+        if (end > start && last > first && end == lines[last].ContentStart) last--; // only the line break before it was selected
+
+        if (last <= first)
+        {
+            (replaceStart, replaceLength, replacement, message) = (start, 0, "", "");
+            return false;
+        }
+
+        replaceStart = lines[first].ContentStart;
+        replaceLength = lines[last].ContentStart + lines[last].ContentLength - replaceStart;
+        replacement = string.Join(' ', lines.Skip(first).Take(last - first + 1)
+            .Select(l => t.Substring(l.ContentStart, l.ContentLength).Trim())
+            .Where(s => s.Length > 0));
+        message = $"Joined {last - first + 1} selected lines into one.";
+        return true;
+    }
+
     /// <summary>Trims trailing whitespace off <paramref name="previous"/>, leading whitespace off <paramref name="continuation"/>, and joins them with exactly one space (or just the non-empty side, if the other is blank).</summary>
     internal static string JoinContinuationText(string previous, string continuation)
     {

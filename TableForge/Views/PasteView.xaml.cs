@@ -23,7 +23,25 @@ public partial class PasteView : UserControl
     {
         if (e.Key != Key.J || Keyboard.Modifiers != ModifierKeys.Control) return;
         e.Handled = true;
-        JoinCurrentLineWithPrevious();
+        JoinLines();
+    }
+
+    private void OnJoinLinesClick(object sender, RoutedEventArgs e) => JoinLines();
+
+    /// <summary>
+    /// Ctrl+J and Join Lines: a selection touching two or more lines joins those lines into one; anything else (no
+    /// selection, or one within a single line) is the original join of the caret's line into the line above it.
+    /// </summary>
+    private void JoinLines()
+    {
+        var box = PasteSourceBox;
+        if (!TextCleanup.TryJoinSelectedLines(box.Text, box.SelectionStart, box.SelectionLength, out var start, out var length, out var replacement, out var message))
+        {
+            JoinCurrentLineWithPrevious();
+            return;
+        }
+        ReplaceSpan(box, start, length, replacement);
+        SetMessage(message);
     }
 
     private void JoinCurrentLineWithPrevious()
@@ -82,6 +100,18 @@ public partial class PasteView : UserControl
         box.SelectedText = newText;
         var caret = Math.Clamp(caretIndex, 0, box.Text.Length);
         box.Select(caret, 0);
+    }
+
+    /// <summary>
+    /// Replaces just one span of the editor's text through <see cref="TextBox.SelectedText"/>, like <see cref="ReplaceAll"/>,
+    /// so it is one ordinary entry on the TextBox's own undo stack; the caret lands at the end of the new text.
+    /// </summary>
+    private static void ReplaceSpan(TextBox box, int start, int length, string newText)
+    {
+        box.Focus();
+        box.Select(start, length);
+        box.SelectedText = newText;
+        box.Select(start + newText.Length, 0);
     }
 
     private void SetMessage(string message)

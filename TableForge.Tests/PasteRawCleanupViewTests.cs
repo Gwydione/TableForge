@@ -142,7 +142,7 @@ public class PasteRawCleanupViewTests
             ui.Click("Paste Table…");
             var box = ui.One<TextBox>(t => t.Name == "PasteSourceBox");
 
-            Assert.Equal("Ctrl+J — join the current line with the line above it", box.ToolTip);
+            Assert.Equal("Ctrl+J — join the selected lines into one line, or the current line into the line above it", box.ToolTip);
         });
     }
 
@@ -173,6 +173,92 @@ public class PasteRawCleanupViewTests
             ui.Layout();
 
             Assert.Equal("7 You find a damaged chest containing several old coins and a silver key.", box.Text);
+            Assert.Equal("Joined the current line with the previous line.", ((PasteViewModel)ui.Main.Current!).CleanupMessage);
+        });
+    }
+
+    // ---- Bulk Join: Ctrl+J (and Join Lines) with several lines selected ------------------------------------------
+
+    private const string Wrapped = "D100 FOLLOWERS\n01-02 Kael Dravorn\nthe scarred scout\nfrom the north\n03-04 Morthan Vex";
+    private const string WrappedRow = "01-02 Kael Dravorn\nthe scarred scout\nfrom the north";
+
+    /// <summary>The same dispatch Ctrl+J runs once its key gate passes (see the note on the single-line test above).</summary>
+    private static void PressCtrlJ(TableForge.Views.PasteView view) =>
+        typeof(TableForge.Views.PasteView).GetMethod("JoinLines", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(view, null);
+
+    private static (UiHarness Ui, TextBox Box, TableForge.Views.PasteView View) OpenPaste(string text)
+    {
+        var ui = new UiHarness(1, (db, c) => { });
+        ui.Click("Paste Table…");
+        var box = ui.One<TextBox>(t => t.Name == "PasteSourceBox");
+        box.Text = text;
+        ui.Layout();
+        return (ui, box, ui.One<TableForge.Views.PasteView>(_ => true));
+    }
+
+    [Fact]
+    public void Ctrl_J_with_several_lines_selected_joins_them_and_native_undo_restores_the_exact_original()
+    {
+        Sta.Run(() =>
+        {
+            var (ui, box, view) = OpenPaste(Wrapped);
+            using var _ = ui;
+            box.Focus();
+            box.Select(Wrapped.IndexOf(WrappedRow, StringComparison.Ordinal), WrappedRow.Length);
+
+            PressCtrlJ(view);
+            ui.Layout();
+
+            const string joined = "D100 FOLLOWERS\n01-02 Kael Dravorn the scarred scout from the north\n03-04 Morthan Vex";
+            Assert.Equal(joined, box.Text);
+            Assert.Equal(joined, ((PasteViewModel)ui.Main.Current!).SourceText);   // the bound source text follows
+            Assert.Equal("Joined 3 selected lines into one.", ((PasteViewModel)ui.Main.Current!).CleanupMessage);
+            Assert.Equal(0, box.SelectionLength);
+            Assert.Equal(joined.IndexOf(" from the north", StringComparison.Ordinal) + " from the north".Length, box.CaretIndex); // end of the joined line
+
+            Assert.True(box.CanUndo);
+            box.Undo();                                                             // what Ctrl+Z runs
+            ui.Layout();
+            Assert.Equal(Wrapped, box.Text);                                        // one step back, exactly
+            Assert.Equal(Wrapped, ((PasteViewModel)ui.Main.Current!).SourceText);
+        });
+    }
+
+    [Fact]
+    public void The_join_lines_button_does_the_same_bulk_join_on_the_selection()
+    {
+        Sta.Run(() =>
+        {
+            var (ui, box, _) = OpenPaste("KEEP\nAlpha\n\n   Beta   \nKEEP2");
+            using var __ = ui;
+            box.Select("KEEP\n".Length, "Alpha\n\n   Beta   ".Length);
+
+            ui.Click("Join Lines");
+            ui.Layout();
+
+            Assert.Equal("KEEP\nAlpha Beta\nKEEP2", box.Text);
+            box.Undo();
+            Assert.Equal("KEEP\nAlpha\n\n   Beta   \nKEEP2", box.Text);
+        });
+    }
+
+    [Fact]
+    public void Ctrl_J_without_a_multiline_selection_still_joins_the_caret_line_into_the_line_above()
+    {
+        Sta.Run(() =>
+        {
+            var (ui, box, view) = OpenPaste("Alpha\nBeta words\nGamma");
+            using var _ = ui;
+
+            box.CaretIndex = "Alpha\nBe".Length;                                    // no selection
+            PressCtrlJ(view);
+            Assert.Equal("Alpha Beta words\nGamma", box.Text);
+            Assert.Equal("Joined the current line with the previous line.", ((PasteViewModel)ui.Main.Current!).CleanupMessage);
+
+            box.Select("Alpha Beta words\nGa".Length, 2);                           // a selection inside one line
+            PressCtrlJ(view);
+            Assert.Equal("Alpha Beta words Gamma", box.Text);                       // the single-line join, not a bulk join
             Assert.Equal("Joined the current line with the previous line.", ((PasteViewModel)ui.Main.Current!).CleanupMessage);
         });
     }

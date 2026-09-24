@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc9 (V1 Release Candidate 9)**
+**Version 1.0.0-rc10 (V1 Release Candidate 10)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc9 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc10 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -229,6 +229,13 @@ repaired before Interpret runs, not only after:
   leading whitespace off the current line, and joins them with exactly one space. Makes no judgement about whether the
   current line is really a continuation; it is a raw-text edit you asked for, on the line you put the caret on. Does
   nothing (with a status message) if the caret is on the first line.
+- **Ctrl+J with several lines selected** (or **Join Lines**): joins every line the selection touches into one line in a
+  single step — each line trimmed, blank lines dropped, the rest joined with exactly one space. It works on whole lines:
+  if the selection starts or ends partway through a line, that entire line is joined, so nothing unselected on it is
+  lost. A selection ending at the very start of a line (having taken only the line break before it) leaves that line
+  alone. The join is literal: `well-` + `made` becomes `well- made` (use Dehyphenate for that), and `�` is never
+  changed. One **Ctrl+Z** undoes the whole join. With no selection, or a selection within one line, Ctrl+J and Join
+  Lines do the single-line join above.
 - **Normalize Text**: the same non-breaking-space, repeated-whitespace and `fi`/`fl` ligature fixes as Review's
   Normalize Text, applied one line at a time so every line break is kept exactly as it was.
 - **Dehyphenate**: removes PDF line-wrap hyphens from the raw text (`magnifi-` + a line break + `cent` becomes

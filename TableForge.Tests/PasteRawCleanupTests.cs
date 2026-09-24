@@ -123,6 +123,166 @@ public class RawLineJoinTests
     }
 }
 
+/// <summary>Ctrl+J with a selection across several raw lines (<see cref="TextCleanup.TryJoinSelectedLines"/>): joins them all at once.</summary>
+public class BulkLineJoinTests
+{
+    /// <summary>Selects <paramref name="selected"/> (its first occurrence) in <paramref name="text"/> and applies the bulk join, if it happens.</summary>
+    private static (bool Joined, string Result, int Caret) Join(string text, string selected) =>
+        Join(text, text.IndexOf(selected, StringComparison.Ordinal), selected.Length);
+
+    private static (bool Joined, string Result, int Caret) Join(string text, int start, int length)
+    {
+        Assert.True(start >= 0, "the selection must be in the text");
+        if (!TextCleanup.TryJoinSelectedLines(text, start, length, out var at, out var count, out var replacement, out _))
+            return (false, text, start);
+        return (true, text[..at] + replacement + text[(at + count)..], at + replacement.Length);
+    }
+
+    [Fact]
+    public void Two_selected_lines_become_one()
+    {
+        Assert.Equal((true, "Alpha Beta", 10), Join("Alpha\nBeta", "Alpha\nBeta"));
+    }
+
+    [Fact]
+    public void Three_or_more_selected_lines_become_one()
+    {
+        Assert.Equal("Alpha Beta Gamma", Join("Alpha\nBeta\nGamma", "Alpha\nBeta\nGamma").Result);
+        Assert.Equal("Alpha Beta Gamma Delta", Join("Alpha\nBeta\nGamma\nDelta", "Alpha\nBeta\nGamma\nDelta").Result);
+    }
+
+    [Fact]
+    public void The_wrapped_pdf_row_joins_into_one_logical_line()
+    {
+        var text = "01-02 Kael Dravorn\nthe scarred scout\nfrom the north\n03-04 Morthan Vex";
+
+        var (joined, result, _) = Join(text, "01-02 Kael Dravorn\nthe scarred scout\nfrom the north");
+
+        Assert.True(joined);
+        Assert.Equal("01-02 Kael Dravorn the scarred scout from the north\n03-04 Morthan Vex", result);
+    }
+
+    [Fact]
+    public void Whitespace_at_each_line_boundary_is_trimmed_to_exactly_one_space()
+    {
+        var text = "Alpha   \n   Beta";
+        Assert.Equal("Alpha Beta", Join(text, text).Result);
+
+        var tabs = "\tAlpha\t\n\t Beta \t";
+        Assert.Equal("Alpha Beta", Join(tabs, tabs).Result);
+    }
+
+    [Fact]
+    public void Spacing_inside_a_line_is_left_as_it_was()
+    {
+        var text = "Alpha  one\nBeta";
+        Assert.Equal("Alpha  one Beta", Join(text, text).Result); // only the join itself is normalized; Normalize Text is separate
+    }
+
+    [Theory]
+    [InlineData("Alpha\n\nBeta")]
+    [InlineData("Alpha\n   \nBeta")]
+    [InlineData("Alpha\n\n\n\t\nBeta")]
+    [InlineData("\nAlpha\nBeta\n")]
+    public void Blank_selected_lines_are_dropped_without_extra_spaces(string text)
+    {
+        Assert.Equal("Alpha Beta", Join(text, text).Result.Trim('\n'));
+    }
+
+    [Fact]
+    public void Text_outside_the_selected_lines_is_preserved_exactly()
+    {
+        var (joined, result, caret) = Join("KEEP\nAlpha\nBeta\nKEEP2", "Alpha\nBeta");
+
+        Assert.True(joined);
+        Assert.Equal("KEEP\nAlpha Beta\nKEEP2", result);
+        Assert.Equal("KEEP\nAlpha Beta".Length, caret); // at the end of the joined text
+    }
+
+    [Fact]
+    public void CRLF_and_mixed_line_breaks_outside_the_selection_are_kept()
+    {
+        var text = "KEEP\r\nAlpha\r\nBeta\nGamma\r\nKEEP2";
+        Assert.Equal("KEEP\r\nAlpha Beta Gamma\r\nKEEP2", Join(text, "Alpha\r\nBeta\nGamma").Result);
+    }
+
+    [Fact]
+    public void Hyphens_are_joined_literally_not_dehyphenated()
+    {
+        Assert.Equal("well- made weapon", Join("well-\nmade weapon", "well-\nmade weapon").Result);
+    }
+
+    [Fact]
+    public void Replacement_characters_are_left_untouched()
+    {
+        var text = "Caf� in the\nwoods �";
+        Assert.Equal("Caf� in the woods �", Join(text, text).Result);
+    }
+
+    [Fact]
+    public void Nothing_happens_without_a_selection_so_the_single_line_join_applies()
+    {
+        Assert.False(Join("Alpha\nBeta", 7, 0).Joined);
+    }
+
+    [Fact]
+    public void A_selection_within_one_line_is_not_a_bulk_join()
+    {
+        Assert.False(Join("Alpha\nBeta words", "words").Joined);
+        Assert.False(Join("Alpha\nBeta", "Beta").Joined);
+    }
+
+    [Fact]
+    public void One_whole_line_selected_with_its_line_break_is_not_a_bulk_join()
+    {
+        // Selecting "Alpha\n" ends at the very start of "Beta": nothing of Beta's line is selected.
+        Assert.False(Join("Alpha\nBeta", "Alpha\n").Joined);
+    }
+
+    [Fact]
+    public void A_selection_ending_at_the_start_of_the_next_line_does_not_pull_that_line_in()
+    {
+        Assert.Equal("Alpha Beta\nGamma", Join("Alpha\nBeta\nGamma", "Alpha\nBeta\n").Result);
+    }
+
+    // ---- partial-line selections: the whole touched lines are joined, and the unselected parts are kept -------------
+
+    [Fact]
+    public void A_selection_starting_and_ending_mid_line_joins_the_whole_touched_lines()
+    {
+        var text = "KEEP\n01-02 Kael Dravorn\nthe scarred scout\nKEEP2";
+
+        var (joined, result, _) = Join(text, "Dravorn\nthe scarred");
+
+        Assert.True(joined);
+        Assert.Equal("KEEP\n01-02 Kael Dravorn the scarred scout\nKEEP2", result); // "01-02 Kael " and " scout" are kept
+    }
+
+    [Fact]
+    public void A_selection_from_the_end_of_one_line_takes_that_line_break_and_joins_across_it()
+    {
+        var text = "Alpha\nBeta\nGamma";
+        var start = text.IndexOf('\n'); // right after "Alpha", before its line break
+
+        Assert.Equal("Alpha Beta\nGamma", Join(text, start, 2).Result); // "\nB"
+    }
+
+    [Fact]
+    public void A_partial_selection_never_loses_or_reorders_any_non_whitespace_text()
+    {
+        var text = "one two\nthree four\nfive six";
+        for (var start = 0; start < text.Length; start++)
+            for (var length = 1; start + length <= text.Length; length++)
+            {
+                var (joined, result, caret) = Join(text, start, length);
+                if (!joined) continue;
+                Assert.Equal(string.Concat(text.Where(c => !char.IsWhiteSpace(c))), string.Concat(result.Where(c => !char.IsWhiteSpace(c))));
+                Assert.DoesNotContain("  ", result);
+                Assert.InRange(caret, 0, result.Length);
+            }
+    }
+}
+
 public class NormalizePastedTextTests
 {
     [Fact]

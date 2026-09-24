@@ -19,6 +19,8 @@
 
         <!-- Raw-text cleanup before parsing: fixes clipboard damage the parser might otherwise lose or misclassify. -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+            <Button Content="Join Lines" Padding="8,3" Margin="0,0,6,0" Click="OnJoinLinesClick"
+                    ToolTip="Ctrl+J — join the selected lines into one line, or the current line into the line above it" />
             <Button Content="Normalize Text" Padding="8,3" Click="OnNormalizeTextClick"
                     ToolTip="Fix non-breaking spaces, repeated whitespace and fi/fl ligatures, one line at a time" />
             <Button Content="Dehyphenate" Padding="8,3" Margin="6,0,0,0" Click="OnDehyphenateClick"
@@ -36,7 +38,7 @@
         <TextBox x:Name="PasteSourceBox" Text="{Binding SourceText, UpdateSourceTrigger=PropertyChanged}"
                  AcceptsReturn="True" AcceptsTab="False" TextWrapping="NoWrap"
                  FontFamily="Consolas" FontSize="14"
-                 ToolTip="Ctrl+J — join the current line with the line above it"
+                 ToolTip="Ctrl+J — join the selected lines into one line, or the current line into the line above it"
                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
             <TextBox.InputBindings>
                 <KeyBinding Key="Return" Modifiers="Ctrl" Command="{Binding InterpretCommand}" />
