@@ -21,16 +21,28 @@ public sealed class Folder
 }
 
 /// <summary>What one roll showed, as text: the data stored for Recent Rolls. It never refers to entries.</summary>
-public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText);
+/// <param name="RollValue">The final value the table was resolved with, after any <paramref name="SituationalModifier"/>.</param>
+/// <param name="SituationalModifier">The temporary modifier this roll used (see <see cref="Domain.SituationalModifier"/>); 0 for none.</param>
+public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText, int SituationalModifier = 0);
 
 /// <summary>A stored roll snapshot. It stays readable after its table is renamed, edited or deleted (then <see cref="TableId"/> is null).</summary>
-public sealed record RollHistoryItem(long Id, long? TableId, string TableName, string DiceText, int RollValue, string ResultText, DateTime RolledUtc)
+public sealed record RollHistoryItem(long Id, long? TableId, string TableName, string DiceText, int RollValue, string ResultText, DateTime RolledUtc,
+    int SituationalModifier = 0)
 {
-    /// <summary>The roll as the dice show it: numeric 100 on a d100 reads "00".</summary>
-    public string RollDisplay => DiceExpression.TryParse(DiceText, out var dice) ? dice.FormatValue(RollValue) : RollValue.ToString();
+    /// <summary>
+    /// The final roll. Unmodified, it reads as the dice show it (numeric 100 on a d100 reads "00"); with a situational
+    /// modifier it is a calculated number, not a die face, so it is shown plainly.
+    /// </summary>
+    public string RollDisplay => SituationalModifier == 0 && DiceExpression.TryParse(DiceText, out var dice) ? dice.FormatValue(RollValue) : RollValue.ToString();
 
-    /// <summary>Readable snapshot: table, dice and roll, then each result set's output.</summary>
-    public string FullText => $"{TableName}\n{DiceText} → {RollDisplay}\n\n{ResultText}";
+    /// <summary>How a modified roll was reached ("11 +3 situational"); empty for an unmodified one.</summary>
+    public string SituationalBreakdown => SituationalModifier == 0 ? ""
+        : $"{RollValue - SituationalModifier} {Domain.SituationalModifier.Signed(SituationalModifier)} situational";
+
+    /// <summary>Readable snapshot: table, dice and roll (and how a modifier reached it), then each result set's output.</summary>
+    public string FullText => SituationalModifier == 0
+        ? $"{TableName}\n{DiceText} → {RollDisplay}\n\n{ResultText}"
+        : $"{TableName}\n{DiceText} → {RollDisplay} ({SituationalBreakdown})\n\n{ResultText}";
 }
 
 /// <summary>Lightweight row for listing tables without loading their entries. <see cref="FolderName"/> is "Unfiled" when <see cref="FolderId"/> is null.</summary>

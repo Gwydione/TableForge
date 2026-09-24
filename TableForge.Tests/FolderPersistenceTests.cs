@@ -39,7 +39,7 @@ public class FolderPersistenceTests
         {
             raw.Open();
             Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
-            Assert.Equal(5, DatabaseMigrations.GetVersion(raw));
+            Assert.Equal(6, DatabaseMigrations.GetVersion(raw));
         }
 
         // Every existing table ends up Unfiled; no default folder is invented.

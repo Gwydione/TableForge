@@ -822,4 +822,71 @@ public class DiceSelectorViewTests
             finally { window.Close(); }
         });
     }
+
+    /// <summary>
+    /// Regression: the Dice choice sat below the folder and table lists, so once a collection had folders and five recent
+    /// tables (each with its folder line) it was pushed below the left pane's fold at the default window size — present and
+    /// "Visible", but only reachable by scrolling. It now sits above those lists; this checks it is really on screen.
+    /// </summary>
+    [Fact]
+    public void The_dice_choice_is_on_screen_without_scrolling_at_the_default_size_even_with_a_full_sidebar()
+    {
+        Sta.Run(() =>
+        {
+            using var temp = new TempDatabase();
+            using var db = temp.Open();
+            var c = db.CreateCollection("Campaign");
+            var folders = new[] { "Character Creation", "Combat", "Exploration", "Loot", "Travel", "Weather" }
+                .Select(n => db.CreateFolder(c.Id, n)).ToList();
+            for (var i = 0; i < 12; i++)
+            {
+                var table = db.SaveTable(Fixtures.Table(DiceExpression.Parse("d20"), (1, 20, "Anything"))
+                    .Also(t => { t.Name = $"Table {i + 1}"; t.CollectionId = c.Id; t.FolderId = folders[i % folders.Count].Id; }));
+                if (i < 5) db.MarkTableUsed(table.Id);                             // a full Recent tables list
+            }
+
+            var providers = new DiceProviderViewModel(new FixedDice(4), new DddiceDiceProvider(new FakeDddiceRoller()));
+            var main = new MainViewModel(db, providers);
+            var window = new MainWindow                                             // default size: 1200 x 820
+            {
+                DataContext = main,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false,
+            };
+            window.Show();
+            try
+            {
+                void Layout() { window.Dispatcher.Invoke(DispatcherPriority.ContextIdle, () => { }); window.UpdateLayout(); }
+                Layout();
+                var pane = (ScrollViewer)window.FindName("LeftScroll");
+
+                void AssertOnScreen(string name)
+                {
+                    var element = (FrameworkElement)window.FindName(name);
+                    Assert.True(element.IsVisible, $"{name} should be visible");
+                    var top = element.TranslatePoint(new Point(0, 0), pane).Y;
+                    Assert.True(top >= 0 && top + element.ActualHeight <= pane.ViewportHeight,
+                        $"{name} is outside the left pane's visible area (top {top:0}, height {element.ActualHeight:0}, viewport {pane.ViewportHeight:0})");
+                }
+
+                Assert.Equal(0, pane.VerticalOffset);
+                Assert.True(pane.ExtentHeight > pane.ViewportHeight, "the test needs a sidebar taller than the window, as in real use");
+                Assert.Equal(5, main.RecentTables.Count);
+                AssertOnScreen("BuiltInRadio");
+                AssertOnScreen("DddiceRadio");
+
+                main.SelectedTable = main.Tables.First();                          // opening a table does not move them
+                Layout();
+                Assert.IsType<RollViewModel>(main.Current);
+                Assert.Equal(0, pane.VerticalOffset);
+                AssertOnScreen("BuiltInRadio");
+                AssertOnScreen("DddiceRadio");
+
+                var modifier = ViewTests.FindAll<TextBox>(window).Single(t => t.Name == "ModifierBox"); // RC11's Roll-screen field is still there
+                Assert.True(modifier.IsVisible);
+                Assert.Equal("0", modifier.Text);
+            }
+            finally { window.Close(); }
+        });
+    }
 }

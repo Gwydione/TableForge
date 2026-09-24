@@ -94,6 +94,13 @@ public static class DatabaseMigrations
         ALTER TABLE Tables ADD COLUMN FolderId INTEGER NULL REFERENCES Folders(Id) ON DELETE SET NULL;
         CREATE INDEX IX_Tables_FolderId ON Tables(FolderId);
         """,
+
+        // 6: the temporary situational modifier a recorded roll used. RollValue stays the final value the table was
+        // resolved with; this only records how it was reached. Every existing history row gets 0 (no modifier), which is
+        // exactly what those rolls were. The live Modifier field itself is never stored anywhere.
+        """
+        ALTER TABLE RollHistory ADD COLUMN SituationalModifier INTEGER NOT NULL DEFAULT 0 CHECK (SituationalModifier BETWEEN -1000 AND 1000);
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

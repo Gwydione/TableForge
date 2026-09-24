@@ -458,10 +458,10 @@ public sealed class AppDatabase : IDisposable
         long? tableId;
         using (var insert = Command(tx,
             """
-            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc)
+            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier)
             VALUES (
                 CASE WHEN EXISTS (SELECT 1 FROM Tables WHERE Id = $table) THEN $table ELSE NULL END,
-                $name, $dice, $roll, $result, $rolled);
+                $name, $dice, $roll, $result, $rolled, $situational);
             SELECT last_insert_rowid(), TableId FROM RollHistory WHERE Id = last_insert_rowid();
             """))
         {
@@ -471,6 +471,7 @@ public sealed class AppDatabase : IDisposable
             insert.Parameters.AddWithValue("$roll", snapshot.RollValue);
             insert.Parameters.AddWithValue("$result", snapshot.ResultText);
             insert.Parameters.AddWithValue("$rolled", FormatUtc(rolledUtc));
+            insert.Parameters.AddWithValue("$situational", snapshot.SituationalModifier);
             using var reader = insert.ExecuteReader();
             reader.Read();
             id = reader.GetInt64(0);
@@ -485,7 +486,8 @@ public sealed class AppDatabase : IDisposable
         }
 
         tx.Commit();
-        return new RollHistoryItem(id, tableId, snapshot.TableName, snapshot.DiceText, snapshot.RollValue, snapshot.ResultText, rolledUtc);
+        return new RollHistoryItem(id, tableId, snapshot.TableName, snapshot.DiceText, snapshot.RollValue, snapshot.ResultText, rolledUtc,
+            snapshot.SituationalModifier);
     }
 
     /// <summary>Recent rolls, newest first.</summary>
@@ -493,13 +495,13 @@ public sealed class AppDatabase : IDisposable
     {
         using var cmd = _connection.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc FROM RollHistory ORDER BY Id DESC LIMIT $limit";
+            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier FROM RollHistory ORDER BY Id DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$limit", limit);
         using var reader = cmd.ExecuteReader();
         var list = new List<RollHistoryItem>();
         while (reader.Read())
             list.Add(new RollHistoryItem(reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.GetString(2),
-                reader.GetString(3), reader.GetInt32(4), reader.GetString(5), ParseUtc(reader.GetString(6))));
+                reader.GetString(3), reader.GetInt32(4), reader.GetString(5), ParseUtc(reader.GetString(6)), reader.GetInt32(7)));
         return list;
     }
 

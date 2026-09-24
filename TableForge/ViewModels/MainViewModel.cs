@@ -12,7 +12,8 @@ public sealed class RecentRollViewModel(RollHistoryItem item)
 {
     public RollHistoryItem Item { get; } = item;
     public string TableName => Item.TableName;
-    public string RollDisplay => Item.RollDisplay;
+    /// <summary>The final roll, with the situational modifier it used when there was one: "14 (+3)".</summary>
+    public string RollDisplay => Item.SituationalModifier == 0 ? Item.RollDisplay : $"{Item.RollDisplay} ({SituationalModifier.Signed(Item.SituationalModifier)})";
 
     /// <summary>The table was deleted after this roll: the snapshot stays readable but cannot be opened.</summary>
     public bool IsDeleted => Item.TableId is null;

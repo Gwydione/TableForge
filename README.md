@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc10 (V1 Release Candidate 10)**
+**Version 1.0.0-rc11 (V1 Release Candidate 11)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc10 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc11 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -125,6 +125,26 @@ Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still m
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
 The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinary d6 whose order becomes tens and ones.
 
+## Situational modifier
+
+Beside **Roll** is a small **Modifier** box (`0` by default). Type one whole number from `-1000` to `+1000` (`3`, `+3`,
+`-2`; blank means 0) and the next **Roll** adds it to what the dice produced: a d20 that rolls 11 with `+3` is looked up as
+**14**, shown as "Rolled 14" with "11 +3 situational" underneath. The box then goes back to 0. It is for one roll at a
+time; nothing about it is saved with the table, and the table's own dice (`2d6+1`) are never changed by it.
+
+- The sum is used exactly as calculated, even outside the table: a d6 that rolls 1 with `-1` is **0**, which usually
+  shows "No entry covers 0." TableForge never clamps, rerolls or picks the nearest row — whether that number means
+  something is up to your game. That roll still uses the modifier up.
+- Anything that is not one whole number in range (`+`, `2.5`, `1d4`, `+1001`) turns Roll off and says why; it is never
+  read as 0. **Enter** in the box rolls.
+- If the dice cannot finish (a dddice roll is cancelled or fails), the modifier stays for the retry. dddice still shows
+  the real die (11); TableForge adds the modifier once the dice settle. The box is locked while dice are in the air.
+- A roll you type yourself is already final, so it ignores the modifier and leaves it waiting. Inline dice rolls ignore
+  it too.
+- Opening a different table, or following a link, starts the box at 0 again.
+- A d66 table has no Modifier box: arithmetic does not respect its tens-and-ones results (35 + 2 is not a d66 result).
+- **Recent rolls** keeps the final number and the modifier used, e.g. `14 (+3)`; hover for "d20 → 14 (11 +3 situational)".
+
 ## Inline dice in results
 
 When a result's own text contains a dice expression TableForge already knows how to roll — `D20 Construction Supplies`,
@@ -143,7 +163,7 @@ Inline results are transient: rolling the parent table again, or following a lin
 
 ## Dice: Built-in or dddice
 
-The **Dice** choice at the bottom of the left pane picks how tables are rolled:
+The **Dice** choice near the top of the left pane (just under **Paste Table…**) picks how tables are rolled:
 
 - **Built-in** (the default): rolls instantly, works offline, needs nothing.
 - **dddice** (3D dice, needs internet): press Roll, watch the dice tumble in a panel above the table, and the table result

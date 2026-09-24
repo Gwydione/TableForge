@@ -49,6 +49,9 @@
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,10">
                                             <TextBlock Text="{Binding Display}" FontSize="16" Foreground="#555" Margin="0,0,0,4" />
+                                            <!-- Only for a roll that used a situational modifier: how the final number was reached. -->
+                                            <TextBlock Text="{Binding Breakdown}" Foreground="#555" Margin="0,-2,0,4"
+                                                       Visibility="{Binding HasBreakdown, Converter={StaticResource BoolToVis}}" />
                                             <ItemsControl ItemsSource="{Binding Lines}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -113,6 +116,21 @@
             <StackPanel x:Name="RollControls" Margin="0,6,0,0">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="RollButton" Content="Roll" FontSize="18" Padding="32,8" Command="{Binding RollCommand}" />
+                <!-- A temporary situational modifier for the next Roll only: added after the dice, then reset to 0. Not for d66,
+                     manual entry or inline rolls, and locked while a roll is in the air (that roll already took its value). -->
+                <StackPanel Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding IsModifierAvailable, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Modifier:" Foreground="#666" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="ModifierBox" Width="54" Padding="4" VerticalContentAlignment="Center"
+                             AutomationProperties.Name="Situational modifier"
+                             ToolTip="Added to the next Roll only (for example +2 or -1), then reset to 0. Not used by a typed roll."
+                             IsEnabled="{Binding IsModifierEditable}"
+                             Text="{Binding ModifierText, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding RollCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </StackPanel>
                 <!-- Shown only while a visual (dddice) roll is in the air; the table result appears when the dice settle. -->
                 <TextBlock x:Name="RollStatusText" Text="{Binding RollStatus}" AutomationProperties.AutomationId="RollStatus"
                            FontSize="16" Foreground="#555" VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -125,6 +143,8 @@
                 </TextBox>
                 <Button Content="Resolve" Padding="14,6" Margin="8,0,0,0" Command="{Binding ResolveManualCommand}" />
             </StackPanel>
+            <TextBlock x:Name="ModifierErrorText" Text="{Binding ModifierError}" Foreground="{StaticResource ProblemText}" Margin="0,6,0,0"
+                       Visibility="{Binding HasModifierError, Converter={StaticResource BoolToVis}}" />
             <TextBlock Text="{Binding Message}" Foreground="{StaticResource ProblemText}" Margin="0,6,0,0" />
             </StackPanel>
 

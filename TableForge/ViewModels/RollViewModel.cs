@@ -139,7 +139,11 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
 }
 
 /// <summary>One numeric roll on a step's table, shown once, with every result set's output.</summary>
-public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines);
+/// <param name="Breakdown">How a situational modifier reached the roll ("11 +3 situational"); empty for an unmodified roll.</param>
+public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "")
+{
+    public bool HasBreakdown => Breakdown.Length > 0;
+}
 
 /// <summary>A table in the linked-roll trail and every roll made on it. Repeat rolls stay in the same step.</summary>
 public sealed class RollStepViewModel(RollableTable table, bool isFirst) : ObservableObject
@@ -209,6 +213,7 @@ public sealed class RollViewModel : ObservableObject
     private readonly Action<RollSnapshot>? _rolled;
     private readonly Func<bool>? _diceReady;
     private string _manualRollText = "";
+    private string _modifierText = "0";
     private string _message = "";
     private bool _isRolling;
     private CancellationTokenSource? _rollCancel;
@@ -226,7 +231,7 @@ public sealed class RollViewModel : ObservableObject
         _tableUsed = tableUsed;
         _rolled = rolled;
         Steps.Add(new RollStepViewModel(table, isFirst: true));
-        RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true));
+        RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
     }
 
@@ -250,7 +255,45 @@ public sealed class RollViewModel : ObservableObject
     /// <summary>The latest numeric roll on the current table; empty before its first roll.</summary>
     public string RollDisplay => Current.Outcomes.LastOrDefault()?.Display ?? "";
 
+    /// <summary>How the latest roll on the current table was reached, when a situational modifier was used ("11 +3 situational"); empty otherwise.</summary>
+    public string RollBreakdown => Current.Outcomes.LastOrDefault()?.Breakdown ?? "";
+
     public string ManualRollText { get => _manualRollText; set => Set(ref _manualRollText, value); }
+
+    /// <summary>
+    /// The situational modifier as typed (see <see cref="SituationalModifier"/>): added to the next successful Roll on the
+    /// current table, then reset to 0. Manual entry and inline rolls ignore it. Lives only in this screen's memory, and
+    /// starts at 0 whenever the current table changes.
+    /// </summary>
+    public string ModifierText
+    {
+        get => _modifierText;
+        set
+        {
+            if (!Set(ref _modifierText, value)) return;
+            Raise(nameof(IsModifierValid));
+            Raise(nameof(HasModifierError));
+            Raise(nameof(ModifierError));
+        }
+    }
+
+    /// <summary>True while <see cref="ModifierText"/> cannot be read (the inverse of <see cref="IsModifierValid"/>, for showing <see cref="ModifierError"/>).</summary>
+    public bool HasModifierError => !IsModifierValid;
+
+    /// <summary>False while <see cref="ModifierText"/> cannot be read; Roll is then unavailable. Always true where the modifier does not apply (d66).</summary>
+    public bool IsModifierValid => !IsModifierAvailable || SituationalModifier.TryParse(ModifierText, out _);
+
+    /// <summary>Why Roll is unavailable, when the modifier cannot be read; empty otherwise.</summary>
+    public string ModifierError => IsModifierValid ? "" : SituationalModifier.InvalidMessage;
+
+    /// <summary>
+    /// A d66 has no modifier: its legal results are 36 separate values, which ordinary arithmetic does not respect (35 + 2 is
+    /// 37, not a d66 result), so the field is not offered there.
+    /// </summary>
+    public bool IsModifierAvailable => !Current.Table.Dice.IsD66;
+
+    /// <summary>The field is locked while a roll is in the air: the roll already captured its value.</summary>
+    public bool IsModifierEditable => !IsRolling;
 
     /// <summary>Feedback for a manual value that cannot be used.</summary>
     public string Message { get => _message; private set => Set(ref _message, value); }
@@ -259,7 +302,12 @@ public sealed class RollViewModel : ObservableObject
     public bool IsRolling
     {
         get => _isRolling;
-        private set { if (Set(ref _isRolling, value)) Raise(nameof(RollStatus)); }
+        private set
+        {
+            if (!Set(ref _isRolling, value)) return;
+            Raise(nameof(RollStatus));
+            Raise(nameof(IsModifierEditable));
+        }
     }
 
     /// <summary>"Rolling…" while a roll is in progress. The table result is not shown until it ends.</summary>
@@ -274,14 +322,22 @@ public sealed class RollViewModel : ObservableObject
     /// <summary>
     /// Asks the chosen provider for a final number and, only when it has one, resolves and shows it. A failed or cancelled roll
     /// changes nothing on screen except a message; it never falls back to another provider by itself.
+    /// The situational modifier is read once, here, before the provider is asked: an unreadable one stops the roll before it
+    /// starts, and a readable one is added to the provider's number after it succeeds (see <see cref="ModifierText"/>).
     /// </summary>
     public Task RollAsync()
     {
         if (IsRolling || !(_diceReady?.Invoke() ?? true)) return RollTask; // a second press while rolling joins the roll already under way
-        return RollTask = RollCoreAsync();
+        var situational = 0;
+        if (IsModifierAvailable && !SituationalModifier.TryParse(ModifierText, out situational))
+        {
+            Message = SituationalModifier.InvalidMessage;
+            return RollTask;
+        }
+        return RollTask = RollCoreAsync(situational);
     }
 
-    private async Task RollCoreAsync()
+    private async Task RollCoreAsync(int situational)
     {
         Message = "";
         var cancel = _rollCancel = new CancellationTokenSource();
@@ -303,7 +359,10 @@ public sealed class RollViewModel : ObservableObject
             if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
             cancel.Dispose();
         }
-        Apply(roll);
+        // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
+        // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
+        Apply(roll + situational, situational);
+        ModifierText = "0";
     }
 
     /// <summary>
@@ -364,16 +423,21 @@ public sealed class RollViewModel : ObservableObject
             Message = $"Enter a whole number from {dice.FormatValue(dice.Min)} to {dice.FormatValue(dice.Max)}.";
     }
 
-    private void Apply(int roll)
+    /// <param name="roll">The final value to resolve: the provider's roll plus <paramref name="situational"/>, or a manual entry as typed.</param>
+    /// <param name="situational">The situational modifier already included in <paramref name="roll"/>; 0 for none.</param>
+    private void Apply(int roll, int situational = 0)
     {
         Message = "";
         var step = Current;
         var dice = step.Table.Dice;
-        var formatted = dice.FormatValue(roll);
+        // A modified roll is a calculated number, not a die face, so it is never shown as d100's "00".
+        string Format(int value) => situational == 0 ? dice.FormatValue(value) : value.ToString();
+        var formatted = Format(roll);
         var display = formatted != roll.ToString() ? $"Rolled {formatted} (numeric {roll})"
             : dice.IsD66 ? $"Rolled {roll} (d66)"   // never shown as a sum: 3 then 5 is 35
             : dice.Modifier != 0 ? $"Rolled {roll} ({dice})"   // keep the expression visible when a modifier was involved: "Rolled 7 (2d6+1)"
             : $"Rolled {roll}";
+        var breakdown = situational == 0 ? "" : $"{dice.FormatValue(roll - situational)} {SituationalModifier.Signed(situational)} situational";
 
         var lines = new List<ResultLineViewModel>();
         foreach (var r in TableResolver.Resolve(step.Table, roll).Results)
@@ -382,19 +446,20 @@ public sealed class RollViewModel : ObservableObject
             lines.Add(r.Status switch
             {
                 ResolutionStatus.Matched => MatchedLine(heading, r.Entry!),
-                ResolutionStatus.NoMatch => new(heading, "", $"No entry covers {dice.FormatValue(roll)}.", true),
-                _ => new(heading, "", $"Ambiguous: {string.Join(" and ", r.Matches.Select(m => $"\"{m.Text}\" ({m.RangeLabel})"))} both cover {dice.FormatValue(roll)}.", true),
+                ResolutionStatus.NoMatch => new(heading, "", $"No entry covers {Format(roll)}.", true),
+                _ => new(heading, "", $"Ambiguous: {string.Join(" and ", r.Matches.Select(m => $"\"{m.Text}\" ({m.RangeLabel})"))} both cover {Format(roll)}.", true),
             });
         }
 
         DeactivateLinks(); // links offered by earlier rolls are superseded by this one
-        step.Add(new RollOutcomeViewModel(display, lines), roll);
+        step.Add(new RollOutcomeViewModel(display, lines, breakdown), roll);
         Raise(nameof(Results));
         Raise(nameof(RollDisplay));
+        Raise(nameof(RollBreakdown));
 
         // What the user saw, as text: each set's output, headed by the set's name when it has one.
         var shown = string.Join("\n", lines.Select(l => l.HasHeading ? $"{l.Heading}: {l.Text}" : l.Text));
-        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown));
+        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown, situational));
     }
 
     private ResultLineViewModel MatchedLine(string heading, TableEntry entry)
@@ -435,6 +500,7 @@ public sealed class RollViewModel : ObservableObject
         DeactivateLinks();
         Steps.Add(new RollStepViewModel(line.LinkTarget, isFirst: false));
         ManualRollText = "";
+        ModifierText = "0"; // a modifier belongs to the table it was typed for, never the one followed to
         Message = "";
         Raise(nameof(Title));
         Raise(nameof(DiceInfo));
@@ -444,6 +510,11 @@ public sealed class RollViewModel : ObservableObject
         Raise(nameof(AlignedRows));
         Raise(nameof(Results));
         Raise(nameof(RollDisplay));
+        Raise(nameof(RollBreakdown));
+        Raise(nameof(IsModifierAvailable));
+        Raise(nameof(IsModifierValid));
+        Raise(nameof(HasModifierError));
+        Raise(nameof(ModifierError));
         _tableUsed?.Invoke(line.LinkTarget.Id);
     }
 
