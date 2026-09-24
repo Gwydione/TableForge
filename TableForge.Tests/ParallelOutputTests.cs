@@ -28,6 +28,19 @@ public class ParallelOutputTests
         "7 Hard -20 2d6\n" +
         "8 Impossible -30 3d6";
 
+    /// <summary>
+    /// A real source whose heading has more words than columns (WIND TYPE | STRENGTH | HULL DAMAGE CAUSED), with a
+    /// multi-word first column, a plain-number column, a dice-text column and a dash standing for "no damage".
+    /// </summary>
+    public const string Wind =
+        "D100 WIND TYPE STRENGTH HULL DAMAGE CAUSED\n" +
+        "01-50 Calm 0 –\n" +
+        "51-65 Breeze 5 D4\n" +
+        "66-80 Moderate Wind 10 D6\n" +
+        "81-90 Strong Wind 20 D6+2\n" +
+        "91-99 Gale 40 D10+5\n" +
+        "100 Hurricane 80 3D6+10";
+
     private static string[] Rows(ResultSetDraft s) => s.Entries.Select(e => $"{e.RangeText} | {e.Text}").ToArray();
 
     [Fact]
@@ -185,6 +198,74 @@ public class ParallelOutputTests
         Assert.Equal(ParseIssueCode.ParallelOutputsSplit, issue.Code);
         Assert.Contains("signed number", issue.Message);
         Assert.Contains("dice expression", issue.Message);
+    }
+
+    // ---- more heading words than columns: typed trailing columns ---------------------------------
+
+    [Fact]
+    public void Wind_splits_into_three_aligned_unnamed_result_sets_by_its_typed_columns()
+    {
+        var draft = TableTextParser.Parse(Wind);
+
+        Assert.Equal("d100", draft.DiceText);                               // D4, D6+2... are result text, not the roll
+        Assert.Equal(3, draft.ResultSets.Count);
+        Assert.All(draft.ResultSets, s => Assert.Equal("", s.Name));        // which words name which column is not guessed
+        Assert.Equal(["Calm", "Breeze", "Moderate Wind", "Strong Wind", "Gale", "Hurricane"], draft.ResultSets[0].Entries.Select(e => e.Text).ToArray());
+        Assert.Equal(["0", "5", "10", "20", "40", "80"], draft.ResultSets[1].Entries.Select(e => e.Text).ToArray());
+        Assert.Equal(["–", "D4", "D6", "D6+2", "D10+5", "3D6+10"], draft.ResultSets[2].Entries.Select(e => e.Text).ToArray());
+        Assert.All(draft.ResultSets, s => Assert.Equal(["01-50", "51-65", "66-80", "81-90", "91-99", "100"], s.Entries.Select(e => e.RangeText).ToArray()));
+
+        var issue = Assert.Single(draft.Issues);
+        Assert.Equal(ParseIssueCode.ParallelOutputsSplit, issue.Code);
+        Assert.Equal(ParseIssueSeverity.Warning, issue.Severity);
+        Assert.Contains("name them", issue.Message);
+    }
+
+    [Fact]
+    public void Wind_named_in_review_saves_and_a_roll_of_55_gives_breeze_5_d4_in_aligned_columns()
+    {
+        using var temp = new TempDatabase();
+        using var db = temp.Open();
+        var draft = TableTextParser.Parse(Wind);
+        foreach (var (set, name) in draft.ResultSets.Zip(["Wind Type", "Strength", "Hull Damage Caused"]))
+            set.Name = name;                                                // what the person does in Review
+        Assert.True(draft.TryBuildTable(db.CreateCollection("C").Id, out var built, out var errors), string.Join("; ", errors));
+
+        var loaded = db.LoadTable(db.SaveTable(built!).Id)!;
+
+        Assert.Equal(new DiceExpression(1, 100), loaded.Dice);
+        Assert.Equal(["Wind Type", "Strength", "Hull Damage Caused"], loaded.ResultSets.Select(s => s.Name).ToArray());
+        Assert.Equal(["Breeze", "5", "D4"], TableResolver.Resolve(loaded, 55).Results.Select(r => r.Entry!.Text).ToArray());
+        Assert.Equal(["Calm", "0", "–"], TableResolver.Resolve(loaded, 1).Results.Select(r => r.Entry!.Text).ToArray());
+        Assert.Empty(TableValidator.Validate(loaded));
+        Assert.True(new ViewModels.RollStepViewModel(loaded, isFirst: true).IsAligned);
+    }
+
+    [Fact]
+    public void Rows_ending_only_in_plain_numbers_stay_one_result_set()
+    {
+        var draft = TableTextParser.Parse("D6 TREASURE FOUND TODAY\n1 Coins 50\n2 Gems 3\n3-6 Arrows 20");
+
+        Assert.Single(draft.ResultSets);
+        Assert.DoesNotContain(draft.Issues, i => i.Code == ParseIssueCode.ParallelOutputsSplit);
+    }
+
+    [Fact]
+    public void Two_plain_number_columns_with_no_signed_or_dice_column_stay_one_result_set()
+    {
+        var draft = TableTextParser.Parse("D6 WEAPON COST AND WEIGHT\n1 Sword 10 3\n2 Long Bow 25 2\n3-6 Spear 5 4");
+
+        Assert.Single(draft.ResultSets);
+        Assert.DoesNotContain(draft.Issues, i => i.Code == ParseIssueCode.ParallelOutputsSplit);
+    }
+
+    [Fact]
+    public void A_column_made_mostly_of_dashes_is_not_evidence_of_a_typed_column()
+    {
+        var draft = TableTextParser.Parse("D6 WIND TYPE STRENGTH HULL DAMAGE\n1 Calm 0 –\n2 Breeze 5 –\n3-4 Gale 40 –\n5-6 Storm 80 D6");
+
+        Assert.Single(draft.ResultSets);
+        Assert.DoesNotContain(draft.Issues, i => i.Code == ParseIssueCode.ParallelOutputsSplit);
     }
 
     // ---- what must stay one result set -----------------------------------------------------------

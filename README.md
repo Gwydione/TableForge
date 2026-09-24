@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc8 (V1 Release Candidate 8)**
+**Version 1.0.0-rc9 (V1 Release Candidate 9)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc8 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc9 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -179,12 +179,19 @@ Not included yet: connecting a dddice account (owned themes, custom dice), OBS o
   before it are ignored) becomes that row's result, until the next number or range starts. A second paragraph after a
   blank line is kept but flagged (a page header or footer may have slipped in).
 - **Result set headings:** `AMBIENT`, `NOISE`, … followed by rows start separate result sets.
-- **Continuation columns** (one table printed in two page columns, `01-02 Ael 51-52 Wulf`): joined into one result set in
-  numeric order, even when extraction squeezed the columns down to single spaces, provided the whole block shows the right
-  column continuing exactly where the left one ends.
+- **Continuation columns** (one table printed in two or more page columns, `01-02 Ael 51-52 Wulf`): joined into one result
+  set in numeric order, even when extraction squeezed the columns down to single spaces, provided the whole block shows each
+  column continuing exactly where the one before it ends. Spans may be written `01-02` or `01 - 02`. Single values
+  (`1 Ael 11 Wulf`) are only read as columns with extra proof — every value followed by the same separator (`1 – Ael`,
+  `1. Ael`), or the heading printed once per column (`D20 RESULT D20 RESULT`) — and the columns must then cover the whole
+  dice range exactly once. A d66 table steps through legal d66 values only. A line that looks like side-by-side columns
+  without that proof is kept as one entry and flagged.
 - **Parallel output columns** (`D8 DIFFICULTY MODIFIER` with rows such as `1 Child's play +30`): each output becomes its own
   result set sharing the row's roll, when every row splits the same way (by column gaps, or a consistent trailing `+30`/`-10`/`2d6`
-  field matching two heading words).
+  field matching two heading words). When the heading has more words than columns (`D100 WIND TYPE STRENGTH HULL DAMAGE CAUSED`),
+  rows still split if two or more trailing columns each hold one recognisable shape all the way down (signed numbers, dice, or
+  plain numbers beside one of those; a lone `–` may stand for "none"). The result sets are then left unnamed — name each one in
+  the box above its column on the Review screen.
 - **Repeated headings** (`D100 SYLLABLE D100 SYLLABLE`) are read as one heading.
 
 Anything the parser is not sure about is kept together and flagged on the Review screen: information (blue) for

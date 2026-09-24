@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 
-    <!-- V1 Release Candidate 8. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.0.0-rc8</Version>
+    <!-- V1 Release Candidate 9. Version drives the file version, the product version and the number shown in the app. -->
+    <Version>1.0.0-rc9</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>TableForge</Product>
     <Description>TableForge - RPG Rollable Tables</Description>

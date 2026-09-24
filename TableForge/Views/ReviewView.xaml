@@ -234,10 +234,13 @@
                      result set underneath (AlignedRowViewModel just groups the same per-set row view models by position),
                      so nothing here merges the domain model. -->
                 <StackPanel DockPanel.Dock="Top" Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+                    <!-- Column widths match an aligned row below (row number 28 + 6 margin, range 80 + 4 margin), and the
+                         third column holds the name editors, so each one sits directly above its own result set's column. -->
                     <Grid Margin="0,0,0,2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="28" />
-                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="84" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
                         <ItemsControl Grid.Column="2" ItemsSource="{Binding ResultSets}">

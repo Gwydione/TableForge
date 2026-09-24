@@ -26,11 +26,12 @@ public static partial class TableTextParser
         var draft = new TableImportDraft { SourceText = source };
 
         var i = 0;
+        var headingCopies = 1;
         while (i < lines.Length && lines[i].Length == 0) i++;
 
         if (i < lines.Length && !EntryLine().IsMatch(lines[i]))
         {
-            ParseHeading(lines[i], i + 1, draft);
+            headingCopies = ParseHeading(lines[i], i + 1, draft);
             i++;
         }
         else
@@ -41,7 +42,7 @@ public static partial class TableTextParser
         }
 
         DiceExpression? dice = DiceExpression.TryParse(draft.DiceText, out var parsed) ? parsed : null;
-        var interpreter = new Interpreter(raw, lines, dice, allowHeadings: true, label: "Line", trackSourceLines: true);
+        var interpreter = new Interpreter(raw, lines, dice, allowHeadings: true, label: "Line", trackSourceLines: true, headingCopies);
         interpreter.Run(i);
 
         draft.ResultSets = interpreter.Sets;
@@ -86,6 +87,7 @@ public static partial class TableTextParser
         var fields = byGaps;
         var typedKind = "";
         if (fields is null && words.Length >= 2) fields = SplitByTrailingFields(set, words.Length, out typedKind);
+        if (fields is null && words.Length >= 3) fields = SplitByTypedTrailingColumns(set, words.Length, out typedKind);
         if (fields is null) return;
 
         var columns = fields[0].Length;
@@ -138,11 +140,16 @@ public static partial class TableTextParser
     /// counterpart of <see cref="SplitByColumnGaps"/> — generalized to any number of outputs, not just two, since PDF
     /// extraction that collapses column gaps to single spaces gives no other structural evidence to split on.
     /// </summary>
-    private static List<string[]>? SplitByTrailingFields(ResultSetDraft set, int columns, out string kind)
+    /// <param name="extended">
+    /// Also accepts whole-number columns (only beside a signed-number or dice column) and a lone dash as a placeholder
+    /// cell. See <see cref="SplitByTypedTrailingColumns"/>.
+    /// </param>
+    private static List<string[]>? SplitByTrailingFields(ResultSetDraft set, int columns, out string kind, bool extended = false)
     {
         kind = "";
         var extra = columns - 1;
         if (columns is < 2 or > 4) return null;
+        if (extended && extra < 2) return null;
 
         var heads = new string[set.Entries.Count];
         var tails = new string[set.Entries.Count][];
@@ -162,22 +169,53 @@ public static partial class TableTextParser
             tails[r] = peeled;
         }
 
+        var shapes = extended
+            ? new[] { ("signed number", SignedNumber()), ("dice expression", DiceExpressionWord()), ("whole number", WholeNumber()) }
+            : new[] { ("signed number", SignedNumber()), ("dice expression", DiceExpressionWord()) };
         var kinds = new string[extra];
         for (var p = 0; p < extra; p++)
         {
+            var cells = Enumerable.Range(0, set.Entries.Count).Select(r => tails[r][p]).ToList();
+            var dashes = extended ? cells.Count(c => DashToken().IsMatch(c)) : 0;
+            var values = cells.Where(c => !extended || !DashToken().IsMatch(c)).ToList();
+            if (values.Count < 2 || values.Count <= dashes) return null; // a dash is a placeholder in a typed column, never the column's evidence
             var found = false;
-            foreach (var (name, shape) in new[] { ("signed number", SignedNumber()), ("dice expression", DiceExpressionWord()) })
+            foreach (var (name, shape) in shapes)
             {
-                if (!Enumerable.Range(0, set.Entries.Count).All(r => shape.IsMatch(tails[r][p]))) continue;
+                if (!values.All(shape.IsMatch)) continue;
                 kinds[p] = name;
                 found = true;
                 break;
             }
             if (!found) return null;
         }
+        // Plain numbers end many ordinary rows ("Arrows 20"), so they only count beside a column of a stronger shape.
+        if (kinds.All(k => k == "whole number")) return null;
 
         kind = string.Join(", ", kinds.Distinct());
         return Enumerable.Range(0, set.Entries.Count).Select(r => (string[])[heads[r], .. tails[r]]).ToList();
+    }
+
+    /// <summary>
+    /// The fallback when the heading's words do not give the column count ("D100 WIND TYPE STRENGTH HULL DAMAGE CAUSED" is
+    /// six words over three columns): three or four columns, whichever one alone fits, each column after the free-text first
+    /// one holding a single recognisable shape all the way down. Two or more such typed columns are the structural evidence
+    /// here, so one typed trailing field under a longer heading is still not guessed at. Whole numbers count only beside a
+    /// signed-number or dice column, and a lone dash may stand in for a value ("–" for no hull damage). Which heading words
+    /// name which column is not guessed either: the result sets stay unnamed unless the words match the columns one to one.
+    /// </summary>
+    private static List<string[]>? SplitByTypedTrailingColumns(ResultSetDraft set, int words, out string kind)
+    {
+        kind = "";
+        List<string[]>? only = null;
+        foreach (var columns in new[] { 3, 4 })
+        {
+            if (columns > words || SplitByTrailingFields(set, columns, out var k, extended: true) is not { } fields) continue;
+            if (only is not null) { kind = ""; return null; } // both counts fit: ambiguous, so nothing is split
+            only = fields;
+            kind = k;
+        }
+        return only;
     }
 
     /// <summary>
@@ -195,7 +233,10 @@ public static partial class TableTextParser
 
     // ---- interpretation of rows, headings and columns ----------------------------------------
 
-    private sealed class Interpreter(string[] raw, string[] lines, DiceExpression? dice, bool allowHeadings, string label, bool trackSourceLines)
+    /// <param name="headingCopies">
+    /// How many times the table heading was printed side by side (1 unless it was recovered as repeated; 0 if it held different dice).
+    /// </param>
+    private sealed class Interpreter(string[] raw, string[] lines, DiceExpression? dice, bool allowHeadings, string label, bool trackSourceLines, int headingCopies = 1)
     {
         private sealed class Block
         {
@@ -334,9 +375,12 @@ public static partial class TableTextParser
                           "but there was not enough evidence that they are side-by-side columns (a lone line, or neighbouring lines that do not " +
                           "form consistent columns), so it is kept as one entry. If they are columns, split it.";
             }
-            else if (GaplessAt(k) is { } flattened && GaplessBlockIsValid(k))
+            else if (GaplessAt(k) is { } flattened)
             {
-                return flattened; // page columns that extraction squeezed down to single spaces, proven by the whole block
+                if (GaplessBlockIsValid(k)) return flattened.Pieces; // page columns squeezed down to single spaces, proven by the whole block
+                if (flattened.Kind != GaplessKind.Spans)
+                    warning = $"{label} {k + 1} seems to hold {flattened.Pieces.Count} numbered results side by side ({string.Join(", ", flattened.Pieces.Select(p => p.Range))}) " +
+                              "but the lines around it do not form complete columns covering the whole dice range, so it is kept as one entry. If they are columns, split it.";
             }
 
             var single = new LineEntry(RangeSeparator().Replace(m.Groups["range"].Value, "-"), LeadingSeparator().Replace(m.Groups["text"].Value, ""));
@@ -433,36 +477,87 @@ public static partial class TableTextParser
 
         // ---- continuation columns squeezed to single spaces ----------------------------------------
         //
-        // A table printed in two page columns ("01-02 Ael 51-52 Wulf") is one result set whose second half continues the first.
+        // A table printed in page columns ("01-02 Ael 51-52 Wulf") is one result set whose later columns continue the first.
         // When extraction removes the visual gap there is nothing to look at within a line, so the evidence has to come from the
-        // whole block: every line holds two explicit spans, each column runs on consecutively down the block, and the right
-        // column picks up exactly where the left one ends. Anything less stays one row per line and is flagged.
+        // whole block: every line holds the same number of ranges, each column runs on consecutively down the block, and each
+        // column picks up exactly where the one before it ends. Anything less stays one row per line and is flagged.
+        //
+        // Two explicit spans per line (01-02, also written 01 - 02) are distinctive enough on their own. Single values ("1 A 11 K")
+        // look like prices or counts far too easily, so they are only read as columns with one of two further proofs:
+        //   * every value on every line is followed by the same separator ("1 – Desecrate 26 – Expose", "1. A 11. K"); or
+        //   * the heading is printed once per column ("D20 RESULT D20 RESULT"), as many times as each line has values;
+        // and, either way, the columns are all the same length and cover the whole dice range exactly once.
 
         private const int MinFlattenedColumnLines = 4;
-        private readonly Dictionary<int, List<LineEntry>?> _gaplessCache = [];
+        private readonly Dictionary<int, GaplessLine?> _gaplessCache = [];
         private readonly Dictionary<int, bool> _gaplessBlocks = [];
 
-        /// <summary>The line read as "span text span text", if it holds exactly one further span after its first (else null).</summary>
-        private List<LineEntry>? GaplessAt(int k)
+        private enum GaplessKind { Spans, Separated, RepeatedHeading }
+
+        private sealed record GaplessLine(GaplessKind Kind, List<LineEntry> Pieces);
+
+        /// <summary>The line read as two or more "range text" groups, if it has one of the shapes above (else null).</summary>
+        private GaplessLine? GaplessAt(int k)
         {
             if (k < 0 || k >= lines.Length || lines[k].Length == 0) return null;
             if (_gaplessCache.TryGetValue(k, out var cached)) return cached;
 
-            List<LineEntry>? result = null;
-            var tokens = lines[k].Split(' ');
-            if (tokens.Length >= 4 && SpanToken().IsMatch(tokens[0]))
-            {
-                var spans = Enumerable.Range(1, tokens.Length - 1).Where(i => SpanToken().IsMatch(tokens[i])).ToList();
-                if (spans.Count == 1 && spans[0] >= 2 && spans[0] <= tokens.Length - 2)
-                {
-                    var j = spans[0];
-                    var left = string.Join(' ', tokens[1..j]);
-                    var right = string.Join(' ', tokens[(j + 1)..]);
-                    if (left.Any(char.IsLetter) && right.Any(char.IsLetter))
-                        result = [new(RangeSeparator().Replace(tokens[0], "-"), left), new(RangeSeparator().Replace(tokens[j], "-"), right)];
-                }
-            }
+            var tokens = SpacedSpan().Replace(lines[k], "${a}-${b}").Split(' ');
+            var result = SpanToken().IsMatch(tokens[0]) ? SpanPair(tokens) : SeparatedGroups(tokens) ?? RepeatedHeadingGroups(tokens);
             return _gaplessCache[k] = result;
+        }
+
+        /// <summary>"span text span text": exactly one further span after the first.</summary>
+        private static GaplessLine? SpanPair(string[] tokens)
+        {
+            var spans = Enumerable.Range(1, tokens.Length - 1).Where(i => SpanToken().IsMatch(tokens[i])).ToList();
+            return spans.Count == 1 ? Groups(GaplessKind.Spans, tokens, [0, spans[0]], valueTokens: 1) : null;
+        }
+
+        /// <summary>
+        /// "1 – Desecrate 26 – Expose …" (a dash on its own after each value) or "1. Desecrate 26. Expose …" (a mark attached to
+        /// each value): every group after the first starts with a whole number carrying exactly the separator the first one has.
+        /// </summary>
+        private static GaplessLine? SeparatedGroups(string[] tokens)
+        {
+            if (tokens.Length < 2) return null;
+            string mark;
+            int valueTokens;
+            if (WholeNumber().IsMatch(tokens[0]) && DashToken().IsMatch(tokens[1])) (mark, valueTokens) = (tokens[1], 2);
+            else if (MarkedNumber().Match(tokens[0]) is { Success: true } m) (mark, valueTokens) = (m.Groups["mark"].Value, 1);
+            else return null;
+
+            bool Starts(int i) => valueTokens == 2
+                ? i + 1 < tokens.Length && WholeNumber().IsMatch(tokens[i]) && tokens[i + 1] == mark
+                : MarkedNumber().Match(tokens[i]) is { Success: true } v && v.Groups["mark"].Value == mark;
+
+            var starts = Enumerable.Range(0, tokens.Length).Where(Starts).ToList();
+            return starts.Count >= 2 ? Groups(GaplessKind.Separated, tokens, starts, valueTokens) : null;
+        }
+
+        /// <summary>"1 A 11 K" under a heading printed once per column: exactly as many values on the line as heading copies.</summary>
+        private GaplessLine? RepeatedHeadingGroups(string[] tokens)
+        {
+            if (headingCopies < 2 || dice is null || !WholeNumber().IsMatch(tokens[0])) return null;
+            var starts = Enumerable.Range(0, tokens.Length).Where(i => RangeToken().IsMatch(tokens[i])).ToList();
+            return starts.Count == headingCopies ? Groups(GaplessKind.RepeatedHeading, tokens, starts, valueTokens: 1) : null;
+        }
+
+        /// <summary>The groups starting at <paramref name="starts"/>, provided each has text with a letter after its value.</summary>
+        private static GaplessLine? Groups(GaplessKind kind, string[] tokens, List<int> starts, int valueTokens)
+        {
+            var pieces = new List<LineEntry>();
+            for (var g = 0; g < starts.Count; g++)
+            {
+                var from = starts[g] + valueTokens;
+                var to = g + 1 < starts.Count ? starts[g + 1] : tokens.Length;
+                if (from >= to) return null;
+                var text = string.Join(' ', tokens[from..to]);
+                if (!text.Any(char.IsLetter)) return null;
+                var value = kind == GaplessKind.Separated && valueTokens == 1 ? MarkedNumber().Match(tokens[starts[g]]).Groups["value"].Value : tokens[starts[g]];
+                pieces.Add(new(RangeSeparator().Replace(value, "-"), text));
+            }
+            return new GaplessLine(kind, pieces);
         }
 
         private bool GaplessBlockIsValid(int k)
@@ -477,31 +572,50 @@ public static partial class TableTextParser
         {
             if (last - first + 1 < MinFlattenedColumnLines) return false;
 
-            var left = new List<ParsedRange>();
-            var right = new List<ParsedRange>();
+            var shape = GaplessAt(first)!;
+            var columns = shape.Pieces.Select(_ => new List<ParsedRange>()).ToList();
             for (var line = first; line <= last; line++)
             {
                 var pieces = GaplessAt(line)!;
-                if (Parse(pieces[0].Range) is not { } a || Parse(pieces[1].Range) is not { } b) return false;
-                left.Add(a);
-                right.Add(b);
+                if (pieces.Kind != shape.Kind || pieces.Pieces.Count != columns.Count) return false;   // one shape for the whole block
+                for (var c = 0; c < columns.Count; c++)
+                {
+                    if (Parse(pieces.Pieces[c].Range) is not { } range) return false;
+                    columns[c].Add(range);
+                }
             }
 
-            for (var i = 1; i < left.Count; i++)
-                if (left[i].Min != left[i - 1].Max + 1 || right[i].Min != right[i - 1].Max + 1) return false; // each column runs on
+            foreach (var column in columns)
+                for (var i = 1; i < column.Count; i++)
+                    if (!Follows(column[i - 1], column[i])) return false; // each column runs on
 
-            // The left column may be one row longer than the right (an odd row count): those rows follow as ordinary lines.
-            var leftEnd = left[^1].Max;
-            for (var n = last + 1; n < lines.Length && lines[n].Length > 0; n++)
+            // With two columns (as before), the left column may be one row longer than the right: those rows follow as ordinary
+            // lines. Separated and wider layouts must have columns of equal length.
+            var ends = columns.Select(c => c[^1]).ToList();
+            var ranges = columns.SelectMany(c => c).ToList();
+            if (columns.Count == 2 && shape.Kind != GaplessKind.Separated)
             {
-                var m = EntryLine().Match(lines[n]);
-                if (!m.Success || Parse(RangeSeparator().Replace(m.Groups["range"].Value, "-")) is not { } extra || extra.Min != leftEnd + 1) break;
-                leftEnd = extra.Max;
+                for (var n = last + 1; n < lines.Length && lines[n].Length > 0; n++)
+                {
+                    var m = EntryLine().Match(lines[n]);
+                    if (!m.Success || Parse(RangeSeparator().Replace(m.Groups["range"].Value, "-")) is not { } extra || !Follows(ends[0], extra)) break;
+                    ends[0] = extra;
+                    ranges.Add(extra);
+                }
             }
 
-            if (right[0].Min != leftEnd + 1) return false; // the right column continues exactly where the left one ends
-            return dice is not { } d || (left[0].Min >= d.Min && right[^1].Max <= d.Max);
+            for (var c = 1; c < columns.Count; c++)
+                if (!Follows(ends[c - 1], columns[c][0])) return false; // each column continues exactly where the one before it ends
+
+            if (shape.Kind != GaplessKind.Spans && headingCopies == 0) return false;   // single values need one certain die
+            if (dice is not { } d) return shape.Kind == GaplessKind.Spans;
+            if (!ranges.All(r => d.IsLegal(r.Min) && d.IsLegal(r.Max))) return false;   // a d66 has no 17 or 60
+            return shape.Kind == GaplessKind.Spans || (columns[0][0].Min == d.Min && ends[^1].Max == d.Max);
         }
+
+        /// <summary>Whether <paramref name="next"/> starts right after <paramref name="previous"/> ends (16 then 21 on a d66).</summary>
+        private bool Follows(ParsedRange previous, ParsedRange next) =>
+            dice is { IsD66: true } d ? d.NextLegal(previous.Max) == next.Min : next.Min == previous.Max + 1;
 
         private ParsedRange? Parse(string range) => RangeText.TryParse(range, dice, out var r, out _) ? r : null;
 
@@ -679,7 +793,11 @@ public static partial class TableTextParser
 
     // ---- table heading ----------------------------------------------------------------------
 
-    private static void ParseHeading(string line, int lineNo, TableImportDraft draft)
+    /// <returns>
+    /// How many times the heading was printed side by side: 1, the number of copies of a repeated heading, or 0 when it held
+    /// different dice expressions (so no single die is certain).
+    /// </returns>
+    private static int ParseHeading(string line, int lineNo, TableImportDraft draft)
     {
         string name = line;
         string? diceText = null;
@@ -707,19 +825,21 @@ public static partial class TableTextParser
                 SourceLine: lineNo));
         }
 
-        name = RecoverRepeatedHeading(line, name, diceText, lineNo, draft);
+        name = RecoverRepeatedHeading(line, name, diceText, lineNo, draft, out var copies);
         draft.TableName = NormalizeName(name);
         if (draft.TableName.Length == 0)
             draft.Issues.Add(new(ParseIssueCode.NoTableName, ParseIssueSeverity.Warning, ParseIssueTarget.TableName,
                 "The heading has no table name; enter one.", SourceLine: lineNo));
+        return copies;
     }
 
     /// <summary>
     /// PDF extraction prints a heading once per page column: "D100 SYLLABLE D100 SYLLABLE". When the same dice and the same
     /// words repeat, that is one heading. Any other second dice expression is left alone and flagged, not guessed at.
     /// </summary>
-    private static string RecoverRepeatedHeading(string line, string name, string? diceText, int lineNo, TableImportDraft draft)
+    private static string RecoverRepeatedHeading(string line, string name, string? diceText, int lineNo, TableImportDraft draft, out int copies)
     {
+        copies = 1;
         if (diceText is null || !DiceWord().IsMatch(name)) return name;
 
         var segments = DiceWord().Split(name).Select(s => s.Trim()).ToArray();
@@ -733,12 +853,14 @@ public static partial class TableTextParser
             draft.Issues.Add(new(ParseIssueCode.HeadingRepeated, ParseIssueSeverity.Info, ParseIssueTarget.TableName,
                 $"The heading “{line}” repeats once per printed column, so it was read as the single heading “{NormalizeName(segments[0])}”.",
                 SourceLine: lineNo));
+            copies = segments.Length;
             return segments[0];
         }
 
         draft.Issues.Add(new(ParseIssueCode.AmbiguousHeading, ParseIssueSeverity.Warning, ParseIssueTarget.TableName,
             $"The heading “{line}” holds more than one dice expression and does not simply repeat, so it was kept as one heading. " +
             "Check the table name and dice.", SourceLine: lineNo));
+        copies = 0; // no single die is known for certain
         return name;
     }
 
@@ -820,6 +942,26 @@ public static partial class TableTextParser
     // A single explicit span token, e.g. 01-02.
     [GeneratedRegex(@"^[0-9]+[-–—][0-9]+$")]
     private static partial Regex SpanToken();
+
+    // A span written with spaces around its dash, e.g. "01 - 02": read as the one token 01-02 when looking for gapless columns.
+    [GeneratedRegex(@"(?<![0-9])(?<a>[0-9]+) [-–—] (?<b>[0-9]+)(?![0-9])")]
+    private static partial Regex SpacedSpan();
+
+    // A single whole number token, e.g. the 11 in "1 A 11 K".
+    [GeneratedRegex(@"^[0-9]+$")]
+    private static partial Regex WholeNumber();
+
+    // A dash standing alone as a separator after a roll value, e.g. the "–" in "1 – Desecrate".
+    [GeneratedRegex(@"^[-–—]$")]
+    private static partial Regex DashToken();
+
+    // A roll value with its separator attached, e.g. "1." "1)" "1:" or "1–".
+    [GeneratedRegex(@"^(?<value>[0-9]+)(?<mark>[.):\-–—])$")]
+    private static partial Regex MarkedNumber();
+
+    // A range token of either shape: 11 or 51-52.
+    [GeneratedRegex(@"^[0-9]+(?:[-–—][0-9]+)?$")]
+    private static partial Regex RangeToken();
 
     // A dice expression (with its optional modifier) standing alone as a word, e.g. the "D100" in "D100 SYLLABLE D100 SYLLABLE".
     [GeneratedRegex(@"(?<![A-Za-z0-9])[0-9]*[dD][0-9]+(?:[+\-−–][0-9]+)?(?![A-Za-z0-9])")]

@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Media;
 using System.Windows.Controls;
 using TableForge.ViewModels;
 
@@ -114,6 +116,70 @@ public class AlignedReviewViewTests
             Assert.True(Tabs(ui).IsVisible);
             Assert.False(AlignedRows(ui).IsVisible);
             Assert.Equal(4, PerSetRows(ui).Items.Count);        // Ambient's own row count, not forced to line up with the others
+        });
+    }
+
+    /// <summary>The aligned header's name editors, left to right.</summary>
+    private static List<TextBox> SetNameBoxes(UiHarness ui) =>
+        ui.All<TextBox>().Where(t => t.ToolTip as string == "This column's result set name, e.g. Difficulty, Modifier")
+            .OrderBy(t => t.TranslatePoint(new System.Windows.Point(0, 0), ui.Window).X).ToList();
+
+    /// <summary>
+    /// Every result set's name editor is visible, full width and not clipped, and sits directly above its own column
+    /// (the first row's cell for that result set).
+    /// </summary>
+    private static void AssertNameEditorsAboveColumns(UiHarness ui, int columns)
+    {
+        var boxes = SetNameBoxes(ui);
+        Assert.Equal(columns, boxes.Count);
+        var firstRow = (FrameworkElement)AlignedRows(ui).ItemContainerGenerator.ContainerFromIndex(0);
+        var cells = ViewTests.FindAll<TextBox>(firstRow).Where(t => t.Width is double.NaN && t.FontFamily.Source != "Consolas" && t.IsVisible)
+            .OrderBy(t => t.TranslatePoint(new System.Windows.Point(0, 0), ui.Window).X).ToList();
+        Assert.Equal(columns, cells.Count);
+
+        for (var c = 0; c < columns; c++)
+        {
+            var box = boxes[c];
+            Assert.True(box.IsVisible && box.IsEnabled && !box.IsReadOnly, $"name editor {c + 1} should be visible and editable");
+            Assert.Null(System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(box)); // drawn whole, not cut off
+            var header = (FrameworkElement)VisualTreeHelper.GetParent(VisualTreeHelper.GetParent(box));
+            var right = box.TranslatePoint(new System.Windows.Point(box.ActualWidth, 0), header).X;
+            Assert.True(right <= header.ActualWidth + 0.5, $"name editor {c + 1} is cut off by its header ({right} > {header.ActualWidth})");
+            Assert.Equal(cells[c].ActualWidth, box.ActualWidth, 0.5);
+            Assert.Equal(cells[c].TranslatePoint(new System.Windows.Point(0, 0), ui.Window).X, box.TranslatePoint(new System.Windows.Point(0, 0), ui.Window).X, 0.5);
+        }
+    }
+
+    [Fact]
+    public void Unnamed_aligned_result_sets_can_be_named_above_their_columns_in_review_and_in_edit()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(55, (_, _) => { });
+            ui.Click("Paste Table…");
+            ui.One<TextBox>(t => t.AcceptsReturn).Text = ParallelOutputTests.Wind;
+            ui.Click("Interpret");
+
+            // Review: three unnamed sets, each with its own editor over its column.
+            Assert.True(((ReviewViewModel)ui.Main.Current!).IsAligned);
+            AssertNameEditorsAboveColumns(ui, 3);
+            Assert.All(SetNameBoxes(ui), b => Assert.Equal("", b.Text));
+            var names = new[] { "Wind Type", "Strength", "Hull Damage Caused" };
+            foreach (var (box, name) in SetNameBoxes(ui).Zip(names)) box.Text = name;   // typed, as the person would
+            ui.Layout();
+            ui.Click("Save Table");
+
+            // Edit: the saved names come back in the same editors, still above their columns, and can be changed.
+            ui.Click("Edit table");
+            Assert.True(((ReviewViewModel)ui.Main.Current!).IsAligned);
+            AssertNameEditorsAboveColumns(ui, 3);
+            Assert.Equal(names, SetNameBoxes(ui).Select(b => b.Text).ToArray());
+            SetNameBoxes(ui)[2].Text = "Hull Damage";
+            ui.Layout();
+            ui.Click("Save Table");
+
+            var table = ui.Db.LoadTable(ui.Db.GetTableSummaries(ui.Collection!.Id).Single(t => t.Name == "Wind Type Strength Hull Damage Caused").Id)!;
+            Assert.Equal(["Wind Type", "Strength", "Hull Damage"], table.ResultSets.Select(s => s.Name).ToArray());
         });
     }
 
