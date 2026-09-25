@@ -111,6 +111,90 @@ public class InlineDiceDetectorTests
         var found = Assert.Single(InlineDiceDetector.Detect("D20 Construction Supplies"));
         Assert.Equal("d20", found.ToString());
     }
+
+    // ---- RC12: where each expression sits, and resolving it in place ---------------------------
+
+    [Fact]
+    public void FindAll_reports_every_occurrence_with_its_exact_span_and_leaves_surrounding_punctuation_outside_it()
+    {
+        const string text = "+1d4 Armor, then roll 1d6.";
+
+        var found = InlineDiceDetector.FindAll(text);
+
+        Assert.Equal(["1d4", "1d6"], found.Select(m => text.Substring(m.Index, m.Length)).ToArray());
+        Assert.Equal(["d4", "d6"], found.Select(m => m.Expression.ToString()).ToArray());
+    }
+
+    [Fact]
+    public void FindAll_reports_a_repeated_expression_once_per_occurrence_while_Detect_still_reports_it_once()
+    {
+        const string text = "Gain 1d6 gold and lose 1d6 reputation";
+
+        Assert.Equal([5, 23], InlineDiceDetector.FindAll(text).Select(m => m.Index).ToArray());
+        Assert.Single(InlineDiceDetector.Detect(text));
+    }
+
+    [Fact]
+    public void FindAll_includes_a_stored_modifier_in_the_span()
+    {
+        var match = Assert.Single(InlineDiceDetector.FindAll("Gain 2d6+1 supplies"));
+        Assert.Equal((5, 5), (match.Index, match.Length));
+    }
+
+    [Fact]
+    public void FindAll_finds_nothing_in_unsupported_notation()
+    {
+        Assert.Empty(InlineDiceDetector.FindAll("Roll 4d6kh3"));
+        Assert.Empty(InlineDiceDetector.FindAll("Torch (UD6)"));
+        Assert.Empty(InlineDiceDetector.FindAll("Roll d66+1 for an encounter"));
+        Assert.Empty(InlineDiceDetector.FindAll(null));
+    }
+
+    private static string Resolve(string text, params (string Dice, string Value)[] rolled)
+    {
+        var values = rolled.ToDictionary(r => DiceExpression.Parse(r.Dice), r => r.Value);
+        return InlineDiceDetector.Substitute(text, InlineDiceDetector.FindAll(text), d => values.GetValueOrDefault(d));
+    }
+
+    [Theory]
+    [InlineData("You gain +1d4 Armor", "d4", "3", "You gain +3 Armor")]
+    [InlineData("Encounter 2d6 Skeletons", "2d6", "7", "Encounter 7 Skeletons")]
+    [InlineData("Encounter 2d6 Skeletons", "2d6", "1", "Encounter 1 Skeletons")] // no grammar fixing
+    [InlineData("Gain d20+2 gold", "d20+2", "14", "Gain 14 gold")]
+    [InlineData("Gain 2d6+1 supplies", "2d6+1", "9", "Gain 9 supplies")]
+    [InlineData("Consult entry d66", "d66", "35", "Consult entry 35")]
+    [InlineData("Gain +1d4 Armor, then rest.", "d4", "2", "Gain +2 Armor, then rest.")]
+    [InlineData("D20 Construction Supplies", "d20", "14", "14 Construction Supplies")]
+    public void Substitute_replaces_only_the_recognized_span_with_the_value(string text, string dice, string value, string expected)
+    {
+        Assert.Equal(expected, Resolve(text, (dice, value)));
+    }
+
+    [Fact]
+    public void Substitute_keeps_an_expression_with_no_value_yet_exactly_as_written()
+    {
+        Assert.Equal("Gain 4 food and 1d4 water", Resolve("Gain 1d6 food and 1d4 water", ("d6", "4")));
+        Assert.Equal("Gain 1D6 food", Resolve("Gain 1D6 food")); // original casing kept, too
+    }
+
+    [Fact]
+    public void Substitute_fills_every_occurrence_of_the_same_expression_with_the_same_value()
+    {
+        Assert.Equal("Gain 4 gold and lose 4 reputation", Resolve("Gain 1d6 gold and lose 1d6 reputation", ("d6", "4")));
+        Assert.Equal("4 food and 4 water", Resolve("d6 food and 1d6 water", ("d6", "4"))); // same expression, spelled differently
+    }
+
+    [Fact]
+    public void Substitute_handles_two_different_expressions_and_the_punctuation_between_them()
+    {
+        Assert.Equal("+3 Armor, then roll 5.", Resolve("+1d4 Armor, then roll 1d6.", ("d4", "3"), ("d6", "5")));
+    }
+
+    [Fact]
+    public void Substitute_does_not_touch_a_similar_looking_word_near_a_real_expression()
+    {
+        Assert.Equal("Torch (UD6) and 5 oil", Resolve("Torch (UD6) and d6 oil", ("d6", "5")));
+    }
 }
 
 /// <summary>The roll screen: buttons appear beside a matched result, roll through the table's own provider, and never touch the source text.</summary>
@@ -130,7 +214,8 @@ public class InlineDiceSessionTests
         Assert.Equal("d20", action.DisplayExpression);
         Assert.Equal("Roll d20", action.RollLabel);
         Assert.True(line.ShowInlineActions);
-        Assert.False(action.HasResults);
+        Assert.False(action.HasResult);
+        Assert.False(line.ShowResolved);
     }
 
     [Fact]
@@ -145,26 +230,89 @@ public class InlineDiceSessionTests
         dice.Value = 14;
         action.RollCommand!.Execute(null);
 
-        Assert.Equal(["14"], action.Results);
+        Assert.Equal(14, action.LatestValue);
+        Assert.Equal("14 Construction Supplies", line.ResolvedText);
         Assert.Equal("D20 Construction Supplies", line.Text); // the source text is never rewritten
         Assert.Equal(2, dice.Calls); // the table's own roll, plus this one
     }
 
     [Fact]
-    public void Repeated_presses_append_results_and_the_label_becomes_Roll_Again()
+    public void Roll_Again_replaces_the_resolved_value_instead_of_accumulating_a_history()
     {
         var dice = new FixedDice(1);
-        var session = new RollViewModel(InlineFixtures.TableWithText("D20 Construction Supplies"), dice);
+        var session = new RollViewModel(InlineFixtures.TableWithText("You gain +1d4 Armor"), dice);
         session.RollCommand.Execute(null);
-        var action = Assert.Single(OnlyLine(session).InlineActions);
+        var line = OnlyLine(session);
+        var action = Assert.Single(line.InlineActions);
 
-        dice.Value = 14; action.RollCommand!.Execute(null);
+        dice.Value = 3; action.RollCommand!.Execute(null);
+        Assert.Equal("You gain +3 Armor", line.ResolvedText);
         Assert.Equal("Roll Again", action.RollLabel);
-        dice.Value = 7; action.RollCommand.Execute(null);
-        dice.Value = 19; action.RollCommand.Execute(null);
 
-        Assert.Equal(["14", "7", "19"], action.Results);
-        Assert.Equal("14, 7, 19", action.ResultsText);
+        dice.Value = 1; action.RollCommand.Execute(null);
+        Assert.Equal("You gain +1 Armor", line.ResolvedText);
+        Assert.Equal(1, action.LatestValue);
+
+        dice.Value = 4; action.RollCommand.Execute(null);
+        Assert.Equal("You gain +4 Armor", line.ResolvedText); // only ever the latest value
+        Assert.Equal("You gain +1d4 Armor", line.Text);
+    }
+
+    [Fact]
+    public void The_resolved_line_is_announced_when_an_inline_roll_lands()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("You gain +1d4 Armor"), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        var changed = new List<string?>();
+        line.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dice.Value = 3;
+        line.InlineActions[0].RollCommand!.Execute(null);
+
+        Assert.Contains(nameof(ResultLineViewModel.ResolvedText), changed);
+        Assert.Contains(nameof(ResultLineViewModel.ShowResolved), changed);
+        Assert.True(line.ShowResolved);
+    }
+
+    [Theory]
+    [InlineData("You gain +1d4 Armor", 3, "You gain +3 Armor")]
+    [InlineData("Encounter 2d6 Skeletons", 7, "Encounter 7 Skeletons")]
+    [InlineData("Gain 2d6+1 supplies", 9, "Gain 9 supplies")]
+    [InlineData("Gain d20+2 gold", 14, "Gain 14 gold")]
+    [InlineData("Gain +1d4 Armor, then rest.", 2, "Gain +2 Armor, then rest.")]
+    [InlineData("Consult entry d66", 35, "Consult entry 35")]
+    public void A_built_in_inline_roll_shows_the_result_resolved_in_context(string text, int value, string expected)
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText(text), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+
+        dice.Value = value;
+        Assert.Single(line.InlineActions).RollCommand!.Execute(null);
+
+        Assert.Equal(expected, line.ResolvedText);
+        Assert.True(line.ShowResolved);
+        Assert.Equal(text, line.Text);
+    }
+
+    [Fact]
+    public void An_inline_d66_is_rolled_as_d66_and_its_legal_result_is_substituted()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("Consult entry d66"), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        var action = Assert.Single(line.InlineActions);
+        Assert.True(action.Expression.IsD66);
+
+        dice.Value = 35;
+        action.RollCommand!.Execute(null);
+
+        Assert.Equal("d66", dice.Requested[^1]);
+        Assert.Equal("Consult entry 35", line.ResolvedText);
     }
 
     [Fact]
@@ -179,8 +327,111 @@ public class InlineDiceSessionTests
         dice.Value = 3;
         actions[0].RollCommand!.Execute(null);
 
-        Assert.Equal(["3"], actions[0].Results);
-        Assert.Empty(actions[1].Results); // rolling one never rolls the other
+        Assert.Equal(3, actions[0].LatestValue);
+        Assert.False(actions[1].HasResult); // rolling one never rolls the other
+    }
+
+    [Fact]
+    public void Multiple_distinct_expressions_resolve_independently_and_unrolled_ones_stay_as_written()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 1d6 food and 1d4 water"), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        var (d6, d4) = (line.InlineActions[0], line.InlineActions[1]);
+        Assert.Equal(("Roll d6", "Roll d4"), (d6.RollLabel, d4.RollLabel));
+
+        dice.Value = 4; d6.RollCommand!.Execute(null);
+        Assert.Equal("Gain 4 food and 1d4 water", line.ResolvedText);
+
+        dice.Value = 2; d4.RollCommand!.Execute(null);
+        Assert.Equal("Gain 4 food and 2 water", line.ResolvedText);
+
+        dice.Value = 6; d6.RollCommand.Execute(null);
+        Assert.Equal("Gain 6 food and 2 water", line.ResolvedText);
+
+        // with several buttons, each "Roll Again" says which expression it rolls
+        Assert.Equal(("Roll d6 Again", "Roll d4 Again"), (d6.RollLabel, d4.RollLabel));
+        Assert.Equal("Gain 1d6 food and 1d4 water", line.Text);
+    }
+
+    [Fact]
+    public void A_repeated_identical_expression_keeps_one_action_and_one_roll_fills_every_occurrence()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 1d6 gold and lose 1d6 reputation"), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        var action = Assert.Single(line.InlineActions);
+        Assert.Equal(2, line.InlineMatches.Count);
+
+        dice.Value = 4;
+        action.RollCommand!.Execute(null);
+
+        Assert.Equal("Gain 4 gold and lose 4 reputation", line.ResolvedText);
+        Assert.Equal(2, dice.Calls); // the parent roll plus exactly one inline roll
+        Assert.Equal("Roll Again", action.RollLabel); // a single action needs no name
+    }
+
+    [Fact]
+    public void Punctuation_around_several_expressions_survives_resolution()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("+1d4 Armor, then roll 1d6."), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+
+        dice.Value = 3; line.InlineActions[0].RollCommand!.Execute(null);
+        dice.Value = 5; line.InlineActions[1].RollCommand!.Execute(null);
+
+        Assert.Equal("+3 Armor, then roll 5.", line.ResolvedText);
+    }
+
+    [Fact]
+    public void Keep_highest_notation_offers_no_action_and_no_resolved_line()
+    {
+        var session = new RollViewModel(InlineFixtures.TableWithText("Roll 4d6kh3"), new FixedDice(3));
+
+        session.RollCommand.Execute(null);
+
+        var line = OnlyLine(session);
+        Assert.Empty(line.InlineActions);
+        Assert.False(line.ShowResolved);
+        Assert.Equal("Roll 4d6kh3", line.ResolvedText);
+    }
+
+    [Fact]
+    public void An_inline_roll_ignores_the_pending_situational_modifier_and_leaves_it_in_place()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 1d6 Armor"), dice);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        session.ModifierText = "+3";
+
+        dice.Value = 4;
+        line.InlineActions[0].RollCommand!.Execute(null);
+
+        Assert.Equal("d6", dice.Requested[^1]); // an ordinary 1d6
+        Assert.Equal("Gain 4 Armor", line.ResolvedText); // not 7
+        Assert.Equal("+3", session.ModifierText); // neither used up nor reset
+        Assert.Same(line, OnlyLine(session)); // and the parent was not re-resolved
+    }
+
+    [Fact]
+    public void The_parent_roll_then_uses_the_modifier_normally_after_an_inline_roll()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 1d6 Armor"), dice);
+        session.RollCommand.Execute(null);
+        session.ModifierText = "+3";
+        OnlyLine(session).InlineActions[0].RollCommand!.Execute(null);
+
+        dice.Value = 2;
+        session.RollCommand.Execute(null);
+
+        Assert.Equal("Rolled 5", session.RollDisplay); // 2 +3
+        Assert.Equal("0", session.ModifierText);
     }
 
     [Fact]
@@ -229,8 +480,30 @@ public class InlineDiceSessionTests
         var second = OnlyLine(session);
         Assert.NotSame(first, second);
         var secondAction = Assert.Single(second.InlineActions);
-        Assert.False(secondAction.HasResults); // brand-new action: nothing carried over
+        Assert.False(secondAction.HasResult); // brand-new action: nothing carried over
         Assert.True(second.ShowInlineActions);
+    }
+
+    [Fact]
+    public void Rerolling_the_parent_clears_the_resolved_line()
+    {
+        var dice = new FixedDice(1);
+        var session = new RollViewModel(InlineFixtures.TableWithText("You gain +1d4 Armor"), dice);
+        session.RollCommand.Execute(null);
+        var first = OnlyLine(session);
+        dice.Value = 3;
+        first.InlineActions[0].RollCommand!.Execute(null);
+        Assert.True(first.ShowResolved);
+
+        dice.Value = 2;
+        session.RollCommand.Execute(null);
+
+        Assert.False(first.ShowResolved);
+        Assert.False(first.HasResolved); // cleared, not merely hidden
+        Assert.Equal("You gain +1d4 Armor", first.ResolvedText);
+        var second = OnlyLine(session);
+        Assert.False(second.ShowResolved);
+        Assert.Equal("You gain +1d4 Armor", second.ResolvedText);
     }
 
     [Fact]
@@ -250,6 +523,87 @@ public class InlineDiceSessionTests
 
         Assert.False(line.ShowInlineActions);
         Assert.Empty(session.Current.Outcomes); // the child was not rolled
+    }
+
+    [Fact]
+    public void Following_a_link_clears_the_parents_resolved_line()
+    {
+        using var temp = new TempDatabase();
+        using var db = temp.Open();
+        var collection = db.CreateCollection("C");
+        var target = db.SaveTable(Fixtures.ScavengedItems(collection.Id));
+        var table = db.SaveTable(InlineFixtures.TableWithText("You gain +1d4 Armor", collection.Id, target.Id));
+        var dice = new FixedDice(3);
+        var session = new RollViewModel(db.LoadTable(table.Id)!, dice, db.LoadTable);
+        session.RollCommand.Execute(null);
+        var line = OnlyLine(session);
+        line.InlineActions[0].RollCommand!.Execute(null);
+        Assert.Equal("You gain +3 Armor", line.ResolvedText);
+
+        line.FollowCommand!.Execute(null);
+
+        Assert.False(line.ShowResolved);
+        Assert.False(line.HasResolved);
+        Assert.Equal("You gain +1d4 Armor", line.ResolvedText);
+        Assert.Equal("You gain +1d4 Armor", line.Text);
+    }
+
+    [Fact]
+    public void Opening_another_table_and_coming_back_starts_with_no_resolved_state()
+    {
+        using var temp = new TempDatabase();
+        using var db = temp.Open();
+        var collection = db.CreateCollection("C");
+        var saved = db.SaveTable(InlineFixtures.TableWithText("You gain +1d4 Armor", collection.Id));
+        var other = db.SaveTable(Fixtures.ScavengedItems(collection.Id));
+        var dice = new FixedDice(3);
+        var main = new MainViewModel(db, dice);
+        TableSummary Summary(RollableTable t) => new(t.Id, t.Name, t.Dice, null, "Unfiled");
+
+        main.OpenRecentTableCommand.Execute(Summary(saved));
+        var first = (RollViewModel)main.Current!;
+        first.RollCommand.Execute(null);
+        first.Results.Single().InlineActions[0].RollCommand!.Execute(null);
+        Assert.True(first.Results.Single().ShowResolved);
+
+        main.OpenRecentTableCommand.Execute(Summary(other));
+        Assert.NotSame(first, main.Current);
+        main.OpenRecentTableCommand.Execute(Summary(saved));
+
+        var again = (RollViewModel)main.Current!;
+        Assert.NotSame(first, again);
+        Assert.Empty(again.Results); // a fresh screen: no result, so nothing resolved
+    }
+
+    [Fact]
+    public void Source_text_stays_byte_for_byte_unchanged_in_the_model_the_database_and_history_after_many_inline_rolls()
+    {
+        using var temp = new TempDatabase();
+        using var db = temp.Open();
+        var collection = db.CreateCollection("C");
+        const string source = "Gain +1d4 Armor, 1d6 food and 1d6 water.";
+        var saved = db.SaveTable(InlineFixtures.TableWithText(source, collection.Id));
+        var dice = new FixedDice(3);
+        var main = new MainViewModel(db, dice);
+        main.OpenRecentTableCommand.Execute(new TableSummary(saved.Id, saved.Name, saved.Dice, null, "Unfiled"));
+        var session = (RollViewModel)main.Current!;
+        session.RollCommand.Execute(null);
+        var line = session.Results.Single();
+
+        for (var i = 1; i <= 20; i++)
+        {
+            dice.Value = i % 4 + 1;
+            line.InlineActions[i % 2].RollCommand!.Execute(null);
+        }
+
+        Assert.NotEqual(source, line.ResolvedText);
+        Assert.Equal(source, line.Text);
+        Assert.Equal(source, session.Current.Table.ResultSets[0].Entries[0].Text);
+        Assert.Equal(source, session.ResultSets[0].Entries[0].Text);
+        Assert.Equal(source, db.LoadTable(saved.Id)!.ResultSets[0].Entries[0].Text);
+        var history = Assert.Single(db.GetRollHistory());
+        Assert.Equal(source, history.ResultText);
+        Assert.Equal(source, Assert.Single(main.RecentRolls).Item.ResultText);
     }
 
     [Fact]
@@ -273,9 +627,9 @@ public class InlineDiceSessionTests
         Assert.Single(session.Steps);
         Assert.True(line.ShowFollow);
 
-        line.FollowCommand!.Execute(null); // and following the link does not disturb the inline action's own results
+        line.FollowCommand!.Execute(null); // following the link is a separate action; it supersedes (and clears) the inline result
         Assert.Equal(2, session.Steps.Count);
-        Assert.NotEmpty(action.Results);
+        Assert.False(action.HasResult);
     }
 
     [Fact]
@@ -298,7 +652,7 @@ public class InlineDiceSessionTests
         action.RollCommand!.Execute(null);
         action.RollCommand.Execute(null);
 
-        Assert.Equal(["14", "14"], action.Results);
+        Assert.Equal(14, action.LatestValue);
         Assert.Single(db.GetRollHistory()); // still only the one parent-table roll
         Assert.Single(main.RecentRolls);
     }
@@ -324,15 +678,66 @@ public class InlineDiceDddiceTests
         action.RollCommand!.Execute(null);
 
         Assert.True(action.IsRolling);
-        Assert.False(action.HasResults);
+        Assert.False(action.HasResult);
+        Assert.False(session.Results.Single().ShowResolved); // nothing resolved while the dice are in the air
         Assert.Single(history); // the inline roll has not settled: nothing new recorded
 
         roller.Settle(("d20", 14));
         await session.RollTask;
 
         Assert.False(action.IsRolling);
-        Assert.Equal(["14"], action.Results);
+        Assert.Equal(14, action.LatestValue);
+        Assert.Equal("14 Construction Supplies", session.Results.Single().ResolvedText);
+        Assert.True(session.Results.Single().ShowResolved);
         Assert.Single(history); // and never gets recorded once it does settle, either
+    }
+
+    [Fact]
+    public async Task A_dddice_inline_roll_with_a_stored_modifier_resolves_to_the_final_number()
+    {
+        var roller = new FakeDddiceRoller();
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 2d6+1 supplies"), new DddiceDiceProvider(roller));
+        session.RollCommand.Execute(null);
+        roller.Settle(("d8", 5));
+        await session.RollTask;
+        var line = session.Results.Single();
+
+        line.InlineActions[0].RollCommand!.Execute(null);
+        roller.Settle(FakeDddiceRoller.Twod6(3, 5));
+        await session.RollTask;
+
+        Assert.Equal("Gain 9 supplies", line.ResolvedText); // 3 + 5 + 1, never "8+1"
+    }
+
+    [Fact]
+    public async Task A_failed_dddice_reroll_keeps_the_previous_resolved_value()
+    {
+        var roller = new FakeDddiceRoller();
+        var session = new RollViewModel(InlineFixtures.TableWithText("Gain 1d6 food"), new DddiceDiceProvider(roller));
+        session.RollCommand.Execute(null);
+        roller.Settle(("d8", 5));
+        await session.RollTask;
+        var line = session.Results.Single();
+        var action = line.InlineActions[0];
+
+        action.RollCommand!.Execute(null);
+        roller.Settle(("d6", 4));
+        await session.RollTask;
+        Assert.Equal("Gain 4 food", line.ResolvedText);
+
+        action.RollCommand.Execute(null); // Roll Again...
+        roller.FailRoll("dddice lost the connection.");
+        await session.RollTask;
+
+        Assert.Equal("Gain 4 food", line.ResolvedText); // ...fails: the last good value stays
+        Assert.True(line.ShowResolved);
+        Assert.Equal(4, action.LatestValue);
+        Assert.Equal("dddice lost the connection.", session.Message);
+
+        action.RollCommand.Execute(null); // and a cancelled one likewise
+        session.CancelRoll();
+        await session.RollTask;
+        Assert.Equal("Gain 4 food", line.ResolvedText);
     }
 
     [Fact]
@@ -360,8 +765,8 @@ public class InlineDiceDddiceTests
         roller.Settle(("d6", 4));
         await session.RollTask;
 
-        Assert.Equal(["4"], a.Results);
-        Assert.Empty(b.Results);
+        Assert.Equal(4, a.LatestValue);
+        Assert.False(b.HasResult);
         Assert.True(session.RollCommand.CanExecute(null));
     }
 
@@ -383,7 +788,7 @@ public class InlineDiceDddiceTests
         Assert.True(roller.LastRollToken.IsCancellationRequested);
         Assert.False(session.IsRolling);
         Assert.False(action.IsRolling);
-        Assert.Empty(action.Results);
+        Assert.False(action.HasResult);
         Assert.Equal("The roll was cancelled.", session.Message);
         Assert.True(action.RollCommand.CanExecute(null));
     }
@@ -405,7 +810,7 @@ public class InlineDiceDddiceTests
 
         roller.Settle(("d20", 20)); // the animation finishes after TableForge stopped waiting for it
 
-        Assert.Empty(action.Results);
+        Assert.False(action.HasResult);
         Assert.False(action.IsRolling);
     }
 }
@@ -432,6 +837,66 @@ public class InlineDiceViewTests
             Assert.Contains(ui.Texts(), t => t.Text == "D20 Construction Supplies"); // source text unchanged
             Assert.True(ui.HasVisibleButton("Roll Again"));
             Assert.False(ui.HasVisibleButton("Roll d20"));
+        });
+    }
+
+    private static List<string> ResolvedLines(UiHarness ui) =>
+        ui.Texts().Where(t => t.Name == "ResolvedInlineText").Select(t => t.Text).ToList();
+
+    [Fact]
+    public void Rolling_an_inline_expression_shows_the_result_resolved_in_context_and_Roll_Again_replaces_it()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(3, (db, c) => db.SaveTable(InlineFixtures.TableWithText("You gain +1d4 Armor", c.Id)));
+
+            ui.SelectTable("Test");
+            ui.Click("Roll");
+            Assert.Contains(ui.Texts(), t => t.Text == "You gain +1d4 Armor" && t.FontSize == 26);
+            Assert.Empty(ResolvedLines(ui)); // nothing resolved before an inline roll
+
+            ui.Dice.Value = 3;
+            ui.Click("Roll d4");
+            Assert.Equal(["Resolved: You gain +3 Armor"], ResolvedLines(ui));
+            var resolved = ui.Texts().Single(t => t.Name == "ResolvedInlineText");
+            Assert.True(resolved.FontSize < 26); // subordinate to the table result
+
+            ui.Dice.Value = 1;
+            ui.Click("Roll Again");
+            Assert.Equal(["Resolved: You gain +1 Armor"], ResolvedLines(ui)); // replaced, not appended
+            Assert.DoesNotContain(ui.Texts(), t => t.Text.Contains('→')); // no detached "d4 → 3" presentation
+            Assert.Contains(ui.Texts(), t => t.Text == "You gain +1d4 Armor" && t.FontSize == 26); // source unchanged
+
+            ui.Dice.Value = 5;
+            ui.Click("Roll"); // a new parent result clears it
+            Assert.Empty(ResolvedLines(ui));
+            Assert.True(ui.HasVisibleButton("Roll d4"));
+        });
+    }
+
+    [Fact]
+    public void Two_distinct_inline_expressions_resolve_independently_in_the_real_view()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(3, (db, c) => db.SaveTable(InlineFixtures.TableWithText("Gain 1d6 food and 1d4 water", c.Id)));
+
+            ui.SelectTable("Test");
+            ui.Click("Roll");
+
+            ui.Dice.Value = 4;
+            ui.Click("Roll d6");
+            Assert.Equal(["Resolved: Gain 4 food and 1d4 water"], ResolvedLines(ui));
+
+            ui.Dice.Value = 2;
+            ui.Click("Roll d4");
+            Assert.Equal(["Resolved: Gain 4 food and 2 water"], ResolvedLines(ui));
+
+            ui.Dice.Value = 6;
+            ui.Click("Roll d6 Again");
+            Assert.Equal(["Resolved: Gain 6 food and 2 water"], ResolvedLines(ui));
+            Assert.True(ui.HasVisibleButton("Roll d4 Again"));
+            Assert.Contains(ui.Texts(), t => t.Text == "Gain 1d6 food and 1d4 water" && t.FontSize == 26);
         });
     }
 

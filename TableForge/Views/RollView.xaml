@@ -70,22 +70,21 @@
                                                                     </Style>
                                                                 </TextBlock.Style>
                                                             </TextBlock>
-                                                            <!-- Dice expressions found inside the text above, offered as separate, user-triggered rolls.
-                                                                 Auxiliary only: rolling one never changes the text itself. -->
+                                                            <!-- The text above with each rolled inline expression replaced in place by its latest value
+                                                                 ("You gain +3 Armor"). A transient, subordinate copy: the text above never changes. -->
+                                                            <TextBlock x:Name="ResolvedInlineText" Text="{Binding ResolvedText, StringFormat=Resolved: {0}}"
+                                                                       FontSize="18" Foreground="#555" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                                       Visibility="{Binding ShowResolved, Converter={StaticResource BoolToVis}}" />
+                                                            <!-- Dice expressions found inside the text above, offered as separate, user-triggered rolls. -->
                                                             <ItemsControl ItemsSource="{Binding InlineActions}" Margin="0,4,0,0"
                                                                           Visibility="{Binding ShowInlineActions, Converter={StaticResource BoolToVis}}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
                                                                 <ItemsControl.ItemTemplate>
                                                                     <DataTemplate>
-                                                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                                            <TextBlock FontFamily="Consolas" Foreground="#555" VerticalAlignment="Center" Margin="0,0,10,0"
-                                                                                       Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
-                                                                                <Run Text="{Binding DisplayExpression, Mode=OneWay}" FontWeight="SemiBold" />
-                                                                                <Run Text=" → " />
-                                                                                <Run Text="{Binding ResultsText, Mode=OneWay}" />
-                                                                            </TextBlock>
-                                                                            <Button Content="{Binding RollLabel}" Command="{Binding RollCommand}"
-                                                                                    Padding="10,3" VerticalAlignment="Center" />
-                                                                        </StackPanel>
+                                                                        <Button Content="{Binding RollLabel}" Command="{Binding RollCommand}"
+                                                                                Padding="10,3" Margin="0,2,8,0" VerticalAlignment="Center" />
                                                                     </DataTemplate>
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>

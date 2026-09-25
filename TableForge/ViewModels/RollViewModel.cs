@@ -50,17 +50,22 @@ public enum LinkState { None, Resolved, Unresolved, Missing }
 /// <summary>
 /// One supported dice expression found inside a displayed result's text (see <see cref="InlineDiceDetector"/>), offered as a
 /// separate, user-triggered roll. Purely auxiliary: rolling it never touches the result's own text, and it uses whichever
-/// <see cref="IDiceProvider"/> the roll screen is already using. Its state is transient — it lives only as long as the
-/// <see cref="ResultLineViewModel"/> that found it stays the current, active one (see <see cref="ResultLineViewModel.IsActive"/>).
+/// <see cref="IDiceProvider"/> the roll screen is already using. It keeps only its latest result, which the owning
+/// <see cref="ResultLineViewModel"/> substitutes into a transient resolved copy of the text. Its state lives only as long as
+/// that line stays the current, active one (see <see cref="ResultLineViewModel.IsActive"/>).
 /// </summary>
 public sealed class InlineDiceAction : ObservableObject
 {
     private bool _isRolling;
+    private int? _latestValue;
 
-    public InlineDiceAction(DiceExpression expression)
+    /// <param name="namedOnReroll">True when the result offers other actions too, so "Roll Again" names its expression
+    /// ("Roll d6 Again") and the buttons stay distinguishable.</param>
+    public InlineDiceAction(DiceExpression expression, bool namedOnReroll = false)
     {
         Expression = expression;
         DisplayExpression = expression.ToString();
+        NamedOnReroll = namedOnReroll;
     }
 
     public DiceExpression Expression { get; }
@@ -68,23 +73,29 @@ public sealed class InlineDiceAction : ObservableObject
     /// <summary>The canonical form ("d20", "2d6+1", "d66") — never the casing or spelling found in the source text.</summary>
     public string DisplayExpression { get; }
 
-    /// <summary>Every roll made with this action so far, formatted, oldest first. Pressing the button again appends; nothing is replaced.</summary>
-    public ObservableCollection<string> Results { get; } = [];
-    public bool HasResults => Results.Count > 0;
-    public string ResultsText => string.Join(", ", Results);
+    public bool NamedOnReroll { get; }
+
+    /// <summary>The latest successful roll's final value (dice plus the expression's own modifier); null until the first one.
+    /// Rolling again replaces it — there is no history.</summary>
+    public int? LatestValue => _latestValue;
+    public bool HasResult => _latestValue is not null;
+
+    /// <summary>The value as substituted into the resolved text: always the plain final number ("9" for 2d6+1, "35" for d66).</summary>
+    public string? LatestResult => _latestValue?.ToString();
 
     /// <summary>True from the moment this specific action's roll is asked for until it has a result (or fails/cancels).</summary>
     public bool IsRolling { get => _isRolling; internal set => Set(ref _isRolling, value); }
 
-    public string RollLabel => HasResults ? "Roll Again" : $"Roll {DisplayExpression}";
+    public string RollLabel => !HasResult ? $"Roll {DisplayExpression}" : NamedOnReroll ? $"Roll {DisplayExpression} Again" : "Roll Again";
 
     public ICommand? RollCommand { get; internal set; }
 
-    internal void AddResult(int value)
+    internal void SetResult(int? value)
     {
-        Results.Add(Expression.FormatValue(value));
-        Raise(nameof(HasResults));
-        Raise(nameof(ResultsText));
+        _latestValue = value;
+        Raise(nameof(LatestValue));
+        Raise(nameof(HasResult));
+        Raise(nameof(LatestResult));
         Raise(nameof(RollLabel));
     }
 }
@@ -93,9 +104,12 @@ public sealed class InlineDiceAction : ObservableObject
 public sealed class ResultLineViewModel(string heading, string range, string text, bool isProblem) : ObservableObject
 {
     private bool _isActive = true;
+    private readonly IReadOnlyList<InlineDiceAction> _inlineActions = [];
 
     public string Heading { get; } = heading;
     public string Range { get; } = range;
+
+    /// <summary>The matched entry's text exactly as stored. Never rewritten — inline results go into <see cref="ResolvedText"/>.</summary>
     public string Text { get; } = text;
     public bool IsProblem { get; } = isProblem;
     public bool HasHeading => Heading.Length > 0;
@@ -107,9 +121,42 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
     public RollableTable? LinkTarget { get; init; }
     public ICommand? FollowCommand { get; internal set; }
 
-    /// <summary>Supported dice expressions found in <see cref="Text"/> (see <see cref="InlineDiceDetector"/>); empty for a problem line.</summary>
-    public IReadOnlyList<InlineDiceAction> InlineActions { get; init; } = [];
+    /// <summary>Where each supported expression sits in <see cref="Text"/>, every occurrence (see <see cref="InlineDiceDetector.FindAll"/>).</summary>
+    public IReadOnlyList<InlineDiceMatch> InlineMatches { get; init; } = [];
+
+    /// <summary>Supported dice expressions found in <see cref="Text"/> (see <see cref="InlineDiceDetector"/>), one per distinct
+    /// expression; empty for a problem line. A repeated expression's one action resolves every one of its occurrences.</summary>
+    public IReadOnlyList<InlineDiceAction> InlineActions
+    {
+        get => _inlineActions;
+        init
+        {
+            _inlineActions = value;
+            foreach (var action in value)
+                action.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName != nameof(InlineDiceAction.LatestValue)) return;
+                    Raise(nameof(ResolvedText));
+                    Raise(nameof(HasResolved));
+                    Raise(nameof(ShowResolved));
+                };
+        }
+    }
+
     public bool HasInlineActions => InlineActions.Count > 0;
+
+    /// <summary>True once any inline expression in this result has been rolled.</summary>
+    public bool HasResolved => InlineActions.Any(a => a.HasResult);
+
+    /// <summary>
+    /// A transient copy of <see cref="Text"/> with each rolled expression replaced, in place, by its latest value
+    /// ("You gain +1d4 Armor" → "You gain +3 Armor"); expressions not rolled yet stay as written. Display only.
+    /// </summary>
+    public string ResolvedText => InlineDiceDetector.Substitute(Text, InlineMatches,
+        dice => InlineActions.FirstOrDefault(a => a.Expression == dice)?.LatestResult);
+
+    /// <summary>The resolved copy is shown, below the source text, only for the current result once something has been rolled.</summary>
+    public bool ShowResolved => HasResolved && IsActive;
 
     /// <summary>Only the latest roll on the current table offers its links; once the trail moves on they become plain notes.</summary>
     public bool IsActive
@@ -118,9 +165,14 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
         internal set
         {
             if (!Set(ref _isActive, value)) return;
+            // Inline results belong to the current result only: once it is superseded (a new roll, a followed link) they are cleared.
+            if (!value)
+                foreach (var action in InlineActions)
+                    action.SetResult(null);
             Raise(nameof(ShowFollow));
             Raise(nameof(ShowLinkedNote));
             Raise(nameof(ShowInlineActions));
+            Raise(nameof(ShowResolved));
         }
     }
 
@@ -370,7 +422,9 @@ public sealed class RollViewModel : ObservableObject
     /// through the same provider and the same single-flight machinery as the table's own Roll: while any roll (this one, another
     /// inline action, or the parent table) is under way, a second press is simply ignored rather than raced against it, and
     /// leaving the table (<see cref="CancelRoll"/>) abandons it exactly like a parent roll in the air. Never recorded to history
-    /// and never changes the result's own text.
+    /// and never changes the result's own text: a successful roll replaces the action's latest value, which the line shows
+    /// resolved in context. A failed or cancelled one leaves the previous value where it was. The situational modifier is
+    /// neither applied, used up nor reset.
     /// </summary>
     private Task RollInlineAsync(InlineDiceAction action)
     {
@@ -402,7 +456,7 @@ public sealed class RollViewModel : ObservableObject
             if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
             cancel.Dispose();
         }
-        action.AddResult(roll);
+        action.SetResult(roll);
     }
 
     /// <summary>Abandons a roll still in progress (the person left this table, or switched provider) — the parent table's own
@@ -481,10 +535,12 @@ public sealed class RollViewModel : ObservableObject
             linkName = entry.UnresolvedLinkName;
         }
 
-        var inlineActions = InlineDiceDetector.Detect(entry.Text).Select(e => new InlineDiceAction(e)).ToList();
+        var inlineMatches = InlineDiceDetector.FindAll(entry.Text);
+        var expressions = inlineMatches.Select(m => m.Expression).Distinct().ToList();
+        var inlineActions = expressions.Select(e => new InlineDiceAction(e, namedOnReroll: expressions.Count > 1)).ToList();
         var line = new ResultLineViewModel(heading, entry.RangeLabel, entry.Text, false)
         {
-            Link = link, LinkName = linkName, LinkTarget = target, InlineActions = inlineActions,
+            Link = link, LinkName = linkName, LinkTarget = target, InlineMatches = inlineMatches, InlineActions = inlineActions,
         };
         foreach (var action in inlineActions)
             action.RollCommand = new RelayCommand(() => _ = RollInlineAsync(action), () => !IsRolling && (_diceReady?.Invoke() ?? true));

@@ -178,7 +178,8 @@ public class SituationalModifierViewTests
             ui.Dice.Value = 12;
             ui.Click("Roll d20");
 
-            Assert.Equal("12",Assert.Single(Assert.Single(((RollViewModel)ui.Main.Current!).Results).InlineActions).ResultsText);
+            Assert.Equal(12, Assert.Single(Assert.Single(((RollViewModel)ui.Main.Current!).Results).InlineActions).LatestValue);
+            Assert.Contains(ui.Texts(), t => t.Text == "Resolved: 12 Construction Supplies");
             Assert.Equal("+3", box.Text);
         });
     }

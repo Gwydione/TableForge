@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc11 (V1 Release Candidate 11)**
+**Version 1.0.0-rc12 (V1 Release Candidate 12)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc11 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc12 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -147,19 +147,34 @@ time; nothing about it is saved with the table, and the table's own dice (`2d6+1
 
 ## Inline dice in results
 
-When a result's own text contains a dice expression TableForge already knows how to roll — `D20 Construction Supplies`,
-`Obtain 1d6 trinkets`, `Take 2d6+1 damage`, `Roll d66 for an encounter` — a **Roll** button for that expression appears
-beside it once the result is showing. The text itself is never rewritten. Pressing the button rolls through whichever
-dice provider is currently selected (Built-in or dddice, with the same visible dice and the same wait for `dddice` to
-settle) and shows the outcome next to the button, e.g. `d20 → 14`; pressing **Roll Again** appends further results
-(`d20 → 14, 7`) instead of replacing them. A result with more than one supported expression (`Gain 1d6 coins and 1d4
-gems`) offers one button per distinct expression; the same expression repeated in one result (`d6 food and d6 water`)
-gets only one button. Text such as `UD6` or `4d6kh3` that only looks like dice notation is left alone: TableForge never
-guesses at a second, more permissive dice grammar, only the same one a table's own dice already use.
+When a result's own text contains a dice expression TableForge already knows how to roll — `You gain +1d4 Armor`,
+`Encounter 2d6 Skeletons`, `Gain 2d6+1 supplies`, `Consult entry d66` — a **Roll** button for that expression appears
+beneath it once the result is showing. Pressing it rolls through whichever dice provider is currently selected (Built-in
+or dddice, with the same visible dice and the same wait for dddice to settle) and shows the result **resolved in
+context** on a smaller line under the original text:
 
-These rolls are auxiliary: they never appear in Recent Rolls, and rolling one never re-resolves the table or follows a
-linked result — a result that both contains dice text and links to another table offers both actions independently.
-Inline results are transient: rolling the parent table again, or following a link, clears them; nothing is saved.
+```
+You gain +1d4 Armor
+Resolved: You gain +3 Armor
+[Roll Again]
+```
+
+Only the dice expression itself is replaced, by its final number (dice plus the expression's own modifier: `2d6+1` → `9`);
+everything around it — a leading `+`, commas, full stops, the words — is kept exactly as written. TableForge does not
+fix grammar (`Encounter 1 Skeletons` is shown as is). **Roll Again** replaces the number; it does not keep a history.
+The original text is never rewritten, in the table or anywhere else.
+
+A result with more than one supported expression (`Gain 1d6 food and 1d4 water`) offers one button per distinct
+expression (`Roll d6`, `Roll d4`, then `Roll d6 Again` / `Roll d4 Again`); an expression not rolled yet stays as written
+in the resolved line (`Resolved: Gain 4 food and 1d4 water`). The same expression repeated in one result (`Gain 1d6 gold
+and lose 1d6 reputation`) gets only one button, and its result fills every occurrence (`Gain 4 gold and lose 4
+reputation`). Text such as `UD6` or `4d6kh3` that only looks like dice notation is left alone: TableForge never guesses
+at a second, more permissive dice grammar, only the same one a table's own dice already use.
+
+These rolls are auxiliary: they never appear in Recent Rolls, ignore the Modifier box (and leave it as it is), and never
+re-resolve the table or follow a linked result — a result that both contains dice text and links to another table offers
+both actions independently. A roll that fails or is cancelled leaves the previous resolved line unchanged. Inline results
+are transient: rolling the parent table again, following a link, or opening another table clears them; nothing is saved.
 
 ## Dice: Built-in or dddice
 

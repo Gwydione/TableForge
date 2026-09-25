@@ -343,7 +343,8 @@ public class SituationalModifierRollTests
         dice.Value = 12;
         action.RollCommand!.Execute(null);
 
-        Assert.Equal(["12"], action.Results.ToArray());               // not 15
+        Assert.Equal(12, action.LatestValue);                         // not 15
+        Assert.Equal("12 Construction Supplies", session.Results.Single().ResolvedText);
         Assert.Equal("+3", session.ModifierText);
         Assert.Equal("Rolled 1", session.RollDisplay);                // the table's own roll is untouched
     }

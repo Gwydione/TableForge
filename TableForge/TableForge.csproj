@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
 
     <!-- V1 Release Candidate 11. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.0.0-rc11</Version>
+    <Version>1.0.0-rc12</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>TableForge</Product>
     <Description>TableForge - RPG Rollable Tables</Description>

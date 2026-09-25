@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using TableForge.Domain;
 
@@ -19,15 +20,42 @@ public static class InlineDiceDetector
         $@"(?<!\w){DiceExpression.TokenPattern[1..^1]}(?!\w)", RegexOptions.CultureInvariant);
 
     /// <summary>Every supported expression found in <paramref name="text"/>, each one once, in order of first appearance.</summary>
-    public static IReadOnlyList<DiceExpression> Detect(string? text)
+    public static IReadOnlyList<DiceExpression> Detect(string? text) => FindAll(text).Select(m => m.Expression).Distinct().ToList();
+
+    /// <summary>
+    /// Every occurrence of a supported expression in <paramref name="text"/>, in order, with where it sits in the text. Unlike
+    /// <see cref="Detect"/>, a repeated expression is reported once per occurrence, so each span can be resolved in place.
+    /// </summary>
+    public static IReadOnlyList<InlineDiceMatch> FindAll(string? text)
     {
         if (string.IsNullOrEmpty(text)) return [];
 
-        var seen = new HashSet<DiceExpression>();
-        var found = new List<DiceExpression>();
+        var found = new List<InlineDiceMatch>();
         foreach (Match m in Scanner.Matches(text))
-            if (DiceExpression.TryParse(m.Value, out var dice) && seen.Add(dice))
-                found.Add(dice);
+            if (DiceExpression.TryParse(m.Value, out var dice))
+                found.Add(new InlineDiceMatch(dice, m.Index, m.Length));
         return found;
     }
+
+    /// <summary>
+    /// A transient copy of <paramref name="text"/> with each matched span replaced by its expression's current value, or kept as
+    /// written when <paramref name="valueOf"/> has none for it yet. Only the matched spans change: the surrounding characters
+    /// ("+", ",", ".") are copied as they are, and nothing is re-worded. <paramref name="matches"/> must come from
+    /// <see cref="FindAll"/> on the same text.
+    /// </summary>
+    public static string Substitute(string text, IReadOnlyList<InlineDiceMatch> matches, Func<DiceExpression, string?> valueOf)
+    {
+        var resolved = new StringBuilder(text.Length);
+        var copied = 0;
+        foreach (var match in matches)
+        {
+            resolved.Append(text, copied, match.Index - copied);
+            resolved.Append(valueOf(match.Expression) ?? text.Substring(match.Index, match.Length));
+            copied = match.Index + match.Length;
+        }
+        return resolved.Append(text, copied, text.Length - copied).ToString();
+    }
 }
+
+/// <summary>One supported expression found in a result's text, and the exact characters it occupies there.</summary>
+public readonly record struct InlineDiceMatch(DiceExpression Expression, int Index, int Length);
