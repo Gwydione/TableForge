@@ -101,6 +101,14 @@ public static class DatabaseMigrations
         """
         ALTER TABLE RollHistory ADD COLUMN SituationalModifier INTEGER NOT NULL DEFAULT 0 CHECK (SituationalModifier BETWEEN -1000 AND 1000);
         """,
+
+        // 7: Clamp to Range. Tables.ClampResultsToRange is an explicit per-table opt-in; every existing table gets 0 (off), so
+        // nothing resolves differently after the upgrade. RollHistory.ClampedValue is the value a clamped roll was looked up
+        // with; RollValue stays the calculated number. NULL means the roll was not clamped, which every existing row was.
+        """
+        ALTER TABLE Tables ADD COLUMN ClampResultsToRange INTEGER NOT NULL DEFAULT 0 CHECK (ClampResultsToRange IN (0, 1));
+        ALTER TABLE RollHistory ADD COLUMN ClampedValue INTEGER NULL;
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

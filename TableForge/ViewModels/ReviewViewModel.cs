@@ -217,6 +217,8 @@ public sealed class ReviewViewModel : ObservableObject
     private string _cleanupMessage = "";
     private Action? _undoCleanup;
     private bool _isAligned;
+    private bool _isClampAvailable;
+    private string _clampUnavailableNote = "";
 
     public ReviewViewModel(TableImportDraft draft, Collection collection, AppDatabase db, Action<RollableTable> saved, Action cancelled)
     {
@@ -298,6 +300,38 @@ public sealed class ReviewViewModel : ObservableObject
             _draft.FolderId = value.Id;
         }
     }
+
+    /// <summary>
+    /// Clamp out-of-range rolls to table range (see <see cref="TableClamp"/>). Always shows what Save will store: while the table
+    /// cannot be clamped (d66, result sets with different ranges) it reads off and cannot be changed. The user's choice is kept
+    /// underneath meanwhile, so an edit that briefly breaks the ranges and then restores them does not lose it.
+    /// </summary>
+    public bool ClampResultsToRange
+    {
+        get => _draft.ClampResultsToRange && IsClampAvailable;
+        set
+        {
+            if (!IsClampAvailable || _draft.ClampResultsToRange == value) return;
+            _draft.ClampResultsToRange = value;
+            Raise();
+        }
+    }
+
+    /// <summary>Whether this table, as currently edited, has one common range to clamp to.</summary>
+    public bool IsClampAvailable
+    {
+        get => _isClampAvailable;
+        private set
+        {
+            if (!Set(ref _isClampAvailable, value)) return;
+            Raise(nameof(ClampResultsToRange));
+            Raise(nameof(HasClampUnavailableNote));
+        }
+    }
+
+    /// <summary>Why Clamp cannot be turned on right now, and, if it was on, that saving will turn it off. Empty while it is available.</summary>
+    public string ClampUnavailableNote { get => _clampUnavailableNote; private set => Set(ref _clampUnavailableNote, value); }
+    public bool HasClampUnavailableNote => !IsClampAvailable;
 
     public ObservableCollection<ResultSetEditorViewModel> ResultSets { get; } = [];
 
@@ -748,6 +782,7 @@ public sealed class ReviewViewModel : ObservableObject
         // Validation runs once over the whole table but reports per result set, so sets never affect one another.
         ValidationNotes.Clear();
         var setHasFinding = new bool[ResultSets.Count];
+        string? clampReason = "Clamp needs a supported dice expression.";
         if (dice is { } d)
         {
             var table = new RollableTable
@@ -758,6 +793,7 @@ public sealed class ReviewViewModel : ObservableObject
                     Entries = rows.Select(p => new TableEntry { Min = p.Range.Min, Max = p.Range.Max }).ToList(),
                 }).ToList(),
             };
+            TableClamp.TryGetRange(table, out _, out _, out clampReason);
 
             foreach (var f in TableValidator.Validate(table))
             {
@@ -787,8 +823,14 @@ public sealed class ReviewViewModel : ObservableObject
             ResultSets[s].HasNotes = setHasFinding[s] || rowNotes[s].Any(n => n.Any(x => x.Level != NoteLevel.Info));
         }
 
+        // Gaps and overlaps never matter here: clamp only needs one common outer range. The note is set before availability
+        // flips, so the checkbox and its explanation change together.
+        ClampUnavailableNote = clampReason is null ? ""
+            : _draft.ClampResultsToRange ? $"{clampReason} Clamp will be off when this table is saved." : clampReason;
+        IsClampAvailable = clampReason is null;
+
         Blockers.Clear();
-        CanSave = _draft.TryBuildTable(_collection.Id, out _, out var errors);
+        CanSave =_draft.TryBuildTable(_collection.Id, out _, out var errors);
         foreach (var e in errors) Blockers.Add(e);
         SaveError = "";
 

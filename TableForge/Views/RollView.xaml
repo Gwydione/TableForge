@@ -52,6 +52,10 @@
                                             <!-- Only for a roll that used a situational modifier: how the final number was reached. -->
                                             <TextBlock Text="{Binding Breakdown}" Foreground="#555" Margin="0,-2,0,4"
                                                        Visibility="{Binding HasBreakdown, Converter={StaticResource BoolToVis}}" />
+                                            <!-- Only for a roll the table's Clamp to Range looked up at a boundary: the number above stays
+                                                 what was calculated; this is the value the table was resolved with. -->
+                                            <TextBlock x:Name="ClampNoteText" Text="{Binding ClampNote}" Foreground="#555" FontWeight="SemiBold" Margin="0,-2,0,4"
+                                                       Visibility="{Binding HasClampNote, Converter={StaticResource BoolToVis}}" />
                                             <ItemsControl ItemsSource="{Binding Lines}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>

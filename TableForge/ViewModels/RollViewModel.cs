@@ -192,9 +192,11 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
 
 /// <summary>One numeric roll on a step's table, shown once, with every result set's output.</summary>
 /// <param name="Breakdown">How a situational modifier reached the roll ("11 +3 situational"); empty for an unmodified roll.</param>
-public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "")
+/// <param name="ClampNote">"Resolved as 6 (clamped)" when the table's Clamp to Range looked the roll up at a boundary; empty otherwise.</param>
+public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "", string ClampNote = "")
 {
     public bool HasBreakdown => Breakdown.Length > 0;
+    public bool HasClampNote => ClampNote.Length > 0;
 }
 
 /// <summary>A table in the linked-roll trail and every roll made on it. Repeat rolls stay in the same step.</summary>
@@ -310,6 +312,9 @@ public sealed class RollViewModel : ObservableObject
     /// <summary>How the latest roll on the current table was reached, when a situational modifier was used ("11 +3 situational"); empty otherwise.</summary>
     public string RollBreakdown => Current.Outcomes.LastOrDefault()?.Breakdown ?? "";
 
+    /// <summary>"Resolved as 6 (clamped)" when the latest roll on the current table was clamped to its range; empty otherwise.</summary>
+    public string RollClampNote => Current.Outcomes.LastOrDefault()?.ClampNote ?? "";
+
     public string ManualRollText { get => _manualRollText; set => Set(ref _manualRollText, value); }
 
     /// <summary>
@@ -413,7 +418,7 @@ public sealed class RollViewModel : ObservableObject
         }
         // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
         // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
-        Apply(roll + situational, situational);
+        Apply(roll + situational, situational, fromProvider: true);
         ModifierText = "0";
     }
 
@@ -479,7 +484,9 @@ public sealed class RollViewModel : ObservableObject
 
     /// <param name="roll">The final value to resolve: the provider's roll plus <paramref name="situational"/>, or a manual entry as typed.</param>
     /// <param name="situational">The situational modifier already included in <paramref name="roll"/>; 0 for none.</param>
-    private void Apply(int roll, int situational = 0)
+    /// <param name="fromProvider">True for a provider-driven roll: only those are clamped (see <see cref="TableClamp"/>), after all
+    /// the roll's arithmetic and before lookup. A manual entry is the user's explicit final value and is looked up exactly as typed.</param>
+    private void Apply(int roll, int situational = 0, bool fromProvider = false)
     {
         Message = "";
         var step = Current;
@@ -493,27 +500,33 @@ public sealed class RollViewModel : ObservableObject
             : $"Rolled {roll}";
         var breakdown = situational == 0 ? "" : $"{dice.FormatValue(roll - situational)} {SituationalModifier.Signed(situational)} situational";
 
+        // The calculated roll stays what is shown as rolled; only the value the table is looked up with is clamped.
+        var lookup = fromProvider ? TableClamp.LookupValue(step.Table, roll) : roll;
+        int? clamped = lookup != roll ? lookup : null;
+        var clampNote = clamped is null ? "" : $"Resolved as {lookup} (clamped)";
+
         var lines = new List<ResultLineViewModel>();
-        foreach (var r in TableResolver.Resolve(step.Table, roll).Results)
+        foreach (var r in TableResolver.Resolve(step.Table, lookup).Results)
         {
             var heading = r.ResultSet.Name;
             lines.Add(r.Status switch
             {
                 ResolutionStatus.Matched => MatchedLine(heading, r.Entry!),
-                ResolutionStatus.NoMatch => new(heading, "", $"No entry covers {Format(roll)}.", true),
-                _ => new(heading, "", $"Ambiguous: {string.Join(" and ", r.Matches.Select(m => $"\"{m.Text}\" ({m.RangeLabel})"))} both cover {Format(roll)}.", true),
+                ResolutionStatus.NoMatch => new(heading, "", $"No entry covers {Format(lookup)}.", true),
+                _ => new(heading, "", $"Ambiguous: {string.Join(" and ", r.Matches.Select(m => $"\"{m.Text}\" ({m.RangeLabel})"))} both cover {Format(lookup)}.", true),
             });
         }
 
         DeactivateLinks(); // links offered by earlier rolls are superseded by this one
-        step.Add(new RollOutcomeViewModel(display, lines, breakdown), roll);
+        step.Add(new RollOutcomeViewModel(display, lines, breakdown, clampNote), lookup);
         Raise(nameof(Results));
         Raise(nameof(RollDisplay));
         Raise(nameof(RollBreakdown));
+        Raise(nameof(RollClampNote));
 
         // What the user saw, as text: each set's output, headed by the set's name when it has one.
         var shown = string.Join("\n", lines.Select(l => l.HasHeading ? $"{l.Heading}: {l.Text}" : l.Text));
-        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown, situational));
+        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown, situational, clamped));
     }
 
     private ResultLineViewModel MatchedLine(string heading, TableEntry entry)
@@ -567,6 +580,7 @@ public sealed class RollViewModel : ObservableObject
         Raise(nameof(Results));
         Raise(nameof(RollDisplay));
         Raise(nameof(RollBreakdown));
+        Raise(nameof(RollClampNote));
         Raise(nameof(IsModifierAvailable));
         Raise(nameof(IsModifierValid));
         Raise(nameof(HasModifierError));

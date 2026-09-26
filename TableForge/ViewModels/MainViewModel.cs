@@ -12,8 +12,13 @@ public sealed class RecentRollViewModel(RollHistoryItem item)
 {
     public RollHistoryItem Item { get; } = item;
     public string TableName => Item.TableName;
-    /// <summary>The final roll, with the situational modifier it used when there was one: "14 (+3)".</summary>
-    public string RollDisplay => Item.SituationalModifier == 0 ? Item.RollDisplay : $"{Item.RollDisplay} ({SituationalModifier.Signed(Item.SituationalModifier)})";
+    /// <summary>
+    /// The final roll, with the situational modifier it used when there was one ("14 (+3)"), and the value it was looked up
+    /// with when it was clamped to the table's range ("8 (+2) → 6 (clamped)").
+    /// </summary>
+    public string RollDisplay =>
+        (Item.SituationalModifier == 0 ? Item.RollDisplay : $"{Item.RollDisplay} ({SituationalModifier.Signed(Item.SituationalModifier)})")
+        + (Item.ClampedValue is { } clamped ? $" → {clamped} (clamped)" : "");
 
     /// <summary>The table was deleted after this roll: the snapshot stays readable but cannot be opened.</summary>
     public bool IsDeleted => Item.TableId is null;

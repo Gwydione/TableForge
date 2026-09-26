@@ -93,8 +93,8 @@ public sealed class AppDatabase : IDisposable
             table.CreatedUtc = now;
             using var insert = Command(tx,
                 """
-                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, CreatedUtc, UpdatedUtc)
-                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $created, $updated);
+                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, ClampResultsToRange, CreatedUtc, UpdatedUtc)
+                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $clamp, $created, $updated);
                 SELECT last_insert_rowid();
                 """);
             AddTableParameters(insert, table);
@@ -106,7 +106,7 @@ public sealed class AppDatabase : IDisposable
             using var update = Command(tx,
                 """
                 UPDATE Tables
-                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, FolderId = $folder, UpdatedUtc = $updated
+                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, FolderId = $folder, ClampResultsToRange = $clamp, UpdatedUtc = $updated
                 WHERE Id = $id
                 """);
             AddTableParameters(update, table);
@@ -162,7 +162,7 @@ public sealed class AppDatabase : IDisposable
         RollableTable? table;
         using (var cmd = _connection.CreateCommand())
         {
-            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention, FolderId FROM Tables WHERE Id = $id";
+            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention, FolderId, ClampResultsToRange FROM Tables WHERE Id = $id";
             cmd.Parameters.AddWithValue("$id", id);
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
@@ -175,6 +175,7 @@ public sealed class AppDatabase : IDisposable
                 CreatedUtc = ParseUtc(reader.GetString(6)),
                 UpdatedUtc = ParseUtc(reader.GetString(7)),
                 FolderId = reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                ClampResultsToRange = reader.GetInt64(10) != 0,
             };
         }
 
@@ -458,10 +459,10 @@ public sealed class AppDatabase : IDisposable
         long? tableId;
         using (var insert = Command(tx,
             """
-            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier)
+            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue)
             VALUES (
                 CASE WHEN EXISTS (SELECT 1 FROM Tables WHERE Id = $table) THEN $table ELSE NULL END,
-                $name, $dice, $roll, $result, $rolled, $situational);
+                $name, $dice, $roll, $result, $rolled, $situational, $clamped);
             SELECT last_insert_rowid(), TableId FROM RollHistory WHERE Id = last_insert_rowid();
             """))
         {
@@ -472,6 +473,7 @@ public sealed class AppDatabase : IDisposable
             insert.Parameters.AddWithValue("$result", snapshot.ResultText);
             insert.Parameters.AddWithValue("$rolled", FormatUtc(rolledUtc));
             insert.Parameters.AddWithValue("$situational", snapshot.SituationalModifier);
+            insert.Parameters.AddWithValue("$clamped", (object?)snapshot.ClampedValue ?? DBNull.Value);
             using var reader = insert.ExecuteReader();
             reader.Read();
             id = reader.GetInt64(0);
@@ -487,7 +489,7 @@ public sealed class AppDatabase : IDisposable
 
         tx.Commit();
         return new RollHistoryItem(id, tableId, snapshot.TableName, snapshot.DiceText, snapshot.RollValue, snapshot.ResultText, rolledUtc,
-            snapshot.SituationalModifier);
+            snapshot.SituationalModifier, snapshot.ClampedValue);
     }
 
     /// <summary>Recent rolls, newest first.</summary>
@@ -495,13 +497,14 @@ public sealed class AppDatabase : IDisposable
     {
         using var cmd = _connection.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier FROM RollHistory ORDER BY Id DESC LIMIT $limit";
+            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue FROM RollHistory ORDER BY Id DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$limit", limit);
         using var reader = cmd.ExecuteReader();
         var list = new List<RollHistoryItem>();
         while (reader.Read())
             list.Add(new RollHistoryItem(reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.GetString(2),
-                reader.GetString(3), reader.GetInt32(4), reader.GetString(5), ParseUtc(reader.GetString(6)), reader.GetInt32(7)));
+                reader.GetString(3), reader.GetInt32(4), reader.GetString(5), ParseUtc(reader.GetString(6)), reader.GetInt32(7),
+                reader.IsDBNull(8) ? null : reader.GetInt32(8)));
         return list;
     }
 
@@ -538,6 +541,7 @@ public sealed class AppDatabase : IDisposable
         cmd.Parameters.AddWithValue("$modifier", table.Dice.Modifier);
         cmd.Parameters.AddWithValue("$convention", (int)table.Dice.Convention);
         cmd.Parameters.AddWithValue("$folder", (object?)table.FolderId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$clamp", table.ClampResultsToRange ? 1 : 0);
         cmd.Parameters.AddWithValue("$updated", FormatUtc(table.UpdatedUtc));
     }
 

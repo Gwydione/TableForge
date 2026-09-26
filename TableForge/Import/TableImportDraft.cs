@@ -17,6 +17,12 @@ public sealed class TableImportDraft
     /// <summary>Zero or one folder in the table's collection. Null means Unfiled.</summary>
     public long? FolderId { get; set; }
 
+    /// <summary>
+    /// What the user asked for (<see cref="RollableTable.ClampResultsToRange"/>). It is kept through edits that make clamping
+    /// unavailable for a while, but a built table only ever gets it where <see cref="TableClamp.TryGetRange"/> finds a range.
+    /// </summary>
+    public bool ClampResultsToRange { get; set; }
+
     public List<ResultSetDraft> ResultSets { get; set; } = [];
     public List<ParseIssue> Issues { get; set; } = [];
 
@@ -27,6 +33,7 @@ public sealed class TableImportDraft
         TableName = table.Name,
         DiceText = table.Dice.ToString(),
         FolderId = table.FolderId,
+        ClampResultsToRange = table.ClampResultsToRange,
         ResultSets = table.ResultSets.Select(s => new ResultSetDraft
         {
             Name = s.Name,
@@ -107,6 +114,8 @@ public sealed class TableImportDraft
             FolderId = FolderId,
             ResultSets = built,
         };
+        // A table that cannot be clamped (d66, result sets with different ranges) is saved with Clamp off, never a dormant "on".
+        table.ClampResultsToRange = ClampResultsToRange && TableClamp.TryGetRange(table, out _, out _);
         return true;
     }
 }

@@ -31,26 +31,38 @@
             <Run Text="{Binding HeadingTitle, Mode=OneWay}" /><Run Text="{Binding HeadingDetail, Mode=OneWay}" Foreground="#666" FontSize="14" FontWeight="Normal" />
         </TextBlock>
 
-        <Grid Grid.Row="1" Margin="0,10,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="160" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                <TextBlock Text="Table name" Foreground="#555" />
-                <TextBox x:Name="NameBox" Text="{Binding TableName, UpdateSourceTrigger=PropertyChanged}" Padding="4" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Width="130">
-                <TextBlock Text="Dice" Foreground="#555" />
-                <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="A dice expression such as d20, 2d6, or 2d6+1" />
-            </StackPanel>
-            <StackPanel Grid.Column="2" Margin="12,0,0,0">
-                <TextBlock Text="Folder" Foreground="#555" />
-                <ComboBox x:Name="FolderBox" ItemsSource="{Binding FolderOptions}" SelectedItem="{Binding SelectedFolder}"
-                          DisplayMemberPath="Name" Padding="4" ToolTip="Which folder in this collection the table belongs to" />
-            </StackPanel>
-        </Grid>
+        <StackPanel Grid.Row="1" Margin="0,10,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="160" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="Table name" Foreground="#555" />
+                    <TextBox x:Name="NameBox" Text="{Binding TableName, UpdateSourceTrigger=PropertyChanged}" Padding="4" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Width="130">
+                    <TextBlock Text="Dice" Foreground="#555" />
+                    <TextBox x:Name="DiceBox" Text="{Binding DiceText, UpdateSourceTrigger=PropertyChanged}" Padding="4" ToolTip="A dice expression such as d20, 2d6, or 2d6+1" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                    <TextBlock Text="Folder" Foreground="#555" />
+                    <ComboBox x:Name="FolderBox" ItemsSource="{Binding FolderOptions}" SelectedItem="{Binding SelectedFolder}"
+                              DisplayMemberPath="Name" Padding="4" ToolTip="Which folder in this collection the table belongs to" />
+                </StackPanel>
+            </Grid>
+            <!-- Per-table Clamp to Range. Off by default; unavailable (with the reason beside it) for d66 or result sets with different ranges. -->
+            <WrapPanel Margin="0,8,0,0">
+                <CheckBox x:Name="ClampBox" Content="Clamp out-of-range rolls to table range" VerticalAlignment="Center"
+                          IsChecked="{Binding ClampResultsToRange}" IsEnabled="{Binding IsClampAvailable}"
+                          ToolTip="Results below the table minimum use the minimum; results above the maximum use the maximum."
+                          ToolTipService.ShowOnDisabled="True" />
+                <TextBlock x:Name="ClampUnavailableText" Text="{Binding ClampUnavailableNote}" Foreground="#777" Margin="10,0,0,0"
+                           VerticalAlignment="Center" TextWrapping="Wrap"
+                           Visibility="{Binding HasClampUnavailableNote, Converter={StaticResource BoolToVis}}" />
+            </WrapPanel>
+        </StackPanel>
 
         <!-- Result set selector: each set has its own name and its own independently ranged rows. -->
         <DockPanel Grid.Row="2" Margin="0,0,0,8">

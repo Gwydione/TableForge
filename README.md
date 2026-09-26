@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc12 (V1 Release Candidate 12)**
+**Version 1.0.0-rc13 (V1 Release Candidate 13)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc12 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc13 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -133,8 +133,8 @@ Beside **Roll** is a small **Modifier** box (`0` by default). Type one whole num
 time; nothing about it is saved with the table, and the table's own dice (`2d6+1`) are never changed by it.
 
 - The sum is used exactly as calculated, even outside the table: a d6 that rolls 1 with `-1` is **0**, which usually
-  shows "No entry covers 0." TableForge never clamps, rerolls or picks the nearest row — whether that number means
-  something is up to your game. That roll still uses the modifier up.
+  shows "No entry covers 0." TableForge never rerolls or picks the nearest row, and clamps only a table you have
+  explicitly set to (see **Clamp to table range** below). That roll still uses the modifier up.
 - Anything that is not one whole number in range (`+`, `2.5`, `1d4`, `+1001`) turns Roll off and says why; it is never
   read as 0. **Enter** in the box rolls.
 - If the dice cannot finish (a dddice roll is cancelled or fails), the modifier stays for the retry. dddice still shows
@@ -144,6 +144,24 @@ time; nothing about it is saved with the table, and the table's own dice (`2d6+1
 - Opening a different table, or following a link, starts the box at 0 again.
 - A d66 table has no Modifier box: arithmetic does not respect its tens-and-ones results (35 + 2 is not a d66 result).
 - **Recent rolls** keeps the final number and the modifier used, e.g. `14 (+3)`; hover for "d20 → 14 (11 +3 situational)".
+
+## Clamp to table range
+
+A table can opt in to **Clamp out-of-range rolls to table range** (a checkbox under the name and dice on Review / Edit
+table; off for every table unless you turn it on). Then a roll that lands below the table's lowest row uses that lowest
+value, and one above its highest row uses the highest value. The range is the one the rows actually cover (a d20 table
+whose rows run 5–15 clamps 3 to 5 and 18 to 15), not the dice's theoretical range.
+
+- The calculated number is never hidden: a d6 rolling 6 with `+2` shows "Rolled 8", "6 +2 situational", then
+  "Resolved as 6 (clamped)" and row 6's result. Stored modifiers count the same way (`d6+1` rolling 7 on rows 1–6 uses 6).
+- Only values outside the outer boundaries move. A gap inside the table (rows 1–3 and 5–6, roll 4) is still "No entry
+  covers 4.", and overlapping rows are still reported as ambiguous.
+- A roll you type yourself is never clamped, and neither are inline dice. A followed link uses the destination
+  table's own setting.
+- Every result set must share the same lowest and highest value, so one roll clamps to one number for all of them;
+  otherwise the checkbox is unavailable and says why. It is never available for d66. Editing a clamped table into one of
+  those shapes turns Clamp off when you save (the checkbox shows that before you do).
+- **Recent rolls** keeps both numbers, e.g. `8 (+2) → 6 (clamped)`, and the result of the row actually used.
 
 ## Inline dice in results
 

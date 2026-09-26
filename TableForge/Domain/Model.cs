@@ -23,11 +23,15 @@ public sealed class Folder
 /// <summary>What one roll showed, as text: the data stored for Recent Rolls. It never refers to entries.</summary>
 /// <param name="RollValue">The final value the table was resolved with, after any <paramref name="SituationalModifier"/>.</param>
 /// <param name="SituationalModifier">The temporary modifier this roll used (see <see cref="Domain.SituationalModifier"/>); 0 for none.</param>
-public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText, int SituationalModifier = 0);
+/// <param name="ClampedValue">The value the table was looked up with when <see cref="TableClamp"/> clamped <paramref name="RollValue"/>; null when it was not clamped.</param>
+public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText, int SituationalModifier = 0,
+    int? ClampedValue = null);
 
 /// <summary>A stored roll snapshot. It stays readable after its table is renamed, edited or deleted (then <see cref="TableId"/> is null).</summary>
+/// <param name="RollValue">The final calculated roll, never replaced by a clamped value.</param>
+/// <param name="ClampedValue">The value the table was looked up with because <see cref="RollValue"/> was clamped to the table's range; null when it was not.</param>
 public sealed record RollHistoryItem(long Id, long? TableId, string TableName, string DiceText, int RollValue, string ResultText, DateTime RolledUtc,
-    int SituationalModifier = 0)
+    int SituationalModifier = 0, int? ClampedValue = null)
 {
     /// <summary>
     /// The final roll. Unmodified, it reads as the dice show it (numeric 100 on a d100 reads "00"); with a situational
@@ -39,10 +43,15 @@ public sealed record RollHistoryItem(long Id, long? TableId, string TableName, s
     public string SituationalBreakdown => SituationalModifier == 0 ? ""
         : $"{RollValue - SituationalModifier} {Domain.SituationalModifier.Signed(SituationalModifier)} situational";
 
-    /// <summary>Readable snapshot: table, dice and roll (and how a modifier reached it), then each result set's output.</summary>
-    public string FullText => SituationalModifier == 0
-        ? $"{TableName}\n{DiceText} → {RollDisplay}\n\n{ResultText}"
-        : $"{TableName}\n{DiceText} → {RollDisplay} ({SituationalBreakdown})\n\n{ResultText}";
+    /// <summary>"Resolved as 6 (clamped)" for a clamped roll; empty otherwise.</summary>
+    public string ClampNote => ClampedValue is { } v ? $"Resolved as {v} (clamped)" : "";
+
+    /// <summary>Readable snapshot: table, dice and roll (and how a modifier reached it, and any clamp), then each result set's output.</summary>
+    public string FullText => (SituationalModifier == 0
+            ? $"{TableName}\n{DiceText} → {RollDisplay}"
+            : $"{TableName}\n{DiceText} → {RollDisplay} ({SituationalBreakdown})")
+        + (ClampedValue is null ? "" : $"\n{ClampNote}")
+        + $"\n\n{ResultText}";
 }
 
 /// <summary>Lightweight row for listing tables without loading their entries. <see cref="FolderName"/> is "Unfiled" when <see cref="FolderId"/> is null.</summary>
@@ -61,6 +70,12 @@ public sealed class RollableTable
 
     /// <summary>Zero or one folder in the same collection. Null means Unfiled.</summary>
     public long? FolderId { get; set; }
+
+    /// <summary>
+    /// Opt-in: a provider-driven roll that lands below or above this table's range is looked up at that boundary instead of
+    /// being No Match. Only ever takes effect where <see cref="TableClamp.TryGetRange"/> finds a range; see <see cref="TableClamp"/>.
+    /// </summary>
+    public bool ClampResultsToRange { get; set; }
 
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
