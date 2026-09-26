@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc14 (V1 Release Candidate 14)**
+**Version 1.0.0-rc15 (V1 Release Candidate 15)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc14 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc15 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -126,6 +126,21 @@ The dice you write decide which one it is; TableForge never guesses from the row
 Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still means a die with 66 sides, as it did in earlier
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
 The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinary d6 whose order becomes tens and ones.
+
+## Several rolls at once
+
+Beside **Roll** is **Rolls:** (1 by default). Choose 2 to 10 and the button reads **Roll 3 Times**: one press makes that many
+independent rolls of the current table, one after another (with dddice each set of dice settles and its result appears before
+the next throw). Every result is kept and shown separately, headed **Roll 1**, **Roll 2**…, each with its own links and inline
+dice buttons; nothing is combined, counted or interpreted, and table text such as "roll 3 times" is never read as a count.
+
+- Each roll is a normal roll: the table's own modifier (`2d6+1`) and Clamp apply to every one, and each is its own entry in
+  **Recent rolls**.
+- The **Modifier** box is used by the first roll that succeeds, then resets to 0 as usual; it is not added to every roll.
+- If a roll fails or is cancelled, the ones already made stay (and stay recorded); the rest are not rolled, and TableForge says
+  where it stopped.
+- A roll you type yourself is always one result. The choice goes back to 1 when you follow a link or open another table, and is
+  not remembered after TableForge closes. It is locked while dice are rolling.
 
 ## Situational modifier
 

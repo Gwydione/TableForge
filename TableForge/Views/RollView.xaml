@@ -48,6 +48,9 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,10">
+                                            <!-- "Roll 2": only for the results of one Roll action that made several rolls, each kept separate. -->
+                                            <TextBlock x:Name="BatchLabelText" Text="{Binding BatchLabel}" FontWeight="SemiBold" Foreground="#333" Margin="0,4,0,2"
+                                                       Visibility="{Binding HasBatchLabel, Converter={StaticResource BoolToVis}}" />
                                             <TextBlock Text="{Binding Display}" FontSize="16" Foreground="#555" Margin="0,0,0,4" />
                                             <!-- Only for a roll that used a situational modifier: how the final number was reached. -->
                                             <TextBlock Text="{Binding Breakdown}" Foreground="#555" Margin="0,-2,0,4"
@@ -118,7 +121,13 @@
             <!-- Rolling always applies to the current (last) table in the trail. -->
             <StackPanel x:Name="RollControls" Margin="0,6,0,0">
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="RollButton" Content="Roll" FontSize="18" Padding="32,8" Command="{Binding RollCommand}" />
+                <!-- How many independent rolls one Roll makes: chosen by the person (1 by default), never read from a table's text.
+                     Manual entry is always one typed result and ignores it. -->
+                <TextBlock Text="Rolls:" Foreground="#666" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox x:Name="RollCountBox" ItemsSource="{Binding RollCountOptions}" SelectedItem="{Binding RollCount}" Width="52"
+                          VerticalAlignment="Center" Margin="0,0,10,0" IsEnabled="{Binding IsRollCountEditable}"
+                          AutomationProperties.Name="Number of rolls" ToolTip="How many times Roll rolls this table (each result is kept separately)" />
+                <Button x:Name="RollButton" Content="{Binding RollButtonLabel}" FontSize="18" Padding="32,8" Command="{Binding RollCommand}" />
                 <!-- A temporary situational modifier for the next Roll only: added after the dice, then reset to 0. Not for d66,
                      manual entry or inline rolls, and locked while a roll is in the air (that roll already took its value). -->
                 <StackPanel Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center"

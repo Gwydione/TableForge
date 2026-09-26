@@ -193,10 +193,13 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
 /// <summary>One numeric roll on a step's table, shown once, with every result set's output.</summary>
 /// <param name="Breakdown">How a situational modifier reached the roll ("11 +3 situational"); empty for an unmodified roll.</param>
 /// <param name="ClampNote">"Resolved as 6 (clamped)" when the table's Clamp to Range looked the roll up at a boundary; empty otherwise.</param>
-public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "", string ClampNote = "")
+/// <param name="BatchLabel">"Roll 2" for the second result of one multi-roll action; empty for an ordinary single roll.</param>
+public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "", string ClampNote = "",
+    string BatchLabel = "")
 {
     public bool HasBreakdown => Breakdown.Length > 0;
     public bool HasClampNote => ClampNote.Length > 0;
+    public bool HasBatchLabel => BatchLabel.Length > 0;
 }
 
 /// <summary>A table in the linked-roll trail and every roll made on it. Repeat rolls stay in the same step.</summary>
@@ -227,15 +230,17 @@ public sealed class RollStepViewModel(RollableTable table, bool isFirst) : Obser
             .ToList()
         : [];
 
-    internal void Add(RollOutcomeViewModel outcome, int roll)
+    /// <param name="keepHighlights">True for the second and later results of one multi-roll action: their rows are highlighted
+    /// alongside the earlier ones in that action instead of replacing them.</param>
+    internal void Add(RollOutcomeViewModel outcome, int roll, bool keepHighlights = false)
     {
         Outcomes.Add(outcome);
         Raise(nameof(HasOutcomes));
         foreach (var set in ResultSets)
             foreach (var entry in set.Entries)
-                entry.IsMatched = entry.Entry.Covers(roll);
+                entry.IsMatched = entry.Entry.Covers(roll) || (keepHighlights && entry.IsMatched);
         foreach (var row in AlignedRows)
-            row.IsMatched = row.Cells[0].Entry.Covers(roll); // every cell in a row shares the same range
+            row.IsMatched = row.Cells[0].Entry.Covers(roll) || (keepHighlights && row.IsMatched); // every cell in a row shares the same range
     }
 
     /// <summary>See <see cref="IsAligned"/>.</summary>
@@ -270,6 +275,8 @@ public sealed class RollViewModel : ObservableObject
     private string _modifierText = "0";
     private string _message = "";
     private bool _isRolling;
+    private int _rollCount = 1;
+    private int _batchPosition;
     private CancellationTokenSource? _rollCancel;
 
     /// <param name="tableUsed">Called when a table becomes the current rollable table by being followed to (recent tables).</param>
@@ -290,6 +297,37 @@ public sealed class RollViewModel : ObservableObject
     }
 
     public ObservableCollection<RollStepViewModel> Steps { get; } = [];
+
+    /// <summary>The largest number of rolls one Roll action can make.</summary>
+    public const int MaxRollCount = 10;
+
+    /// <summary>The choices offered beside Roll: 1 through <see cref="MaxRollCount"/>.</summary>
+    public IReadOnlyList<int> RollCountOptions { get; } = Enumerable.Range(1, MaxRollCount).ToList();
+
+    /// <summary>
+    /// How many independent rolls the next Roll makes (1-10), chosen by the person; never inferred from a table's text. 1 is
+    /// exactly the single roll TableForge always made. It stays as chosen while on this table, goes back to 1 when a link is
+    /// followed, and is never saved (a newly opened table, or TableForge started again, starts at 1). Locked during a roll.
+    /// </summary>
+    public int RollCount
+    {
+        get => _rollCount;
+        set
+        {
+            if (IsRolling) { Raise(); return; }
+            if (!Set(ref _rollCount, Math.Clamp(value, 1, MaxRollCount))) return;
+            Raise(nameof(RollButtonLabel));
+        }
+    }
+
+    /// <summary>"Roll", or "Roll 3 Times" when several rolls are chosen.</summary>
+    public string RollButtonLabel => RollCount == 1 ? "Roll" : $"Roll {RollCount} Times";
+
+    /// <summary>The choice of how many rolls is locked while a roll is in the air.</summary>
+    public bool IsRollCountEditable => !IsRolling;
+
+    /// <summary>Every result of the latest Roll action on the current table, in order (one for an ordinary roll).</summary>
+    public IReadOnlyList<RollOutcomeViewModel> LatestRolls { get; private set; } = [];
     public RollStepViewModel Current => Steps[^1];
 
     public string Title => Current.Title;
@@ -364,11 +402,12 @@ public sealed class RollViewModel : ObservableObject
             if (!Set(ref _isRolling, value)) return;
             Raise(nameof(RollStatus));
             Raise(nameof(IsModifierEditable));
+            Raise(nameof(IsRollCountEditable));
         }
     }
 
-    /// <summary>"Rolling…" while a roll is in progress. The table result is not shown until it ends.</summary>
-    public string RollStatus => IsRolling ? "Rolling…" : "";
+    /// <summary>"Rolling…" while a roll is in progress ("Rolling 2 of 3…" during several). Each table result is shown only once its roll ends.</summary>
+    public string RollStatus => !IsRolling ? "" : _batchPosition > 0 && RollCount > 1 ? $"Rolling {_batchPosition} of {RollCount}…" : "Rolling…";
 
     /// <summary>The roll under way, or the last one that finished (for callers that need to wait for it).</summary>
     public Task RollTask { get; private set; } = Task.CompletedTask;
@@ -391,36 +430,66 @@ public sealed class RollViewModel : ObservableObject
             Message = SituationalModifier.InvalidMessage;
             return RollTask;
         }
-        return RollTask = RollCoreAsync(situational);
+        return RollTask = RollCoreAsync(situational, RollCount);
     }
 
-    private async Task RollCoreAsync(int situational)
+    /// <summary>
+    /// One Roll action: <paramref name="count"/> independent rolls, strictly one after another (a dddice roll settles and is shown
+    /// before the next one is thrown), each through the same pipeline as a single roll and each recorded in Recent Rolls on its own.
+    /// The situational modifier belongs to the first roll that succeeds, then resets as always. A roll that fails or is cancelled
+    /// stops the action there: the results already shown (and recorded) stay, and nothing is made up for the rest.
+    /// </summary>
+    private async Task RollCoreAsync(int situational, int count)
     {
         Message = "";
-        var cancel = _rollCancel = new CancellationTokenSource();
+        var step = Current;
         IsRolling = true;
-        int roll;
         try
         {
-            roll = await _dice.RollAsync(Current.Table.Dice, cancel.Token);
-        }
-        catch (OperationCanceledException) { Message = "The roll was cancelled."; return; }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Message = ex is DddiceException ? ex.Message : $"The roll could not be made: {ex.Message}";
-            return;
+            for (var position = 1; position <= count; position++)
+            {
+                SetBatchPosition(position);
+                var cancel = _rollCancel = new CancellationTokenSource();
+                int roll;
+                try
+                {
+                    roll = await _dice.RollAsync(step.Table.Dice, cancel.Token);
+                }
+                catch (OperationCanceledException) { Message = Stopped("The roll was cancelled.", position, count); return; }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Message = Stopped(ex is DddiceException ? ex.Message : $"The roll could not be made: {ex.Message}", position, count);
+                    return;
+                }
+                finally
+                {
+                    if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
+                    cancel.Dispose();
+                }
+                // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
+                // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
+                Apply(roll + situational, situational, fromProvider: true, position: position, count: count);
+                if (position == 1 || situational != 0) ModifierText = "0";
+                situational = 0;
+            }
         }
         finally
         {
+            SetBatchPosition(0);
             IsRolling = false;
-            if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
-            cancel.Dispose();
         }
-        // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
-        // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
-        Apply(roll + situational, situational, fromProvider: true);
-        ModifierText = "0";
     }
+
+    private void SetBatchPosition(int position)
+    {
+        _batchPosition = position;
+        Raise(nameof(RollStatus));
+    }
+
+    /// <summary>The provider's own message; for several rolls, also where the action stopped and how many results there are.</summary>
+    private static string Stopped(string message, int position, int count) => count == 1 ? message
+        : position == 1 ? $"{message} None of the {count} rolls was made."
+        : $"{message} Stopped at roll {position} of {count}: rolls 1–{position - 1} are shown; the rest were not rolled.";
 
     /// <summary>
     /// Rolls one auxiliary <see cref="InlineDiceAction"/> found inside a displayed result (see <see cref="InlineDiceDetector"/>),
@@ -433,7 +502,7 @@ public sealed class RollViewModel : ObservableObject
     /// </summary>
     private Task RollInlineAsync(InlineDiceAction action)
     {
-        if (IsRolling) return RollTask; // a roll is already under way somewhere on this screen; this press joins it
+        if (IsRolling) return RollTask; // a roll (or a multi-roll action) is under way on this screen; this press joins it
         return RollTask = RollInlineCoreAsync(action);
     }
 
@@ -486,7 +555,9 @@ public sealed class RollViewModel : ObservableObject
     /// <param name="situational">The situational modifier already included in <paramref name="roll"/>; 0 for none.</param>
     /// <param name="fromProvider">True for a provider-driven roll: only those are clamped (see <see cref="TableClamp"/>), after all
     /// the roll's arithmetic and before lookup. A manual entry is the user's explicit final value and is looked up exactly as typed.</param>
-    private void Apply(int roll, int situational = 0, bool fromProvider = false)
+    /// <param name="position">Which roll of a multi-roll action this is (1-based).</param>
+    /// <param name="count">How many rolls that action asked for; 1 for an ordinary roll or a manual entry.</param>
+    private void Apply(int roll, int situational = 0, bool fromProvider = false, int position = 1, int count = 1)
     {
         Message = "";
         var step = Current;
@@ -517,8 +588,13 @@ public sealed class RollViewModel : ObservableObject
             });
         }
 
-        DeactivateLinks(); // links offered by earlier rolls are superseded by this one
-        step.Add(new RollOutcomeViewModel(display, lines, breakdown, clampNote), lookup);
+        // Links and inline dice offered by earlier Roll actions are superseded by this one; the other results of the same
+        // multi-roll action stay active, each with its own.
+        if (position == 1) DeactivateLinks();
+        var outcome = new RollOutcomeViewModel(display, lines, breakdown, clampNote, count > 1 ? $"Roll {position}" : "");
+        step.Add(outcome, lookup, keepHighlights: position > 1);
+        LatestRolls = position == 1 ? [outcome] : [.. LatestRolls, outcome];
+        Raise(nameof(LatestRolls));
         Raise(nameof(Results));
         Raise(nameof(RollDisplay));
         Raise(nameof(RollBreakdown));
@@ -570,6 +646,9 @@ public sealed class RollViewModel : ObservableObject
         Steps.Add(new RollStepViewModel(line.LinkTarget, isFirst: false));
         ManualRollText = "";
         ModifierText = "0"; // a modifier belongs to the table it was typed for, never the one followed to
+        RollCount = 1;      // and so does a choice of several rolls
+        LatestRolls = [];
+        Raise(nameof(LatestRolls));
         Message = "";
         Raise(nameof(Title));
         Raise(nameof(DiceInfo));
