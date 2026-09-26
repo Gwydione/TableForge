@@ -1,0 +1,29 @@
+<Window x:Class="TableForge.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About TableForge" Width="420" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="13" Icon="Assets/TableForge.ico">
+    <StackPanel Margin="18">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <Image Source="Assets/TableForge.ico" Width="48" Height="48" Margin="0,0,12,0" VerticalAlignment="Center" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="AboutName" Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock x:Name="AboutVersion" Text="{Binding VersionLine}" Foreground="#555" />
+            </StackPanel>
+        </StackPanel>
+        <TextBlock Text="{Binding PurposeLine}" TextWrapping="Wrap" Margin="0,0,0,8" />
+        <TextBlock x:Name="AboutPublisher" Text="{Binding PublisherLine}" Foreground="#555" Margin="0,0,0,4" />
+        <TextBlock Margin="0,0,0,12">
+            <Hyperlink x:Name="AboutProjectLink" Command="{Binding OpenProjectPageCommand}" ToolTip="Opens in your web browser">
+                <Run Text="{Binding ProjectUrlText, Mode=OneWay}" />
+            </Hyperlink>
+        </TextBlock>
+        <WrapPanel Margin="0,0,0,12">
+            <Button Content="Open Data Folder" Padding="8,2" Margin="0,0,6,6" Command="{Binding OpenDataFolderCommand}" ToolTip="{Binding DataFolder}" />
+            <Button Content="License" Padding="8,2" Margin="0,0,6,6" Command="{Binding OpenLicenseCommand}" />
+            <Button Content="Privacy" Padding="8,2" Margin="0,0,6,6" Command="{Binding OpenPrivacyCommand}" />
+            <Button Content="Third-party notices" Padding="8,2" Margin="0,0,6,6" Command="{Binding OpenNoticesCommand}" />
+        </WrapPanel>
+        <Button Content="Close" HorizontalAlignment="Right" Padding="16,3" IsCancel="True" IsDefault="True" Click="OnClose" />
+    </StackPanel>
+</Window>

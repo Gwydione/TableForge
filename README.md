@@ -1,91 +1,123 @@
-# TableForge — RPG Rollable Tables
+# TableForge
 
-**Version 1.0.0-rc17 (V1 Release Candidate 17)**
+**TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
-the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
-(“Scavenging → Scavenged Items”) are supported.
+Version 1.0.0-rc18 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
-## Installing TableForge
+Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
+whenever you need it at the table:
 
-**Status: release candidate 17 is the first packaged build, for testing on clean machines before a public 1.0.**
+**Paste → Review/Correct → Save → Find → Roll → Read**
 
-Run `TableForge-1.0.0-rc17-Setup.exe`. It installs TableForge for your Windows user only, with no administrator prompt, into
-`%LOCALAPPDATA%\Programs\TableForge`, and adds **TableForge** to the Start Menu. It needs 64-bit Windows 10 or 11 and nothing
-else: .NET is included. dddice's 3D dice also need the Microsoft Edge WebView2 Runtime, which comes with Windows 11 and
-current Windows 10; without it TableForge still starts and Built-in dice work, and choosing dddice explains what is missing.
+TableForge can also:
 
-- **Upgrading:** run the newer installer; it replaces the program in place. Your tables and settings are not touched.
-- **Uninstalling** (Settings → Apps, or Add or remove programs) removes the program, its Start Menu entry and its uninstaller
-  only. Your data folder stays, so reinstalling brings all your tables back. To remove your data as well, delete
-  `%LOCALAPPDATA%\TableForge` yourself after uninstalling.
+- clean up difficult PDF-copied table text (wrapped lines, broken hyphenation, stray characters, several columns);
+- organize tables into **Collections** and **Folders**, with search and recent tables;
+- roll with fast **Built-in dice**, or optionally with **dddice** 3D visual dice, including themes from your own
+  dddice account;
+- follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
+- make **several rolls at once**, keeping every result;
+- **Copy Table Text** as clean plain text for other tools and VTTs.
 
-## Building and testing (developers)
+## Install
 
-Requires the .NET 10 SDK on Windows.
+1. Download `TableForge-<version>-Setup.exe` from **[GitHub Releases](https://github.com/Gwydione/TableForge/releases)**.
+2. Run the installer. It installs for your Windows user only and needs no administrator rights.
+3. Start **TableForge** from the Start Menu.
 
-```
-dotnet build
-dotnet test
-```
+- **Windows x64 only** for now (64-bit Windows 10 or 11).
+- **.NET is included**; nothing else needs installing.
+- The **Microsoft Edge WebView2 Runtime** is needed only for the optional dddice visual dice. It comes with Windows 11 and
+  current Windows 10. Built-in dice always work, with or without WebView2 and dddice.
+- To upgrade, run a newer installer: it replaces the program and keeps your tables. A portable
+  `TableForge-<version>-win-x64.zip` is also published for people who prefer not to install; it keeps its data in the same
+  place.
 
-The test suite uses only temporary SQLite files and never touches the real application data.
+**SmartScreen:** early TableForge release candidates are not code-signed, so Windows may show "Windows protected your PC"
+when you run the installer. If you downloaded it from the [TableForge Releases page](https://github.com/Gwydione/TableForge/releases) and trust it, choose
+**More info**, then **Run anyway**. You can compare the download with the `SHA256SUMS.txt` published beside it
+(`Get-FileHash TableForge-<version>-Setup.exe` in PowerShell). Don't turn off SmartScreen or other Windows protection.
 
-## Producing the release (self-contained Windows x64)
+## First use
 
-From the repository root:
+1. Type a name for a **Collection** (a game or campaign) at the top left and press **Enter**.
+2. Choose **Paste Table…** and paste a random table copied from a PDF or book.
+3. Choose **Interpret**, then review and correct the rows (notes point out anything TableForge was unsure about).
+4. **Save Table**.
+5. **Roll**.
 
-```
-.\publish.ps1
-```
+## Your data and backups
 
-This is the one supported way to cut a release build. It runs the full test suite in Release configuration first
-(retrying once on failure, since the UI tests drive real WPF windows and are occasionally timing-flaky, but two
-failures in a row stop the script), then **deletes and recreates** `publish\win-x64\` from scratch — it never
-layers a new publish over old files — and finally checks that the published exe's own file version matches the
-`<Version>` in `TableForge.csproj`, so a stale or partial publish is caught immediately instead of being shipped.
-Pass `-SkipTests` only for iterating on the script itself; never to produce a build you intend to ship.
-
-Output folder: `publish\win-x64\` (about 140 MB, roughly 400 files). Run `publish\win-x64\TableForge.exe`. The target machine
-does **not** need .NET installed. The folder never contains debug symbols (`.pdb`): the publish profile turns them off and the
-script refuses to finish if any appear.
-
-The publish settings live in `TableForge\Properties\PublishProfiles\win-x64-folder.pubxml`: self-contained, `win-x64`, no
-single-file, no trimming, no ReadyToRun. There is no auto-update in V1.
-
-### The installer
+Everything TableForge keeps (your tables, settings, dice choice and any dddice connection) is in one folder:
 
 ```
-.\publish.ps1 -Installer
+%LOCALAPPDATA%\TableForge
 ```
 
-does everything above and then compiles `installer\TableForge.iss` with Inno Setup 6 (install it once with
-`winget install JRSoftware.InnoSetup`) into `publish\installer\TableForge-<version>-Setup.exe`. The script's `AppId` must never
-change: it is how a newer installer recognises and replaces an installed TableForge. The installer is the one way TableForge
-is meant to be distributed (no zip).
+- **Open Data Folder**, at the bottom of the TableForge window, opens it.
+- **Uninstalling TableForge does not delete this folder.** Reinstalling finds your tables again automatically.
+- **To back up**, close TableForge and copy the whole folder somewhere safe. To restore, put it back.
+- When a future version needs to update your data's format, TableForge first saves an automatic safety copy of your
+  database beside it (and changes nothing if it cannot).
 
-Equivalent manual command, if you need it (`publish.ps1` just wraps this with the test gate and a clean folder):
+## Privacy
 
-```
-dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
-```
+TableForge keeps its data on your computer and has **no telemetry or analytics**. The optional dddice dice make network
+requests to dddice; TableForge never asks for, collects or stores your dddice password, and a connected dddice account's
+access token is protected with Windows DPAPI for your Windows user. See [PRIVACY.txt](PRIVACY.txt) for the details.
 
-### Confirming the running exe matches current source
+## Known limitations
 
-The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc17 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
-from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
-remembering to bump it. To check a specific exe from the command line instead:
+- Text is taken from what you copy: image-only or scanned PDFs need OCR first, which TableForge does not do.
+- Unusual PDF layouts may need some manual cleanup on the Review screen.
+- TableForge does not find tables in a whole PDF by itself; you copy the table you want.
+- **Copy Table Text** produces generic tab-separated text, not a format for any particular VTT.
+- dddice dice need an internet connection and the WebView2 Runtime.
+- Connecting a dddice account takes a few steps in your web browser.
+- Windows x64 only for now.
+- Only one copy of TableForge should be open at a time, and closing the window discards unsaved Review edits without asking.
+- The parser is deliberately conservative: anything it is unsure about stays together and is flagged on the Review screen
+  instead of being guessed. Side-by-side columns that each restart at the same number are not split.
+- dddice accounts can use only themes with every standard die; custom dice are not supported.
 
-```
-(Get-Item publish\win-x64\TableForge.exe).VersionInfo.ProductVersion
-(Get-Item publish\win-x64\TableForge.dll).LastWriteTime
-```
+## Feedback and bug reports
 
-If the version shown doesn't match `TableForge.csproj`'s `<Version>`, or the build time is older than your last
-accepted change, the running exe is stale — run `.\publish.ps1` again.
+Please report problems and ideas on **[GitHub Issues](https://github.com/Gwydione/TableForge/issues)**. It helps to include:
 
-## Where your data is kept
+- your TableForge version (bottom right of the window, or **About**);
+- your Windows version;
+- what you were trying to do, and what happened instead;
+- for table-reading problems, the table text you pasted (or a screenshot of it);
+- the exact error message, if there was one.
+
+**Never post dddice tokens, `dddice-account.json`, or any account credentials.**
+
+## License
+
+TableForge is copyright (c) 2026 RPG Frequencies, all rights reserved; see [LICENSE.txt](LICENSE.txt). Third-party
+components are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+
+---
+
+# Using TableForge in detail
+
+## Everyday use
+
+1. Type a name in the box at the top left (for example a game or campaign) and press **Enter** to create a collection.
+2. Choose **Paste Table…**, paste the copied text, and choose **Interpret** (or **Ctrl+Enter**). Check the result on the
+   Review screen — notes beside rows say where the parser was unsure — then **Save Table**.
+3. Choose a table to open it, then **Roll** (or type a number and press **Enter** to resolve a specific roll).
+4. If a result links to another table, a button appears; following it never rolls automatically.
+
+Keyboard: in the table search box **Enter** opens the first match and **Escape** clears the search. In the table list the
+arrow keys move the highlight and **Enter** opens. In “Paste rows into this set…”, **Escape** closes it and **Ctrl+Enter**
+adds the rows. On the Review screen, **Ctrl+J** joins the selected row into the row above it (see below).
+
+**Recent** (under the search box) lists the tables you opened most recently in the current collection. **Recent rolls**
+(bottom left) shows the last 10 rolls anywhere as read-only snapshots; clicking one reopens its table (a snapshot of a
+deleted table stays readable but cannot be opened).
+
+## Data folder details
 
 One SQLite database file:
 
@@ -111,22 +143,6 @@ to install the newer version.
 
 The legal and privacy notes are `LICENSE.txt`, `THIRD-PARTY-NOTICES.txt` and `PRIVACY.txt` (also installed with the program).
 TableForge collects no telemetry.
-
-## Using it
-
-1. Type a name in the box at the top left (for example a game or campaign) and press **Enter** to create a collection.
-2. Choose **Paste Table…**, paste the copied text, and choose **Interpret** (or **Ctrl+Enter**). Check the result on the
-   Review screen — notes beside rows say where the parser was unsure — then **Save Table**.
-3. Choose a table to open it, then **Roll** (or type a number and press **Enter** to resolve a specific roll).
-4. If a result links to another table, a button appears; following it never rolls automatically.
-
-Keyboard: in the table search box **Enter** opens the first match and **Escape** clears the search. In the table list the
-arrow keys move the highlight and **Enter** opens. In “Paste rows into this set…”, **Escape** closes it and **Ctrl+Enter**
-adds the rows. On the Review screen, **Ctrl+J** joins the selected row into the row above it (see below).
-
-**Recent** (under the search box) lists the tables you opened most recently in the current collection. **Recent rolls**
-(bottom left) shows the last 10 rolls anywhere as read-only snapshots; clicking one reopens its table (a snapshot of a
-deleted table stays readable but cannot be opened).
 
 ## Dice expressions
 
@@ -390,6 +406,77 @@ All three edits go through the paste box's own text editing, so **Ctrl+Z** undoe
 A warning above the box reports how many `�` characters are still in the text; as on Review, TableForge never guesses
 what they should be or changes them for you.
 
+
+---
+
+# For developers
+
+## Building and testing (developers)
+
+Requires the .NET 10 SDK on Windows.
+
+```
+dotnet build
+dotnet test
+```
+
+The test suite uses only temporary SQLite files and never touches the real application data.
+
+## Producing the release (self-contained Windows x64)
+
+From the repository root:
+
+```
+.\publish.ps1
+```
+
+This is the one supported way to cut a release build. It runs the full test suite in Release configuration first
+(retrying once on failure, since the UI tests drive real WPF windows and are occasionally timing-flaky, but two
+failures in a row stop the script), then **deletes and recreates** `publish\win-x64\` from scratch — it never
+layers a new publish over old files — and finally checks that the published exe's own file version matches the
+`<Version>` in `TableForge.csproj`, so a stale or partial publish is caught immediately instead of being shipped.
+Pass `-SkipTests` only for iterating on the script itself; never to produce a build you intend to ship.
+
+Output folder: `publish\win-x64\` (about 140 MB, roughly 400 files). Run `publish\win-x64\TableForge.exe`. The target machine
+does **not** need .NET installed. The folder never contains debug symbols (`.pdb`): the publish profile turns them off and the
+script refuses to finish if any appear.
+
+The publish settings live in `TableForge\Properties\PublishProfiles\win-x64-folder.pubxml`: self-contained, `win-x64`, no
+single-file, no trimming, no ReadyToRun. There is no auto-update in V1.
+
+### The installer and release artifacts
+
+```
+.\publish.ps1 -Installer
+```
+
+does everything above and then builds the public release artifacts in `publish\release\`: the installer
+(`installer\TableForge.iss`, Inno Setup 6; install it once with `winget install JRSoftware.InnoSetup`),
+`TableForge-<version>-Setup.exe`, the same files as a portable `TableForge-<version>-win-x64.zip`, and `SHA256SUMS.txt`. The script's `AppId` must never
+change: it is how a newer installer recognises and replaces an installed TableForge. The installer is the one way TableForge
+is meant to be installed; the zip is for people who prefer to run it from a folder (it uses the same data folder).
+
+Equivalent manual command, if you need it (`publish.ps1` just wraps this with the test gate and a clean folder):
+
+```
+dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
+```
+
+### Confirming the running exe matches current source
+
+The bottom-right of the main window shows the running build's version and the exact time its main assembly was
+written to disk, e.g. `1.0.0-rc18 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
+remembering to bump it. To check a specific exe from the command line instead:
+
+```
+(Get-Item publish\win-x64\TableForge.exe).VersionInfo.ProductVersion
+(Get-Item publish\win-x64\TableForge.dll).LastWriteTime
+```
+
+If the version shown doesn't match `TableForge.csproj`'s `<Version>`, or the build time is older than your last
+accepted change, the running exe is stale — run `.\publish.ps1` again.
+
 ## Developer tools
 
 **Separate data folder.** Set the environment variable `TABLEFORGE_DATA_DIR` to a folder to make TableForge keep *all* of its data
@@ -407,12 +494,3 @@ A window lists every clipboard format present (and which program owns it), what 
 text), whether bold/italic exists in HTML or RTF, and whether the copy carries more line/column structure than plain text.
 For a report file instead of a window: `TableForge.exe --clipboard-diagnostic --out report.txt`. It only reads the
 clipboard and never opens your tables.
-
-## Known limitations in this release candidate
-
-- Only one copy of TableForge should be open at a time.
-- Closing the window discards unsaved Review edits without asking.
-- The parser is deliberately conservative: anything it is unsure about stays together and is flagged on the Review screen
-  instead of being guessed. Side-by-side columns that each restart at the same number (parallel result sets) are not split.
-- No installer, auto-update, cloud sync, export, or OCR/screenshot import.
-- dddice needs internet and the WebView2 Runtime, and a roll needs the window visible. A connected account can use only themes with every standard die; custom dice are not supported.

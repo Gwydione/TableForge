@@ -45,7 +45,12 @@ public partial class App : Application
                 connection, openAccount: () => OpenDddiceAccount(window, connection, rest));
             var main = new MainViewModel(_db, dice,
                 confirm: message => MessageBox.Show(message, "Delete table", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
-                dataFolder: DataFolder, openFolder: OpenInExplorer);
+                dataFolder: DataFolder, openFolder: OpenInExplorer,
+                showAbout: () => new AboutWindow
+                {
+                    Owner = window,
+                    DataContext = new AboutViewModel(AppInfo.Version, AppContext.BaseDirectory, DataFolder, OpenWithWindows),
+                }.ShowDialog());
             window.DataContext = main;
             window.Show();
             dice.RestorePreference();
@@ -77,6 +82,16 @@ public partial class App : Application
     {
         System.IO.Directory.CreateDirectory(folder);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
+    }
+
+    /// <summary>Opens a file (Notepad for .txt) or folder with Windows, for About. A failure is shown, never thrown.</summary>
+    private static void OpenWithWindows(string path)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            MessageBox.Show($"TableForge could not open {path}: {ex.Message}", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
     }
 
     /// <summary>Opens a page in the person's default browser (never inside TableForge).</summary>

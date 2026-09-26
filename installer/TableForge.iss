@@ -21,6 +21,15 @@ AppId={{89A2A71F-CF3F-4C91-BDCB-125354F776EB}
 AppName=TableForge
 AppVersion={#AppVersion}
 AppVerName=TableForge {#AppVersion}
+AppPublisher=RPG Frequencies
+AppPublisherURL=https://github.com/Gwydione/TableForge
+AppSupportURL=https://github.com/Gwydione/TableForge/issues
+AppUpdatesURL=https://github.com/Gwydione/TableForge/releases
+AppCopyright=Copyright (c) 2026 RPG Frequencies
+VersionInfoCompany=RPG Frequencies
+VersionInfoCopyright=Copyright (c) 2026 RPG Frequencies
+VersionInfoProductName=TableForge
+SetupIconFile=TableForge\Assets\TableForge.ico
 VersionInfoVersion=1.0.0
 VersionInfoProductTextVersion={#AppVersion}
 PrivilegesRequired=lowest
@@ -40,18 +49,16 @@ WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
 SourceDir=..
-OutputDir=publish\installer
+OutputDir=publish\release
 OutputBaseFilename=TableForge-{#AppVersion}-Setup
 
 [Files]
-; The published app, exactly as publish.ps1 produced and verified it (never debug symbols).
+; The published app, exactly as publish.ps1 produced and verified it (never debug symbols). It already contains
+; LICENSE.txt, THIRD-PARTY-NOTICES.txt and PRIVACY.txt beside TableForge.exe.
 Source: "publish\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "PRIVACY.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\TableForge"; Filename: "{app}\TableForge.exe"
+Name: "{autoprograms}\TableForge"; Filename: "{app}\TableForge.exe"; IconFilename: "{app}\TableForge.exe"
 
 [Run]
 Filename: "{app}\TableForge.exe"; Description: "Start TableForge"; Flags: nowait postinstall skipifsilent

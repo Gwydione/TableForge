@@ -7,12 +7,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 
-    <!-- V1 Release Candidate 17. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.0.0-rc17</Version>
+    <!-- V1 Release Candidate 18. Version drives the file version, the product version and the number shown in the app. -->
+    <Version>1.0.0-rc18</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>TableForge</Product>
+    <Company>RPG Frequencies</Company>
+    <Authors>RPG Frequencies</Authors>
+    <Copyright>Copyright (c) 2026 RPG Frequencies</Copyright>
     <Description>TableForge - RPG Rollable Tables</Description>
     <AssemblyName>TableForge</AssemblyName>
+    <!-- Generated from branding\TableForge-icon-source.png by branding\make-icon.py; the artwork itself is never edited. -->
+    <ApplicationIcon>Assets\TableForge.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +28,12 @@
   <ItemGroup>
     <!-- The page that hosts dddice-js inside the WebView2. Loaded from disk through a virtual host name, so it is a real https origin. -->
     <Content Include="Assets\dddice-host.html" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The window icon (the same file the exe carries). -->
+    <Resource Include="Assets\TableForge.ico" />
+    <!-- Shipped beside the exe (and so in the installer and the zip); About opens them. -->
+    <Content Include="..\LICENSE.txt" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\PRIVACY.txt" Link="PRIVACY.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

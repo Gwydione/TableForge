@@ -303,9 +303,9 @@ public class PackagingTests
         foreach (var fact in new[] { "No telemetry", "no cloud sync", "dddice", "never asks for or stores your dddice password", "DPAPI", "clipboard", "%LOCALAPPDATA%\\TableForge" })
             Assert.Contains(fact, privacy);
 
-        var iss = Read("installer", "TableForge.iss");
+        var project = Read("TableForge", "TableForge.csproj");                        // shipped beside the exe (installer and zip)
         foreach (var file in new[] { "LICENSE.txt", "THIRD-PARTY-NOTICES.txt", "PRIVACY.txt" })
-            Assert.Contains($"Source: \"{file}\"", iss);
+            Assert.Contains($"<Content Include=\"..\\{file}\" Link=\"{file}\" CopyToOutputDirectory=\"PreserveNewest\" />", project);
     }
 
     [Fact]

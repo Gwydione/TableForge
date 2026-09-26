@@ -64,6 +64,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly Func<string, bool> _confirm;
     private readonly Action<string>? _copyText;
     private readonly Action<string>? _openFolder;
+    private readonly Action? _showAbout;
     private List<TableSummary> _allTables = [];
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
@@ -81,8 +82,9 @@ public sealed class MainViewModel : ObservableObject
     /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
     /// <param name="dataFolder">The folder holding the database and settings, for Open Data Folder. Null hides the command.</param>
     /// <param name="openFolder">Shows a folder in File Explorer.</param>
+    /// <param name="showAbout">Shows About TableForge. Null hides the command.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
-        string? dataFolder = null, Action<string>? openFolder = null)
+        string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null)
     {
         _db = db;
         _dice = dice;
@@ -90,6 +92,8 @@ public sealed class MainViewModel : ObservableObject
         _copyText = copyText;
         DataFolder = dataFolder;
         _openFolder = openFolder;
+        _showAbout = showAbout;
+        AboutCommand = new RelayCommand(() => _showAbout?.Invoke(), () => _showAbout is not null);
         OpenDataFolderCommand = new RelayCommand(() => Try("open the data folder", () => _openFolder!(DataFolder!)),
             () => DataFolder is not null && _openFolder is not null);
 
@@ -274,6 +278,10 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Opens <see cref="DataFolder"/> in File Explorer.</summary>
     public ICommand OpenDataFolderCommand { get; }
+
+    /// <summary>Shows About TableForge.</summary>
+    public ICommand AboutCommand { get; }
+    public bool HasAbout => _showAbout is not null;
     public ICommand NewFolderCommand { get; }
     public ICommand RenameFolderCommand { get; }
     public ICommand DeleteFolderCommand { get; }
