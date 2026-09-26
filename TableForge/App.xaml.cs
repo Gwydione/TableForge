@@ -44,7 +44,8 @@ public partial class App : Application
             var dice = new DiceProviderViewModel(new BuiltInDiceProvider(), new DddiceDiceProvider(_dddice), LoadDicePreference, SaveDicePreference,
                 connection, openAccount: () => OpenDddiceAccount(window, connection, rest));
             var main = new MainViewModel(_db, dice,
-                confirm: message => MessageBox.Show(message, "Delete table", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes);
+                confirm: message => MessageBox.Show(message, "Delete table", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
+                dataFolder: DataFolder, openFolder: OpenInExplorer);
             window.DataContext = main;
             window.Show();
             dice.RestorePreference();
@@ -69,6 +70,13 @@ public partial class App : Application
     {
         try { Clipboard.SetText(text); }
         catch (System.Runtime.InteropServices.ExternalException) { /* another program is holding the clipboard; the code is still on screen */ }
+    }
+
+    /// <summary>Shows a folder in File Explorer (Open Data Folder).</summary>
+    private static void OpenInExplorer(string folder)
+    {
+        System.IO.Directory.CreateDirectory(folder);
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
     }
 
     /// <summary>Opens a page in the person's default browser (never inside TableForge).</summary>

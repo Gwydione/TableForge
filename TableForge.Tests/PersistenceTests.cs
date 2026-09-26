@@ -23,6 +23,7 @@ internal sealed class TempDatabase : IDisposable
     {
         foreach (var db in _opened) db.Dispose(); // safe to dispose twice; releases the file for deletion
         if (File.Exists(Path)) File.Delete(Path);
+        foreach (var backup in DatabaseBackup.Existing(Path)) File.Delete(backup); // made by tests that upgrade an older database
     }
 }
 
@@ -62,7 +63,7 @@ public class PersistenceTests
             cmd.ExecuteNonQuery();
         }
 
-        Assert.Throws<InvalidOperationException>(() => temp.Open());
+        Assert.Throws<DatabaseTooNewException>(() => temp.Open());
     }
 
     [Fact]

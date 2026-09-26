@@ -1,10 +1,24 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc16 (V1 Release Candidate 16)**
+**Version 1.0.0-rc17 (V1 Release Candidate 17)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
 (“Scavenging → Scavenged Items”) are supported.
+
+## Installing TableForge
+
+**Status: release candidate 17 is the first packaged build, for testing on clean machines before a public 1.0.**
+
+Run `TableForge-1.0.0-rc17-Setup.exe`. It installs TableForge for your Windows user only, with no administrator prompt, into
+`%LOCALAPPDATA%\Programs\TableForge`, and adds **TableForge** to the Start Menu. It needs 64-bit Windows 10 or 11 and nothing
+else: .NET is included. dddice's 3D dice also need the Microsoft Edge WebView2 Runtime, which comes with Windows 11 and
+current Windows 10; without it TableForge still starts and Built-in dice work, and choosing dddice explains what is missing.
+
+- **Upgrading:** run the newer installer; it replaces the program in place. Your tables and settings are not touched.
+- **Uninstalling** (Settings → Apps, or Add or remove programs) removes the program, its Start Menu entry and its uninstaller
+  only. Your data folder stays, so reinstalling brings all your tables back. To remove your data as well, delete
+  `%LOCALAPPDATA%\TableForge` yourself after uninstalling.
 
 ## Building and testing (developers)
 
@@ -32,11 +46,23 @@ layers a new publish over old files — and finally checks that the published ex
 `<Version>` in `TableForge.csproj`, so a stale or partial publish is caught immediately instead of being shipped.
 Pass `-SkipTests` only for iterating on the script itself; never to produce a build you intend to ship.
 
-Output folder: `publish\win-x64\` (about 140 MB, roughly 400 files). Zip that folder to distribute it. Run
-`publish\win-x64\TableForge.exe`. The target machine does **not** need .NET installed.
+Output folder: `publish\win-x64\` (about 140 MB, roughly 400 files). Run `publish\win-x64\TableForge.exe`. The target machine
+does **not** need .NET installed. The folder never contains debug symbols (`.pdb`): the publish profile turns them off and the
+script refuses to finish if any appear.
 
 The publish settings live in `TableForge\Properties\PublishProfiles\win-x64-folder.pubxml`: self-contained, `win-x64`, no
-single-file, no trimming, no ReadyToRun. There is no installer and no auto-update in V1.
+single-file, no trimming, no ReadyToRun. There is no auto-update in V1.
+
+### The installer
+
+```
+.\publish.ps1 -Installer
+```
+
+does everything above and then compiles `installer\TableForge.iss` with Inno Setup 6 (install it once with
+`winget install JRSoftware.InnoSetup`) into `publish\installer\TableForge-<version>-Setup.exe`. The script's `AppId` must never
+change: it is how a newer installer recognises and replaces an installed TableForge. The installer is the one way TableForge
+is meant to be distributed (no zip).
 
 Equivalent manual command, if you need it (`publish.ps1` just wraps this with the test gate and a clean folder):
 
@@ -47,7 +73,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc16 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc17 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -68,16 +94,23 @@ One SQLite database file:
 ```
 
 (typically `C:\Users\<you>\AppData\Local\TableForge\tableforge.db`). It holds your collections, tables, recent tables and
-recent rolls. The location is fixed in V1. To back up your data, copy that file while TableForge is closed; to start fresh,
-delete it (or the whole `TableForge` folder there).
+recent rolls. The location is fixed in V1. **Open Data Folder**, at the bottom of the main window, opens this folder. To back
+up your data, close TableForge and copy the whole `TableForge` folder somewhere safe; to start fresh, delete it.
 
 Beside it TableForge keeps `dice-provider.txt` (one word, `builtin` or `dddice`: your dice choice) and, only if you ever choose
 dddice, a `WebView2` folder (the browser profile that draws the dice; it holds no tables). If you connect a dddice account there is
 also `dddice-account.json`: the connection's token, encrypted with Windows (DPAPI, readable only by your Windows user), plus your
 account's display name, chosen theme and dddice room. Disconnect deletes it. Deleting it by hand just returns dddice to guest.
 
-On first launch TableForge creates the folder and database itself. On later launches it upgrades an older database
-automatically (each upgrade is all-or-nothing, so a failed upgrade leaves your data untouched and explains what happened).
+On first launch TableForge creates the folder and database itself. When a newer TableForge needs to update an existing
+database to its format, it first saves a copy beside it, `tableforge.pre-v8-from-v7.backup.db` (the format it updates to,
+and the one it came from), and updates nothing if that copy cannot be made. If an update then fails, TableForge says so and
+where the copy is (to go back, close TableForge and copy the backup over `tableforge.db`). The newest three copies are kept.
+Nothing is copied on an ordinary start. A database from a newer TableForge is never opened or changed: TableForge asks you
+to install the newer version.
+
+The legal and privacy notes are `LICENSE.txt`, `THIRD-PARTY-NOTICES.txt` and `PRIVACY.txt` (also installed with the program).
+TableForge collects no telemetry.
 
 ## Using it
 

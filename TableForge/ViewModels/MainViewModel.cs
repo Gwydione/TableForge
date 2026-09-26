@@ -63,6 +63,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IDiceProvider _dice;
     private readonly Func<string, bool> _confirm;
     private readonly Action<string>? _copyText;
+    private readonly Action<string>? _openFolder;
     private List<TableSummary> _allTables = [];
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
@@ -78,12 +79,19 @@ public sealed class MainViewModel : ObservableObject
 
     /// <param name="confirm">Asks the user to confirm a destructive action; declines by default.</param>
     /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
-    public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null)
+    /// <param name="dataFolder">The folder holding the database and settings, for Open Data Folder. Null hides the command.</param>
+    /// <param name="openFolder">Shows a folder in File Explorer.</param>
+    public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
+        string? dataFolder = null, Action<string>? openFolder = null)
     {
         _db = db;
         _dice = dice;
         _confirm = confirm ?? (_ => false);
         _copyText = copyText;
+        DataFolder = dataFolder;
+        _openFolder = openFolder;
+        OpenDataFolderCommand = new RelayCommand(() => Try("open the data folder", () => _openFolder!(DataFolder!)),
+            () => DataFolder is not null && _openFolder is not null);
 
         // Every command that touches the database reports a failure in the status bar instead of throwing into WPF.
         CreateCollectionCommand = new RelayCommand(() => Try("create the collection", CreateCollection), () => !string.IsNullOrWhiteSpace(NewCollectionName));
@@ -259,6 +267,13 @@ public sealed class MainViewModel : ObservableObject
     public DiceProviderViewModel? DiceProviders => _dice as DiceProviderViewModel;
 
     public ICommand CreateCollectionCommand { get; }
+
+    /// <summary>The folder TableForge keeps its data in (%LOCALAPPDATA%\TableForge, or TABLEFORGE_DATA_DIR); null when not known.</summary>
+    public string? DataFolder { get; }
+    public bool HasDataFolder => DataFolder is not null && _openFolder is not null;
+
+    /// <summary>Opens <see cref="DataFolder"/> in File Explorer.</summary>
+    public ICommand OpenDataFolderCommand { get; }
     public ICommand NewFolderCommand { get; }
     public ICommand RenameFolderCommand { get; }
     public ICommand DeleteFolderCommand { get; }

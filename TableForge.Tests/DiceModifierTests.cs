@@ -675,7 +675,8 @@ public class DiceModifierPersistenceTests
             Exec(raw, "ALTER TABLE Tables ADD COLUMN DiceModifier INTEGER NOT NULL DEFAULT 0");   // makes migration 3 collide
         }
 
-        Assert.Throws<SqliteException>(() => temp.Open());
+        var error = Assert.Throws<DatabaseMigrationException>(() => temp.Open());
+        Assert.IsType<SqliteException>(error.InnerException);
 
         Assert.Equal(2L, Scalar(temp.Path, "PRAGMA user_version"));
         Assert.Equal(1L, Scalar(temp.Path, "SELECT COUNT(*) FROM Collections"));

@@ -68,9 +68,14 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding Status}" Foreground="#444" MinHeight="18" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" />
-                <TextBlock Grid.Column="1" x:Name="VersionText" Text="{x:Static app:AppInfo.VersionAndBuild}" Foreground="#888" Margin="12,0,0,0" />
+                <!-- Where the tables and settings live (to back them up by copying the folder while TableForge is closed). -->
+                <Button x:Name="OpenDataFolderButton" Grid.Column="1" Content="Open Data Folder" Padding="8,0" Margin="12,0,0,0"
+                        Command="{Binding OpenDataFolderCommand}" ToolTip="{Binding DataFolder}"
+                        Visibility="{Binding HasDataFolder, Converter={StaticResource BoolToVis}}" />
+                <TextBlock Grid.Column="2" x:Name="VersionText" Text="{x:Static app:AppInfo.VersionAndBuild}" Foreground="#888" Margin="12,0,0,0" />
             </Grid>
         </Border>
 

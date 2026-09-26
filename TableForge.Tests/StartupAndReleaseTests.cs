@@ -187,7 +187,8 @@ public class StartupTests
         using (var raw = Raw(path)) { raw.Open(); Exec(raw, "CREATE TABLE RollHistory (Id INTEGER)"); }
         var before = File.ReadAllBytes(path);
 
-        var error = Assert.Throws<SqliteException>(() => new AppDatabase(path));
+        var error = Assert.Throws<DatabaseMigrationException>(() => new AppDatabase(path));
+        Assert.IsType<SqliteException>(error.InnerException);
 
         // The first step of the migration (ALTER TABLE ... ADD COLUMN) had run; it must have been rolled back with the rest.
         using (var raw = Raw(path))
@@ -201,8 +202,10 @@ public class StartupTests
 
         var message = DatabaseOpenError.Describe(path, error);
         Assert.Contains(path, message);
-        Assert.Contains("Nothing in the database was changed", message);
+        Assert.Contains("Your original database backup has been preserved", message);
+        Assert.Contains(error.BackupPath, message);
         Assert.Equal(before.Length, File.ReadAllBytes(path).Length);
+        using (var copy = Raw(error.BackupPath)) { copy.Open(); Assert.Equal(1, DatabaseMigrations.GetVersion(copy)); } // the copy made first
         // folder.Dispose() deletes the file: it fails if the failed open leaked its handle.
     }
 
@@ -231,11 +234,12 @@ public class StartupTests
         new AppDatabase(path).Dispose();
         using (var raw = Raw(path)) { raw.Open(); Exec(raw, $"PRAGMA user_version = {DatabaseMigrations.CurrentVersion + 3}"); }
 
-        var error = Assert.Throws<InvalidOperationException>(() => new AppDatabase(path));
+        var error = Assert.Throws<DatabaseTooNewException>(() => new AppDatabase(path));
 
         var message = DatabaseOpenError.Describe(path, error);
-        Assert.Contains($"schema version {DatabaseMigrations.CurrentVersion + 3}", message);
-        Assert.Contains($"only understands up to {DatabaseMigrations.CurrentVersion}", message);
+        Assert.StartsWith("This TableForge data file was created by a newer version of TableForge. Please install the newer version to open it safely.", message);
+        Assert.Contains($"Details: Data format version {DatabaseMigrations.CurrentVersion + 3}; this version of TableForge reads up to version {DatabaseMigrations.CurrentVersion}.", message);
+        Assert.Empty(DatabaseBackup.Existing(path));                   // nothing is copied for a file that is never changed
         using var again = Raw(path);
         again.Open();
         Assert.Equal(DatabaseMigrations.CurrentVersion + 3, DatabaseMigrations.GetVersion(again)); // never downgraded
@@ -337,10 +341,10 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_V1_release_candidate_16()
+    public void The_build_identifies_itself_as_V1_release_candidate_17()
     {
-        Assert.Equal("1.0.0-rc16", AppInfo.Version);
-        Assert.Contains("<Version>1.0.0-rc16</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Equal("1.0.0-rc17", AppInfo.Version);
+        Assert.Contains("<Version>1.0.0-rc17</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
     }
 
     [Fact]
@@ -364,6 +368,6 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("1.0.0-rc16", readme);
+        Assert.Contains("1.0.0-rc17", readme);
     }
 }

@@ -118,9 +118,7 @@ public static class DatabaseMigrations
     {
         var target = Math.Min(upToVersion, CurrentVersion);
         var version = GetVersion(connection);
-        if (version > CurrentVersion)
-            throw new InvalidOperationException(
-                $"This database is schema version {version}, but this build only understands up to {CurrentVersion}.");
+        if (version > CurrentVersion) throw new DatabaseTooNewException(version, CurrentVersion);
 
         for (var next = version + 1; next <= target; next++)
         {

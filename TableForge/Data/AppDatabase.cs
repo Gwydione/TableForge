@@ -36,13 +36,41 @@ public sealed class AppDatabase : IDisposable
         try
         {
             _connection.Open();
-            DatabaseMigrations.Apply(_connection);
+            Upgrade(path);
         }
         catch
         {
             _connection.Dispose(); // don't leak the file handle if the database can't be used
             throw;
         }
+    }
+
+    /// <summary>
+    /// Brings an older database up to date. A newer one is refused untouched; an existing older one is first copied
+    /// (<see cref="DatabaseBackup"/>), and if that copy cannot be made nothing is updated. A brand-new, empty database has
+    /// nothing to protect and is simply created.
+    /// </summary>
+    private void Upgrade(string path)
+    {
+        var version = DatabaseMigrations.GetVersion(_connection);
+        if (version > DatabaseMigrations.CurrentVersion) throw new DatabaseTooNewException(version, DatabaseMigrations.CurrentVersion);
+        if (version == DatabaseMigrations.CurrentVersion) return;
+        if (version == 0)
+        {
+            DatabaseMigrations.Apply(_connection);
+            return;
+        }
+
+        var backup = DatabaseBackup.Create(_connection, path, version, DatabaseMigrations.CurrentVersion);
+        try
+        {
+            DatabaseMigrations.Apply(_connection);
+        }
+        catch (Exception ex) when (ex is not DatabaseTooNewException)
+        {
+            throw new DatabaseMigrationException(backup, ex);
+        }
+        DatabaseBackup.Prune(path);
     }
 
     public void Dispose() => _connection.Dispose();
