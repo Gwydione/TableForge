@@ -19,6 +19,9 @@ internal sealed class UiHarness : IDisposable
     private readonly BindingErrorListener _listener = new();
 
     public FixedDice Dice { get; }
+
+    /// <summary>Everything Copy Table Text put on the "clipboard" (the real one is never touched by tests).</summary>
+    public List<string> Copied { get; } = [];
     public AppDatabase Db { get; }
     public Collection? Collection { get; }
     public MainViewModel Main { get; }
@@ -39,7 +42,7 @@ internal sealed class UiHarness : IDisposable
             seed(Db, Collection);
         }
         Dice = new FixedDice(roll);
-        Main = new MainViewModel(Db, Dice, _ => true);
+        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add);
         Window = new MainWindow
         {
             DataContext = Main,

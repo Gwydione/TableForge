@@ -160,7 +160,18 @@
             <TextBlock Text="{Binding Message}" Foreground="{StaticResource ProblemText}" Margin="0,6,0,0" />
             </StackPanel>
 
-            <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" Margin="0,24,0,6" />
+            <WrapPanel Margin="0,24,0,6">
+                <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <!-- Copy Table Text: one result set of this table as plain text. Read-only: rolls and results are untouched. -->
+                <ComboBox x:Name="CopyResultSetBox" ItemsSource="{Binding CopyResultSetNames}" SelectedIndex="{Binding CopyResultSetIndex}"
+                          MinWidth="120" Margin="0,0,6,0" VerticalAlignment="Center"
+                          AutomationProperties.Name="Result set to copy" ToolTip="Which result set Copy Table Text copies"
+                          Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
+                <Button x:Name="CopyTableTextButton" Content="Copy Table Text" Padding="10,2" VerticalAlignment="Center" Command="{Binding CopyTableTextCommand}"
+                        ToolTip="Copy this table as plain text (name, dice, then one range and result per line)" />
+                <TextBlock x:Name="CopyMessageText" Text="{Binding CopyMessage}" Foreground="#2E6B3A" VerticalAlignment="Center" Margin="8,0,0,0"
+                           Visibility="{Binding HasCopyMessage, Converter={StaticResource BoolToVis}}" />
+            </WrapPanel>
 
             <!-- Result sets that are genuine parallel outputs of one roll (same row count, same range at every row):
                  shown as one aligned multi-column grid instead of separate stacked sections, mirroring the Review

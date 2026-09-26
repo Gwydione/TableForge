@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc15 (V1 Release Candidate 15)**
+**Version 1.0.0-rc16 (V1 Release Candidate 16)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc15 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc16 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -126,6 +126,25 @@ The dice you write decide which one it is; TableForge never guesses from the row
 Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still means a die with 66 sides, as it did in earlier
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
 The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinary d6 whose order becomes tens and ones.
+
+## Copy Table Text
+
+**Copy Table Text** puts a clean plain-text copy of a table on the clipboard, ready to paste into a VTT, a document or any other
+tool. It is on the Roll screen (beside the table's name) and on the Review screen (beside **Save Table**), so a freshly
+pasted table can be copied out without saving it (it is offered there whenever **Save Table** is). The text is:
+
+```
+RANDOM STARTING GEAR
+d10
+
+1-2<TAB>Backpack
+3<TAB>Knife
+```
+
+one result set at a time (with several, a chooser beside the button says which), the name, the dice, a blank line, then one
+row per line with a tab between range and result. Ranges keep how they were written (`00`, `08`, `96-00`, d66 as `11`–`66`).
+Result text is only trimmed, with line breaks and tabs turned into single spaces; links, inline-roll results, the modifier,
+clamp results and roll history are never included, and copying changes nothing on screen.
 
 ## Several rolls at once
 

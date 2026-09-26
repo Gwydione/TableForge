@@ -219,10 +219,15 @@ public sealed class ReviewViewModel : ObservableObject
     private bool _isAligned;
     private bool _isClampAvailable;
     private string _clampUnavailableNote = "";
+    private string _copyMessage = "";
+    private readonly Action<string> _copyText;
 
-    public ReviewViewModel(TableImportDraft draft, Collection collection, AppDatabase db, Action<RollableTable> saved, Action cancelled)
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
+    public ReviewViewModel(TableImportDraft draft, Collection collection, AppDatabase db, Action<RollableTable> saved, Action cancelled,
+        Action<string>? copyText = null)
     {
         _draft = draft;
+        _copyText = copyText ?? ClipboardText.Set;
         _collection = collection;
         _db = db;
         _saved = saved;
@@ -265,7 +270,38 @@ public sealed class ReviewViewModel : ObservableObject
         NormalizeTextCommand = new RelayCommand(NormalizeText);
         UndoCleanupCommand = new RelayCommand(UndoCleanup, () => _undoCleanup is not null);
         AddAlignedRowCommand = new RelayCommand(AddAlignedRow);
+        CopyTableTextCommand = new RelayCommand(CopyTableText, () => CanSave);
         Refresh();
+    }
+
+    // ---- Copy Table Text -----------------------------------------------------------------------------------------------
+
+    public ICommand CopyTableTextCommand { get; }
+
+    /// <summary>With several result sets a chooser shows which one is copied (the result-set tabs are hidden in the aligned view).</summary>
+    public bool ShowCopyResultSetChoice => ResultSets.Count > 1;
+
+    /// <summary>"Table text copied." after a copy; empty otherwise (and again after any edit).</summary>
+    public string CopyMessage { get => _copyMessage; private set { if (Set(ref _copyMessage, value)) Raise(nameof(HasCopyMessage)); } }
+    public bool HasCopyMessage => CopyMessage.Length > 0;
+
+    /// <summary>
+    /// Copies the selected result set as plain text, without saving anything: the table is built exactly as Save would build it
+    /// (same rules, so it is only offered when Save is), and that structured table is what gets written out.
+    /// </summary>
+    private void CopyTableText()
+    {
+        if (!_draft.TryBuildTable(_collection.Id, out var table, out _)) return;
+        var index = Math.Max(0, ResultSets.IndexOf(SelectedResultSet));
+        try
+        {
+            _copyText(TableTextExporter.Export(table!, table!.ResultSets[index]));
+            CopyMessage = "Table text copied.";
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
+        {
+            CopyMessage = $"The table text could not be copied: {ex.Message}";
+        }
     }
 
     public string HeadingTitle => _draft.TableId == 0 ? "Review" : "Edit table";
@@ -342,6 +378,7 @@ public sealed class ReviewViewModel : ObservableObject
         {
             if (value is null || !Set(ref _selectedResultSet, value)) return;
             Raise(nameof(Rows));
+            CopyMessage = "";
         }
     }
 
@@ -829,8 +866,11 @@ public sealed class ReviewViewModel : ObservableObject
             : _draft.ClampResultsToRange ? $"{clampReason} Clamp will be off when this table is saved." : clampReason;
         IsClampAvailable = clampReason is null;
 
+        CopyMessage = ""; // a copy describes the table as it was; after an edit it no longer does
+        Raise(nameof(ShowCopyResultSetChoice));
+
         Blockers.Clear();
-        CanSave =_draft.TryBuildTable(_collection.Id, out _, out var errors);
+        CanSave = _draft.TryBuildTable(_collection.Id, out _, out var errors);
         foreach (var e in errors) Blockers.Add(e);
         SaveError = "";
 

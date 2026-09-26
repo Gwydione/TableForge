@@ -271,6 +271,9 @@ public sealed class RollViewModel : ObservableObject
     private readonly Action<long>? _tableUsed;
     private readonly Action<RollSnapshot>? _rolled;
     private readonly Func<bool>? _diceReady;
+    private readonly Action<string> _copyText;
+    private int _copyResultSetIndex;
+    private string _copyMessage = "";
     private string _manualRollText = "";
     private string _modifierText = "0";
     private string _message = "";
@@ -283,10 +286,12 @@ public sealed class RollViewModel : ObservableObject
     /// <param name="rolled">Called once for every actual resolved roll, with a snapshot of what was shown (recent rolls).
     /// Never called for a followed link or an invalid manual entry.</param>
     /// <param name="diceReady">Whether the chosen dice provider can roll right now (dddice is still preparing, for example). Null means always.</param>
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
-        Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null)
+        Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null)
     {
         _dice = dice;
+        _copyText = copyText ?? ClipboardText.Set;
         _diceReady = diceReady;
         _loadTable = loadTable;
         _tableUsed = tableUsed;
@@ -294,6 +299,49 @@ public sealed class RollViewModel : ObservableObject
         Steps.Add(new RollStepViewModel(table, isFirst: true));
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
+        CopyTableTextCommand = new RelayCommand(CopyTableText, () => Current.Table.ResultSets.Count > 0);
+    }
+
+    // ---- Copy Table Text -----------------------------------------------------------------------------------------------
+
+    /// <summary>The current table's result sets, by name ("Result set 2" for an unnamed one), for choosing which one to copy.</summary>
+    public IReadOnlyList<string> CopyResultSetNames => Current.Table.ResultSets
+        .Select((s, i) => s.Name.Trim().Length > 0 ? s.Name.Trim() : $"Result set {i + 1}").ToList();
+
+    /// <summary>The choice is offered only when there is more than one result set; otherwise the one set is copied.</summary>
+    public bool ShowCopyResultSetChoice => Current.Table.ResultSets.Count > 1;
+
+    /// <summary>Which result set Copy Table Text copies (one at a time: result sets are never combined).</summary>
+    public int CopyResultSetIndex
+    {
+        get => _copyResultSetIndex;
+        set { if (value >= 0 && value < Current.Table.ResultSets.Count && Set(ref _copyResultSetIndex, value)) CopyMessage = ""; }
+    }
+
+    /// <summary>"Table text copied." after a copy; empty otherwise.</summary>
+    public string CopyMessage { get => _copyMessage; private set { if (Set(ref _copyMessage, value)) Raise(nameof(HasCopyMessage)); } }
+    public bool HasCopyMessage => CopyMessage.Length > 0;
+
+    public ICommand CopyTableTextCommand { get; }
+
+    /// <summary>
+    /// Copies the current table's chosen result set as plain text (see <see cref="TableTextExporter"/>). Read-only: rolls, links,
+    /// inline dice, the modifier and Recent Rolls are all left exactly as they were.
+    /// </summary>
+    private void CopyTableText()
+    {
+        var table = Current.Table;
+        if (table.ResultSets.Count == 0) return;
+        var text = TableTextExporter.Export(table, table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)]);
+        try
+        {
+            _copyText(text);
+            CopyMessage = "Table text copied.";
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
+        {
+            CopyMessage = $"The table text could not be copied: {ex.Message}";
+        }
     }
 
     public ObservableCollection<RollStepViewModel> Steps { get; } = [];
@@ -647,6 +695,11 @@ public sealed class RollViewModel : ObservableObject
         ManualRollText = "";
         ModifierText = "0"; // a modifier belongs to the table it was typed for, never the one followed to
         RollCount = 1;      // and so does a choice of several rolls
+        _copyResultSetIndex = 0;
+        CopyMessage = "";
+        Raise(nameof(CopyResultSetIndex));
+        Raise(nameof(CopyResultSetNames));
+        Raise(nameof(ShowCopyResultSetChoice));
         LatestRolls = [];
         Raise(nameof(LatestRolls));
         Message = "";

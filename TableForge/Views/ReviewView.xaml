@@ -338,6 +338,15 @@
         <DockPanel Grid.Row="5" Margin="0,10,0,0" LastChildFill="True">
             <Button DockPanel.Dock="Left" Content="Save Table" Padding="18,6" Command="{Binding SaveCommand}" />
             <Button DockPanel.Dock="Left" Content="Cancel" Padding="18,6" Margin="8,0,0,0" Command="{Binding CancelCommand}" />
+            <!-- Copy Table Text: the selected result set as plain text, without saving. Offered whenever Save is. -->
+            <ComboBox x:Name="ReviewCopyResultSetBox" DockPanel.Dock="Left" ItemsSource="{Binding ResultSets}" SelectedItem="{Binding SelectedResultSet}"
+                      DisplayMemberPath="DisplayName" MinWidth="120" Margin="24,0,6,0" VerticalAlignment="Center"
+                      AutomationProperties.Name="Result set to copy" ToolTip="Which result set Copy Table Text copies"
+                      Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
+            <Button x:Name="ReviewCopyTableTextButton" DockPanel.Dock="Left" Content="Copy Table Text" Padding="12,6" Command="{Binding CopyTableTextCommand}"
+                    ToolTip="Copy this table as plain text (name, dice, then one range and result per line), without saving it" />
+            <TextBlock x:Name="ReviewCopyMessageText" DockPanel.Dock="Left" Text="{Binding CopyMessage}" Foreground="#2E6B3A" VerticalAlignment="Center" Margin="8,0,0,0"
+                       Visibility="{Binding HasCopyMessage, Converter={StaticResource BoolToVis}}" />
             <TextBlock Text="Gaps and overlaps are shown as warnings and do not prevent saving." Foreground="#777"
                        VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis" />
         </DockPanel>

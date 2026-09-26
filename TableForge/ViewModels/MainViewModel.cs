@@ -62,6 +62,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly AppDatabase _db;
     private readonly IDiceProvider _dice;
     private readonly Func<string, bool> _confirm;
+    private readonly Action<string>? _copyText;
     private List<TableSummary> _allTables = [];
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
@@ -76,11 +77,13 @@ public sealed class MainViewModel : ObservableObject
     private bool _suppressOpen;
 
     /// <param name="confirm">Asks the user to confirm a destructive action; declines by default.</param>
-    public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null)
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
+    public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null)
     {
         _db = db;
         _dice = dice;
         _confirm = confirm ?? (_ => false);
+        _copyText = copyText;
 
         // Every command that touches the database reports a failure in the status bar instead of throwing into WPF.
         CreateCollectionCommand = new RelayCommand(() => Try("create the collection", CreateCollection), () => !string.IsNullOrWhiteSpace(NewCollectionName));
@@ -412,7 +415,7 @@ public sealed class MainViewModel : ObservableObject
         void StartReview(TableImportDraft draft)
         {
             draft.FolderId = defaultFolderId;
-            Current = new ReviewViewModel(draft, collection, _db, OnSaved, () => Current = null);
+            Current = new ReviewViewModel(draft, collection, _db, OnSaved, () => Current = null, _copyText);
         }
     }
 
@@ -429,7 +432,7 @@ public sealed class MainViewModel : ObservableObject
         var table = _db.LoadTable(summary.Id);
         if (table is null) { TableGone(); return; }
 
-        Current = new ReviewViewModel(TableImportDraft.FromTable(table), SelectedCollection!, _db, OnSaved, OpenSelectedTable);
+        Current = new ReviewViewModel(TableImportDraft.FromTable(table), SelectedCollection!, _db, OnSaved, OpenSelectedTable, _copyText);
         Status = "";
     }
 
@@ -499,7 +502,7 @@ public sealed class MainViewModel : ObservableObject
     {
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
-            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null);
+            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText);
     }
 
     private void MarkUsed(long tableId)
