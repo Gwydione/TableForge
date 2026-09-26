@@ -1,6 +1,6 @@
 # TableForge — RPG Rollable Tables
 
-**Version 1.0.0-rc13 (V1 Release Candidate 13)**
+**Version 1.0.0-rc14 (V1 Release Candidate 14)**
 
 TableForge is a Windows desktop app for rolling RPG tables during play. Paste a table copied from a PDF or book, correct what
 the parser got wrong, save it, and roll it. Multi-column tables (several result sets from one roll) and linked tables
@@ -47,7 +47,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc13 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc14 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -72,7 +72,9 @@ recent rolls. The location is fixed in V1. To back up your data, copy that file 
 delete it (or the whole `TableForge` folder there).
 
 Beside it TableForge keeps `dice-provider.txt` (one word, `builtin` or `dddice`: your dice choice) and, only if you ever choose
-dddice, a `WebView2` folder (the browser profile that draws the dice; it holds no tables).
+dddice, a `WebView2` folder (the browser profile that draws the dice; it holds no tables). If you connect a dddice account there is
+also `dddice-account.json`: the connection's token, encrypted with Windows (DPAPI, readable only by your Windows user), plus your
+account's display name, chosen theme and dddice room. Disconnect deletes it. Deleting it by hand just returns dddice to guest.
 
 On first launch TableForge creates the folder and database itself. On later launches it upgrades an older database
 automatically (each upgrade is all-or-nothing, so a failed upgrade leaves your data untouched and explains what happened).
@@ -223,7 +225,27 @@ created unless you choose dddice.
 and on current Windows 10 with Microsoft Edge; if it is missing TableForge says so and Built-in still works. The publish folder adds only
 `Microsoft.Web.WebView2.*.dll`, `WebView2Loader.dll` and `Assets\dddice-host.html` (about 2 MB in all); no runtime is bundled.
 
-Not included yet: connecting a dddice account (owned themes, custom dice), OBS output, other dice apps.
+### Connecting a dddice account (optional)
+
+Guest dice need no account and stay the default. To roll with a theme from your own **Digital Dice Box**, press **Account…**
+under the Dice choice (the sidebar then shows `dddice: <your name>` and `Theme: <theme>` instead of `dddice: Guest`):
+
+1. **Connect** shows a short code. Press **Open dddice** (it opens `dddice.com/activate` in your own browser), sign in there if
+   asked, and enter the code. **Copy** copies just the code. TableForge never asks for, sees or stores your dddice password.
+2. TableForge notices the approval by itself (it checks every 5 seconds; **Cancel** stops, and the code expires after about
+   5 minutes: "Connection timed out. You can try again."). Nothing is saved until you approve.
+3. Your Dice Box is listed. A theme can be chosen only if it has every standard die TableForge rolls: d4, d6, d8, d10, the
+   percentile d10x, d12 and d20, all with ordinary numbered faces. Other themes stay listed, greyed out with the reason
+   ("Missing d12, d20", "No d10x (percentile)", "Non-standard d6 faces"). **Refresh** reloads the list.
+
+The connection and theme are remembered across restarts, and one dddice room is created for the account and reused. The account
+is checked with dddice only when dddice is actually used. If dddice refuses it, TableForge says "dddice connection expired.
+Reconnect in Account…" and keeps it until you reconnect or disconnect; if dddice is busy or unreachable it says so and keeps
+everything. If your chosen theme leaves your Dice Box or can no longer be used, TableForge says so and asks you to choose
+another. It never switches to the guest dice or another theme by itself; **Use Built-in Dice** is always there.
+**Disconnect** forgets the connection on this computer only (your dddice account is not changed) and dddice rolls as a guest again.
+
+Not included yet: custom dice, OBS output, other dice apps.
 
 ## What Paste Table understands (copied-PDF text)
 
@@ -326,4 +348,4 @@ clipboard and never opens your tables.
 - The parser is deliberately conservative: anything it is unsure about stays together and is flagged on the Review screen
   instead of being guessed. Side-by-side columns that each restart at the same number (parallel result sets) are not split.
 - No installer, auto-update, cloud sync, export, or OCR/screenshot import.
-- dddice mode is guest-only (one free dice theme), needs internet and the WebView2 Runtime, and a roll needs the window visible.
+- dddice needs internet and the WebView2 Runtime, and a roll needs the window visible. A connected account can use only themes with every standard die; custom dice are not supported.

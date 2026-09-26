@@ -24,6 +24,9 @@ public interface IPreparableDiceProvider : IDiceProvider
 {
     /// <summary>Gets the provider ready. Safe to call again after a failure. Throws with a message a person can read.</summary>
     Task PrepareAsync(CancellationToken cancellationToken);
+
+    /// <summary>Forgets any preparation, so the next <see cref="PrepareAsync"/> starts from scratch (for example with a different dddice account).</summary>
+    void Reset() { }
 }
 
 public sealed class BuiltInDiceProvider(Random? random = null) : IDiceProvider

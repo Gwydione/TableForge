@@ -8,10 +8,12 @@ using Microsoft.Web.WebView2.Wpf;
 namespace TableForge.Dice;
 
 /// <summary>
-/// The real dddice boundary: a guest login and room from dddice's REST API, and dddice-js (from dddice's CDN) drawing the dice
-/// in a WebView2 that lives inside the TableForge window. The page reports back through <c>chrome.webview.postMessage</c>.
+/// The real dddice boundary: a session (token, room, theme) from <see cref="DddiceSessionSource"/> — a guest login and room, or a
+/// connected account's saved token, reused room and chosen theme — and dddice-js (from dddice's CDN) drawing the dice in a WebView2
+/// that lives inside the TableForge window. The page reports back through <c>chrome.webview.postMessage</c>.
 /// Nothing is created until <see cref="PrepareAsync"/> is called, so a person who stays on Built-in Dice costs nothing here.
-/// One guest identity is created and reused for the whole application session; it is never written to disk.
+/// A guest identity is created once and reused for the whole application session; it is never written to disk. The token is
+/// handed to the page only as an argument of its init call: never in a URL, storage, or a log.
 /// </summary>
 public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
 {
@@ -20,10 +22,10 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
     private readonly Action<FrameworkElement> _attach;
     private readonly string _userDataFolder;
     private readonly DddiceRest _rest;
+    private readonly DddiceSessionSource _sessions;
     private readonly DddiceRollTracker _tracker = new();
     private WebView2? _view;
-    private string? _token;
-    private string? _room;
+    private DddiceSession? _session;
     private bool _isReady;
     private TaskCompletionSource? _pageReady;
     private TaskCompletionSource? _pageLoaded;
@@ -33,11 +35,20 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
 
     /// <param name="attach">Puts the WebView2 into the visible window. WebView2 only starts once it is part of a shown window.</param>
     /// <param name="userDataFolder">Where WebView2 keeps its browser profile (cache, cookies). It holds no TableForge data.</param>
-    public WebViewDddiceRoller(Action<FrameworkElement> attach, string userDataFolder, DddiceRest? rest = null)
+    /// <param name="connection">The optional connected account. Null (or no account connected) means the unchanged guest flow.</param>
+    public WebViewDddiceRoller(Action<FrameworkElement> attach, string userDataFolder, DddiceRest? rest = null, DddiceConnection? connection = null)
     {
         _attach = attach;
         _userDataFolder = userDataFolder;
         _rest = rest ?? new DddiceRest();
+        _sessions = new DddiceSessionSource(_rest, connection);
+    }
+
+    /// <summary>The account or theme changed (or was disconnected): the next preparation starts a fresh page with the new session.</summary>
+    public void Reset()
+    {
+        _isReady = false;
+        _session = null;
     }
 
     public async Task PrepareAsync(CancellationToken cancellationToken)
@@ -49,8 +60,8 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
             timeout.CancelAfter(PrepareTimeout);
             try
             {
-                _token ??= await _rest.CreateGuestTokenAsync(timeout.Token);
-                _room ??= await _rest.CreateRoomAsync(_token, timeout.Token);
+                _session = null;
+                _session = await _sessions.GetAsync(timeout.Token);
                 await EnsureWebViewAsync(timeout.Token);
                 await LoadPageAsync(timeout.Token);
             }
@@ -62,7 +73,8 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
         }
         catch (DddiceException ex) when (ex.IsAuthProblem)
         {
-            _token = null; _room = null; // a refused guest or room is replaced by a new one on the next try
+            _sessions.AuthFailed(_session); // a refused guest or room is replaced by a new one on the next try; an account is marked expired
+            _session = null;
             throw;
         }
         catch (WebView2RuntimeNotFoundException ex)
@@ -107,19 +119,21 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
         _pageReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         core.Navigate($"https://{Host}/Assets/dddice-host.html"); // a fresh page (and so a fresh dddice-js) for every preparation
         await _pageLoaded.Task.WaitAsync(ct);
-        await core.ExecuteScriptAsync($"window.tf.init({JsonSerializer.Serialize(_token)}, {JsonSerializer.Serialize(_room)})");
+        var session = _session!;
+        await core.ExecuteScriptAsync(
+            $"window.tf.init({JsonSerializer.Serialize(session.Token)}, {JsonSerializer.Serialize(session.Room)}, {JsonSerializer.Serialize(session.Theme)})");
         await _pageReady.Task.WaitAsync(ct);
     }
 
     public async Task<IReadOnlyList<DddiceFace>> RollAsync(IReadOnlyList<string> diceTypes, CancellationToken cancellationToken)
     {
-        if (!_isReady || _view?.CoreWebView2 is null) throw new DddiceException("dddice is not ready.");
+        if (!_isReady || _view?.CoreWebView2 is null || _session is not { } session) throw new DddiceException("dddice is not ready.");
 
         var externalId = Guid.NewGuid().ToString("N");
         var settled = _tracker.Begin(externalId);
         try
         {
-            var dice = new JsonArray(diceTypes.Select(d => (JsonNode)new JsonObject { ["type"] = d, ["theme"] = DddiceDiceMapping.GuestTheme }).ToArray());
+            var dice = new JsonArray(diceTypes.Select(d => (JsonNode)new JsonObject { ["type"] = d, ["theme"] = session.Theme }).ToArray());
             await _view.CoreWebView2.ExecuteScriptAsync("window.tf.clear()"); // sweep the previous roll's dice off the tray
             await _view.CoreWebView2.ExecuteScriptAsync($"window.tf.roll({dice.ToJsonString()}, '{externalId}')");
             return await settled.WaitAsync(RollTimeout, cancellationToken);
@@ -153,9 +167,10 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
                 break;
             case "initFailed":
                 var auth = message.Contains("401") || message.Contains("403");
+                var account = _session?.IsAccount ?? false;
                 _pageReady?.TrySetException(new DddiceException(auth
-                    ? "dddice refused the guest login for its room."
-                    : "TableForge could not connect to dddice's room. Check the internet connection.", auth));
+                    ? account ? DddiceMessages.Expired : "dddice refused the guest login for its room."
+                    : "TableForge could not connect to dddice's room. Check the internet connection.", auth) { IsAccountProblem = auth && account });
                 break;
             case "connectionState" when root.TryGetProperty("state", out var s) && s.GetString() is "unavailable" or "failed":
                 if (_tracker.IsRolling) _tracker.Fail("The connection to dddice was lost during the roll.");

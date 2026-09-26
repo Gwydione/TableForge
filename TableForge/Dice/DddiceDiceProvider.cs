@@ -7,6 +7,12 @@ public class DddiceException(string message, bool isAuthProblem = false, Excepti
 {
     /// <summary>The guest token or room was refused, so the saved session is no use and must be created afresh.</summary>
     public bool IsAuthProblem { get; } = isAuthProblem;
+
+    /// <summary>A passing problem (network, timeout, busy, dddice server error): nothing saved needs to change.</summary>
+    public bool IsTemporary { get; init; }
+
+    /// <summary>About the connected account or its theme: the way forward is in Account… (reconnect, or choose a theme).</summary>
+    public bool IsAccountProblem { get; init; }
 }
 
 /// <summary>This table's dice have no dddice equivalent (a d3, d7, d66...). The connection is fine; only this roll cannot be shown.</summary>
@@ -29,6 +35,9 @@ public interface IDddiceRoomRoller
     /// with the faces in the order requested. Never completes early with a result that is already known.
     /// </summary>
     Task<IReadOnlyList<DddiceFace>> RollAsync(IReadOnlyList<string> diceTypes, CancellationToken cancellationToken);
+
+    /// <summary>Forgets the prepared page so the next <see cref="PrepareAsync"/> starts afresh (the account or theme changed).</summary>
+    void Reset() { }
 }
 
 /// <summary>A dddice roll worked out from its faces, before and after TableForge's modifier.</summary>
@@ -105,6 +114,8 @@ public static class DddiceDiceMapping
 public sealed class DddiceDiceProvider(IDddiceRoomRoller roller) : IPreparableDiceProvider
 {
     public Task PrepareAsync(CancellationToken cancellationToken) => roller.PrepareAsync(cancellationToken);
+
+    public void Reset() => roller.Reset();
 
     public async Task<int> RollAsync(DiceExpression expression, CancellationToken cancellationToken) =>
         (await RollDetailedAsync(expression, cancellationToken)).Final;

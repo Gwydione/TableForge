@@ -47,6 +47,10 @@ internal sealed class FakeDddiceRoller : IDddiceRoomRoller
     public void FailRoll(string message) => _pending!.SetException(new DddiceException(message));
 
     public static (string, int)[] Twod6(int a, int b) => [("d6", a), ("d6", b)];
+
+    /// <summary>How many times the prepared page was thrown away (a different dddice account or theme).</summary>
+    public int ResetCalls { get; private set; }
+    public void Reset() => ResetCalls++;
 }
 
 internal static class Wait

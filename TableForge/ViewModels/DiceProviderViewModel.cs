@@ -14,6 +14,9 @@ public enum DiceProviderState { Ready, Preparing, Failed }
 /// <see cref="IDiceProvider"/> the roll screen uses, so choosing a provider never has to touch an open table.
 /// A dddice failure is reported here with "Use Built-in Dice"; TableForge never rerolls with Built-in by itself, because that
 /// would quietly produce a different random result.
+/// dddice rolls as a temporary guest unless a dddice account is connected (<see cref="DddiceConnection"/>, managed in the
+/// Account… dialog); then it uses that account's chosen theme. An account problem is reported with Account…, never by quietly
+/// going back to the guest.
 /// </summary>
 public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
 {
@@ -24,6 +27,8 @@ public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
     private readonly IPreparableDiceProvider? _dddice;
     private readonly Func<string?>? _loadPreference;
     private readonly Action<string>? _savePreference;
+    private readonly DddiceConnection? _connection;
+    private readonly Action? _openAccount;
     private DiceProviderKind _selected = DiceProviderKind.BuiltIn;
     private DiceProviderState _state = DiceProviderState.Ready;
     private string _message = "";
@@ -32,15 +37,58 @@ public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
     /// <param name="dddice">Null when dddice is not offered at all (the option is then disabled).</param>
     /// <param name="loadPreference">Reads the saved choice ("builtin"/"dddice"), or null. Optional.</param>
     /// <param name="savePreference">Saves the choice. Optional; a failure to save never affects rolling.</param>
+    /// <param name="connection">The optional dddice account. Null means dddice is always a guest (no Account… at all).</param>
+    /// <param name="openAccount">Shows the Account… dialog.</param>
     public DiceProviderViewModel(IDiceProvider builtIn, IPreparableDiceProvider? dddice = null,
-        Func<string?>? loadPreference = null, Action<string>? savePreference = null)
+        Func<string?>? loadPreference = null, Action<string>? savePreference = null,
+        DddiceConnection? connection = null, Action? openAccount = null)
     {
         _builtIn = builtIn;
         _dddice = dddice;
         _loadPreference = loadPreference;
         _savePreference = savePreference;
+        _connection = connection;
+        _openAccount = openAccount;
         UseBuiltInCommand = new RelayCommand(() => Select(DiceProviderKind.BuiltIn));
         RetryCommand = new RelayCommand(() => _ = PrepareDddiceAsync(), () => Selected == DiceProviderKind.Dddice && State == DiceProviderState.Failed);
+        AccountCommand = new RelayCommand(() => _openAccount?.Invoke(), () => _openAccount is not null);
+        if (_connection is not null) _connection.Changed += (_, change) => OnConnectionChanged(change);
+    }
+
+    // ---- the dddice account ----------------------------------------------------------------------------------------
+
+    /// <summary>Whether the sidebar shows who dddice rolls as, with Account… (only when accounts are offered).</summary>
+    public bool ShowDddiceIdentity => IsDddiceAvailable && _connection is not null;
+
+    /// <summary>"dddice: Guest", "dddice: Allen" (or "dddice: Connected" with no name), or "dddice: Connection expired".</summary>
+    public string DddiceIdentityText => _connection?.State switch
+    {
+        DddiceConnectionState.Connected => $"dddice: {_connection.DisplayName}",
+        DddiceConnectionState.Expired => "dddice: Connection expired",
+        _ => "dddice: Guest",
+    };
+
+    /// <summary>"Theme: My Blue Dice" for a connected account that has chosen one; empty otherwise (a guest always uses Bees).</summary>
+    public string ThemeText => _connection is { IsAccountMode: true, ThemeName: { Length: > 0 } name } ? $"Theme: {name}" : "";
+    public bool HasThemeText => ThemeText.Length > 0;
+
+    /// <summary>A failure caused by the account (expired, theme gone or unusable) offers Account… beside Try again and Built-in.</summary>
+    public bool ShowAccountOnFailure => ShowFailure && (_connection?.IsAccountMode ?? false);
+
+    public ICommand AccountCommand { get; }
+
+    private void OnConnectionChanged(DddiceChange change)
+    {
+        Raise(nameof(DddiceIdentityText));
+        Raise(nameof(ThemeText));
+        Raise(nameof(HasThemeText));
+        Raise(nameof(ShowAccountOnFailure));
+        if (change != DddiceChange.Identity || _dddice is null) return;
+
+        // A different account, theme or a disconnect: the prepared dice page belongs to the old identity. Start again with the new one.
+        CancelPending();
+        _dddice.Reset();
+        if (Selected == DiceProviderKind.Dddice) _ = PrepareDddiceAsync();
     }
 
     public bool IsDddiceAvailable => _dddice is not null;
@@ -81,6 +129,7 @@ public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
         Raise(nameof(CanRoll));
         Raise(nameof(ShowDicePanel));
         Raise(nameof(ShowFailure));
+        Raise(nameof(ShowAccountOnFailure));
     }
 
     /// <summary>Re-applies the saved choice at start-up. Built-in (or nothing saved) does nothing at all; dddice starts preparing.</summary>
@@ -138,7 +187,7 @@ public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
             await _dddice.PrepareAsync(cancel.Token);
             if (cancel.IsCancellationRequested) return;
             State = DiceProviderState.Ready;
-            Message = "dddice is ready (guest mode: no account needed).";
+            Message = _connection is { IsAccountMode: true } ? $"dddice is ready (theme: {_connection.ThemeName})." : "dddice is ready (guest mode: no account needed).";
         }
         catch (OperationCanceledException) { /* the person switched away */ }
         catch (Exception ex)

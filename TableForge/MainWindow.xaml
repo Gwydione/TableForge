@@ -124,6 +124,21 @@
                                      AutomationProperties.AutomationId="DiceProviderDddice"
                                      IsEnabled="{Binding IsDddiceAvailable}"
                                      IsChecked="{Binding IsDddiceSelected, Mode=TwoWay}" />
+                        <!-- Who dddice rolls as (Guest, or the connected account and its theme). The account itself is managed in Account…,
+                             so this stays two short lines and one button. -->
+                        <Grid x:Name="DddiceIdentity" Margin="20,4,0,0" Visibility="{Binding ShowDddiceIdentity, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="DddiceIdentityText" Text="{Binding DddiceIdentityText}" Foreground="#555" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="DddiceThemeText" Text="{Binding ThemeText}" Foreground="#555" TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding HasThemeText, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                            <Button x:Name="DddiceAccountButton" Grid.Column="1" Content="Account…" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="DddiceAccount" Command="{Binding AccountCommand}" />
+                        </Grid>
                     </StackPanel>
 
                     <!-- Folder navigation: All Tables / Unfiled always present, then this collection's folders (alphabetical, flat — no nesting). -->
@@ -293,6 +308,9 @@
                                 </StackPanel.Style>
                                 <Button x:Name="UseBuiltInButton" Content="Use Built-in Dice" Padding="10,3" Margin="0,0,6,0"
                                         AutomationProperties.AutomationId="UseBuiltInDice" Command="{Binding UseBuiltInCommand}" />
+                                <Button x:Name="DiceAccountFailureButton" Content="Account…" Padding="10,3" Margin="0,0,6,0"
+                                        AutomationProperties.AutomationId="DiceAccountOnFailure" Command="{Binding AccountCommand}"
+                                        Visibility="{Binding ShowAccountOnFailure, Converter={StaticResource BoolToVis}}" />
                                 <Button x:Name="DiceRetryButton" Content="Try again" Padding="10,3"
                                         AutomationProperties.AutomationId="DiceRetry" Command="{Binding RetryCommand}" />
                             </StackPanel>

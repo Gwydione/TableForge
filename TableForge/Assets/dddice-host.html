@@ -12,26 +12,27 @@
 <canvas id="c"></canvas>
 <script>
   // The whole bridge to TableForge: one JSON object per message through window.chrome.webview.postMessage.
-  // Nothing from a TableForge table is ever sent to or through this page: only a guest token, a room, and dice types.
+  // Nothing from a TableForge table is ever sent to or through this page: only a token (guest or account), a room, a theme id
+  // and dice types. The token lives only in this page's memory: it is never logged, stored, or put in a URL.
   const post = m => { try { window.chrome.webview.postMessage(m); } catch (e) { } };
   window.__sdkLoadFailed = false;
 </script>
 <script src="https://cdn.dddice.com/js/dddice-latest.js" onerror="window.__sdkLoadFailed = true; post({ kind: 'sdkLoadFailed' });"></script>
 <script>
   let dd = null;
-  const THEME = 'dddice-bees';
   const slim = r => ({
     uuid: r.uuid, externalId: r.external_id || null, equation: r.equation, total: r.total_value,
     values: (r.values || []).map(v => ({ type: v.type, value: v.value }))
   });
 
-  // Best effort: fetch the free theme's meshes and textures now, so the first real roll does not stall for seconds.
-  async function warmTheme() {
+  // Best effort: fetch the session's theme (the guest's free theme, or the account's chosen one) now, so the first real roll
+  // does not stall for seconds. Looked up by id, so it works however many themes the Dice Box holds.
+  async function warmTheme(themeId) {
     const t0 = performance.now();
     try {
-      const themes = await dd.api.diceBox.list();
-      const theme = (themes || []).find(t => t.id === THEME);
-      if (!theme) return post({ kind: 'warmSkipped' });
+      const answer = await dd.api.theme.get(themeId);
+      const theme = answer && answer.data && answer.data.id ? answer.data : answer;
+      if (!theme || theme.id !== themeId) return post({ kind: 'warmSkipped' });
       dd.loadTheme(theme, false, false);
       const deadline = t0 + 8000;
       while (dd.loadThemeResources(theme.id, false).length > 0 && performance.now() < deadline)
@@ -83,7 +84,7 @@
   window.addEventListener('resize', fit);   // the panel follows the TableForge window: keep the canvas, camera and tray in step
 
   window.tf = {
-    init(token, room) {
+    init(token, room, theme) {
       if (window.__sdkLoadFailed || typeof ThreeDDice === 'undefined') { post({ kind: 'sdkLoadFailed' }); return; }
       try {
         dd = new ThreeDDice(document.getElementById('c'), token);
@@ -96,7 +97,7 @@
         dd.api.onConnectionStateChange(state => post({ kind: 'connectionState', state }));
         dd.api.onConnectionError(err => post({ kind: 'initFailed', message: JSON.stringify(err) }));
         // "ready" only once the room's realtime channel is subscribed (a roll made earlier would be created but never animated).
-        dd.api.onConnect(async () => { await warmTheme(); post({ kind: 'ready' }); });
+        dd.api.onConnect(async () => { await warmTheme(theme); post({ kind: 'ready' }); });
       } catch (e) { post({ kind: 'initFailed', message: String((e && e.message) || e) }); }
     },
     roll(dice, externalId) {

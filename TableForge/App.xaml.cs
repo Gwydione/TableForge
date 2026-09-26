@@ -37,8 +37,12 @@ public partial class App : Application
             _db = new AppDatabase(path); // creates the folder and database on first run, and upgrades older ones
             var window = new MainWindow();
             // Built-in is the default and does no network work. dddice is only prepared once it has been chosen (or was chosen last time).
-            _dddice = new WebViewDddiceRoller(window.AttachDiceView, System.IO.Path.Combine(DataFolder, "WebView2"));
-            var dice = new DiceProviderViewModel(new BuiltInDiceProvider(), new DddiceDiceProvider(_dddice), LoadDicePreference, SaveDicePreference);
+            // A connected dddice account is read from its local file here, but only checked with dddice when dddice is prepared.
+            var rest = new DddiceRest();
+            var connection = new DddiceConnection(new DddiceAccountStore(DataFolder));
+            _dddice = new WebViewDddiceRoller(window.AttachDiceView, System.IO.Path.Combine(DataFolder, "WebView2"), rest, connection);
+            var dice = new DiceProviderViewModel(new BuiltInDiceProvider(), new DddiceDiceProvider(_dddice), LoadDicePreference, SaveDicePreference,
+                connection, openAccount: () => OpenDddiceAccount(window, connection, rest));
             var main = new MainViewModel(_db, dice,
                 confirm: message => MessageBox.Show(message, "Delete table", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes);
             window.DataContext = main;
@@ -51,6 +55,29 @@ public partial class App : Application
             _db = null;
             MessageBox.Show(DatabaseOpenError.Describe(path, ex), AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
+        }
+    }
+
+    /// <summary>The Account… dialog. Modal, so there is only ever one activation or Dice Box load at a time; closing it stops them.</summary>
+    private static void OpenDddiceAccount(Window owner, DddiceConnection connection, DddiceRest rest)
+    {
+        var vm = new DddiceAccountViewModel(connection, rest, CopyText, OpenInBrowser);
+        new DddiceAccountWindow { Owner = owner, DataContext = vm }.ShowDialog();
+    }
+
+    private static void CopyText(string text)
+    {
+        try { Clipboard.SetText(text); }
+        catch (System.Runtime.InteropServices.ExternalException) { /* another program is holding the clipboard; the code is still on screen */ }
+    }
+
+    /// <summary>Opens a page in the person's default browser (never inside TableForge).</summary>
+    private static void OpenInBrowser(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            MessageBox.Show($"TableForge could not open your web browser. Go to {url} yourself.", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
