@@ -1,0 +1,17 @@
+{
+  "name": "TF Test d20+2",
+  "type": "weighted",
+  "dice": "1d20+2",
+  "entries": [
+    {
+      "low": 3,
+      "high": 12,
+      "text": "Lower half"
+    },
+    {
+      "low": 13,
+      "high": 22,
+      "text": "Upper half"
+    }
+  ]
+}

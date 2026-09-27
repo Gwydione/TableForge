@@ -272,6 +272,7 @@ public class FoundryTableExporterTests
     public void The_suggested_file_name_is_safe_for_Windows(string name, string file)
     {
         Assert.Equal(file, FoundryTableExporter.SuggestedFileName(name));
+        Assert.Equal(file.Replace("Foundry table", "Tables+ table"), TablesPlusTableExporter.SuggestedFileName(name));
         Assert.True(file.IndexOfAny(Path.GetInvalidFileNameChars()) < 0);
     }
 
@@ -316,16 +317,16 @@ public class FoundryExportRollTests : IDisposable
     public void Saving_writes_exactly_the_copied_json_as_UTF8_where_the_person_chose()
     {
         var copied = new List<string>();
-        var suggested = new List<string>();
+        var suggested = new List<SaveFileRequest>();
         var path = Path.Combine(_folder, "chosen.json");
         var session = new RollViewModel(Fixtures.RoomFeatures(), new SequenceDice(1), copyText: copied.Add,
-            chooseSaveFile: name => { suggested.Add(name); return path; });
+            chooseSaveFile: request => { suggested.Add(request); return path; });
         session.CopyResultSetIndex = 2;
 
         session.SaveFoundryJsonCommand.Execute(null);
         session.CopyFoundryJsonCommand.Execute(null);
 
-        Assert.Equal(["Room Features — General Feature.json"], suggested);
+        Assert.Equal([new SaveFileRequest("Save Foundry JSON", "Room Features — General Feature.json")], suggested);
         var bytes = File.ReadAllBytes(path);
         Assert.False(bytes.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }));                   // no BOM
         Assert.Equal(Assert.Single(copied), Encoding.UTF8.GetString(bytes));                        // the same bytes as the clipboard
@@ -438,7 +439,7 @@ public class FoundryExportViewTests
                 ui.SelectTable("Loot: Arms?");
                 ui.Click("Roll");
                 Assert.False(ui.HasVisibleButton("Copy Table Text"));
-                Assert.Equal(["Copy Table Text", "Copy for Sojour", "Copy Foundry JSON", "Save Foundry JSON…"],
+                Assert.Equal(["Copy Table Text", "Copy for Sojour", "Copy Foundry JSON", "Save Foundry JSON…", "Copy Tables+ JSON", "Save Tables+ JSON…"],
                     ui.One<Button>(b => b.Name == "ExportButton").ContextMenu.Items.OfType<MenuItem>().Select(i => i.Header as string));
 
                 ui.ChooseExport("Copy Foundry JSON");
@@ -451,6 +452,7 @@ public class FoundryExportViewTests
                 ui.SavePath = Path.Combine(folder, "loot.json");
                 ui.ChooseExport("Save Foundry JSON…");
                 Assert.Equal(["Loot_ Arms_.json"], ui.SuggestedFileNames);
+                Assert.Equal(["Save Foundry JSON"], ui.SaveTitles);
                 Assert.Equal(ui.Copied[0], File.ReadAllText(ui.SavePath));
                 Assert.Contains(ui.Texts(), t => t.Name == "CopyMessageText" && t.Text == "Foundry JSON saved to loot.json.");
 

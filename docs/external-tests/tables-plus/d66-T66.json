@@ -1,0 +1,37 @@
+{
+  "name": "TF Test d66",
+  "type": "weighted",
+  "dice": "T66",
+  "entries": [
+    {
+      "low": 11,
+      "high": 16,
+      "text": "Tens 1"
+    },
+    {
+      "low": 21,
+      "high": 26,
+      "text": "Tens 2"
+    },
+    {
+      "low": 31,
+      "high": 36,
+      "text": "Tens 3"
+    },
+    {
+      "low": 41,
+      "high": 46,
+      "text": "Tens 4"
+    },
+    {
+      "low": 51,
+      "high": 56,
+      "text": "Tens 5"
+    },
+    {
+      "low": 61,
+      "high": 66,
+      "text": "Tens 6"
+    }
+  ]
+}

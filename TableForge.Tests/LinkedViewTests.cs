@@ -23,9 +23,11 @@ internal sealed class UiHarness : IDisposable
     /// <summary>Everything Copy Table Text put on the "clipboard" (the real one is never touched by tests).</summary>
     public List<string> Copied { get; } = [];
 
-    /// <summary>Where Save Foundry JSON… "chooses" to save (null: the person cancels), and every file name it suggested.</summary>
+    /// <summary>Where Save Foundry JSON… or Save Tables+ JSON… "chooses" to save (null: the person cancels), and every file name
+    /// and dialog title it asked with.</summary>
     public string? SavePath { get; set; }
     public List<string> SuggestedFileNames { get; } = [];
+    public List<string> SaveTitles { get; } = [];
     public AppDatabase Db { get; }
     public Collection? Collection { get; }
     public MainViewModel Main { get; }
@@ -46,9 +48,10 @@ internal sealed class UiHarness : IDisposable
             seed(Db, Collection);
         }
         Dice = new FixedDice(roll);
-        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: name =>
+        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: request =>
         {
-            SuggestedFileNames.Add(name);
+            SuggestedFileNames.Add(request.SuggestedName);
+            SaveTitles.Add(request.Title);
             return SavePath;
         });
         Window = new MainWindow

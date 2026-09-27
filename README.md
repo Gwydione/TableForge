@@ -19,7 +19,8 @@ TableForge can also:
 - make **several rolls at once**, keeping every result;
 - **Copy Table Text** as clean plain text for other tools and VTTs;
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
-- **export to Foundry VTT** as JSON for the Roll Table Importer module.
+- **export to Foundry VTT** as JSON for the Roll Table Importer module;
+- **export to Owlbear Rodeo (Tables+)** as Tables+ import JSON (`d20`, `d66` and `2d6` checked in Tables+ so far).
 
 ## Install
 
@@ -76,6 +77,9 @@ access token is protected with Windows DPAPI for your Windows user. See [PRIVACY
 - **Copy Table Text** produces generic tab-separated text, not a format for any particular VTT.
 - **Foundry VTT export** is for the Roll Table Importer module; it exports one result set at a time, with no links, and
   Foundry does not reproduce Clamp.
+- **Owlbear Rodeo (Tables+) export** has been checked in Tables+ only for `d20`, `d66` and `2d6` tables; other cases
+  (negative numbers, gaps and overlaps, `{2d6}`, `#reroll`, a real `1d66`, importing a saved file) are untested.
+  `2d6+1`-style dice (several dice with a modifier) are refused for now.
 - **Copy for Sojour** has been tested only by pasting with **Ctrl+V** into a Sojour Lookup Table; it copies one result
   set's rows, and the table's name and dice are set up in Sojour yourself.
 - dddice dice need an internet connection and the WebView2 Runtime.
@@ -247,6 +251,41 @@ Foundry: Roll Tables → **Import Tables**, then paste it or choose the file). C
 - **Clamp:** Foundry does not clamp. If this table clamps and its dice can roll past its rows (`d20+2` over rows 1–20), a
   note says so after exporting; the export still happens.
 - **Save Foundry JSON…** suggests a file name made from the table's name, with characters Windows does not allow replaced by `_`.
+
+## Owlbear Rodeo (Tables+) export
+
+On the Roll screen, **Export…** → **Copy Tables+ JSON** or **Save Tables+ JSON…** turns one result set of a saved table into
+one table in the JSON shape that the Tables+ extension for Owlbear Rodeo documents for importing. Copy and Save give
+exactly the same JSON:
+
+```json
+{
+  "name": "Wilderness Encounters",
+  "type": "weighted",
+  "dice": "1d20",
+  "entries": [
+    { "low": 1, "high": 3, "text": "Wolf pack" }
+  ]
+}
+```
+
+- **Checked in Tables+ so far (2026-09-27):** TableForge-exported `d20`, `d66` (`T66`, in the sample tested) and `2d6`
+  tables imported and rolled correctly. A separate hand-written `1d4+20` Tables+ table always rolled 21–24, so Tables+
+  applies a positive modifier on one die; a TableForge export with a modifier was not itself tested.
+- **Not yet checked in Tables+:** negative modifiers and negative ranges, gaps and overlaps, `{2d6}` and `#reroll` in
+  results, a real `1d66`, `d100`, and importing a file saved with **Save Tables+ JSON…**. This is not a claim of full
+  Tables+ compatibility; please report what you find (the checklist is in `docs/RELEASE_TESTING.md`).
+- **One result set per table,** named like the Foundry export (`Table — Result Set` when there are several).
+- **Type and dice:** one die is `weighted` (`1d20`, `1d100`, `1d20+2`, `1d20-2`; a real 66-sided die is `1d66`); a `d66`
+  (tens and ones) is `weighted` with `T66`; several dice with no modifier are `bell-curve` (`2d6`, `3d6`). Several dice
+  with a modifier, like `2d6+1`, are refused until Tables+ is known to handle them; the modifier is never dropped.
+- **Ranges are numbers:** `96–00` is 96 to 100, negative numbers stay negative, and gaps and overlaps are exported as
+  they are (the Review screen already points them out).
+- **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice kept. Text that means something
+  special when typed into Tables+, such as `{2d6}` or `#reroll`, is exported unchanged; whether Tables+ acts on it after
+  an import has not been checked. Links, ids, roll state and Clamp are never exported.
+- **Clamp:** Tables+ JSON has no Clamp setting. If this table clamps and its dice can roll past its rows, a note says so
+  after exporting; the export still happens.
 
 ## Several rolls at once
 

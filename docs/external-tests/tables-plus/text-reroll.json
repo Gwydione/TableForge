@@ -1,0 +1,17 @@
+{
+  "name": "TF Test #reroll",
+  "type": "weighted",
+  "dice": "1d4",
+  "entries": [
+    {
+      "low": 1,
+      "high": 2,
+      "text": "Roll again #reroll"
+    },
+    {
+      "low": 3,
+      "high": 4,
+      "text": "Plain text"
+    }
+  ]
+}

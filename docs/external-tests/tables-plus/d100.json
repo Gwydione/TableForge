@@ -1,0 +1,22 @@
+{
+  "name": "TF Test d100",
+  "type": "weighted",
+  "dice": "1d100",
+  "entries": [
+    {
+      "low": 1,
+      "high": 5,
+      "text": "Cold"
+    },
+    {
+      "low": 6,
+      "high": 95,
+      "text": "Mild"
+    },
+    {
+      "low": 96,
+      "high": 100,
+      "text": "Doom"
+    }
+  ]
+}

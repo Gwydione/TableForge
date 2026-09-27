@@ -25,7 +25,7 @@ public class PublicReleaseTests
         Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.0.0-rc20", AppInfo.Version);
+        Assert.Equal("1.0.0-rc21", AppInfo.Version);
     }
 
     [Fact]
@@ -115,14 +115,17 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.0.0-rc20.md");
-        Assert.StartsWith("# TableForge 1.0.0-rc20", notes);
+        var notes = Read("docs", "release-notes", "1.0.0-rc21.md");
+        Assert.StartsWith("# TableForge 1.0.0-rc21", notes);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
-        Assert.Contains("TableForge-1.0.0-rc20-Setup.exe", notes);
+        Assert.Contains("TableForge-1.0.0-rc21-Setup.exe", notes);
+        Assert.Contains("**Checked in Tables+:**", notes);                                      // the RC21 status, stated precisely:
+        Assert.Contains("Still untested there:", notes);                                         // what was checked live and what was not
+        Assert.Contains("this is not full", notes);
 
         var checklist = Read("docs", "RELEASE_TESTING.md");
-        foreach (var heading in new[] { "## Fresh install", "## dddice", "## Foundry VTT export", "## Sojour", "## Uninstall and reinstall", "## Upgrade" })
+        foreach (var heading in new[] { "## Fresh install", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
             Assert.Contains(heading, checklist);
     }
 }

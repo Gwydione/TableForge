@@ -1,0 +1,22 @@
+{
+  "name": "TF Test 1d66 die",
+  "type": "weighted",
+  "dice": "1d66",
+  "entries": [
+    {
+      "low": 1,
+      "high": 33,
+      "text": "Low"
+    },
+    {
+      "low": 34,
+      "high": 65,
+      "text": "High"
+    },
+    {
+      "low": 66,
+      "high": 66,
+      "text": "Top"
+    }
+  ]
+}

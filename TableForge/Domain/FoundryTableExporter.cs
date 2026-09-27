@@ -28,8 +28,8 @@ public static class FoundryTableExporter
     public const string ClampWarning =
         "This table uses Clamp to Range in TableForge. Foundry does not clamp, so some rolls there may find no result.";
 
-    /// <summary>Readable output: "king’s sword" and "Sword & Shield" stay as written instead of ’ and & (still valid JSON).</summary>
-    private static readonly JsonSerializerOptions Options = new()
+    /// <summary>Readable output: "king’s sword" and "Sword & Shield" stay as written instead of ’ and & (still valid JSON). Tables+ uses it too.</summary>
+    internal static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -39,34 +39,12 @@ public static class FoundryTableExporter
     public static bool TryExport(RollableTable table, ResultSet resultSet, out FoundryExport? export, out string? error)
     {
         export = null;
-        error = null;
-
-        var index = table.ResultSets.IndexOf(resultSet);
-        if (index < 0)
-        {
-            error = "Choose a result set to export.";
-            return false;
-        }
-        if (table.Name.Trim().Length == 0)
-        {
-            error = "The table needs a name.";
-            return false;
-        }
-        if (resultSet.Entries.Count == 0)
-        {
-            error = "This result set has no rows.";
-            return false;
-        }
-        if (resultSet.Entries.FirstOrDefault(e => e.Min > e.Max) is { } backwards)
-        {
-            error = $"The row \"{backwards.RangeLabel}\" has a range that runs backwards.";
-            return false;
-        }
+        if ((error = Refusal(table, resultSet, out var index)) is not null) return false;
 
         var name = Name(table, index);
         var dto = new FoundryTableDto(name, Formula(table.Dice),
             resultSet.Entries.Select(e => new FoundryResultDto([e.Min, e.Max], e.Text.Trim())).ToList());
-        export = new FoundryExport(name, JsonSerializer.Serialize(dto, Options), Warnings(table, resultSet));
+        export = new FoundryExport(name, JsonSerializer.Serialize(dto, Options), ClampApplies(table, resultSet) ? [ClampWarning] : []);
         return true;
     }
 
@@ -87,27 +65,44 @@ public static class FoundryTableExporter
     }
 
     /// <summary>
-    /// Clamp is the one thing Foundry cannot reproduce, and it only matters when the dice can land outside the rows: then
-    /// TableForge looks those rolls up at the nearest end, and Foundry finds nothing. Clamp that never applies is not mentioned.
+    /// Why this result set cannot be exported at all (a set from another table, no table name, no rows, a backwards range), or
+    /// null with its position when it can. Tables+ export refuses exactly the same things.
     /// </summary>
-    private static IReadOnlyList<string> Warnings(RollableTable table, ResultSet resultSet)
+    internal static string? Refusal(RollableTable table, ResultSet resultSet, out int index)
     {
-        if (!table.ClampResultsToRange || !TableClamp.TryGetRange(table, out _, out _)) return [];
+        index = table.ResultSets.IndexOf(resultSet);
+        if (index < 0) return "Choose a result set to export.";
+        if (table.Name.Trim().Length == 0) return "The table needs a name.";
+        if (resultSet.Entries.Count == 0) return "This result set has no rows.";
+        if (resultSet.Entries.FirstOrDefault(e => e.Min > e.Max) is { } backwards)
+            return $"The row \"{backwards.RangeLabel}\" has a range that runs backwards.";
+        return null;
+    }
+
+    /// <summary>
+    /// Clamp is the one thing Foundry (and Tables+) cannot reproduce, and it only matters when the dice can land outside the rows:
+    /// then TableForge looks those rolls up at the nearest end, and the other program finds nothing. Clamp that never applies is not
+    /// mentioned. Needs a non-empty result set.
+    /// </summary>
+    internal static bool ClampApplies(RollableTable table, ResultSet resultSet)
+    {
+        if (!table.ClampResultsToRange || !TableClamp.TryGetRange(table, out _, out _)) return false;
         var min = resultSet.Entries.Min(e => e.Min);
         var max = resultSet.Entries.Max(e => e.Max);
-        return table.Dice.Min < min || table.Dice.Max > max ? [ClampWarning] : [];
+        return table.Dice.Min < min || table.Dice.Max > max;
     }
 
     /// <summary>
     /// A file name Windows accepts, from the exported table name (the name inside the JSON is never changed): characters
     /// Windows forbids become "_", trailing spaces and dots are dropped, and a reserved device name (CON, NUL, COM1...) gets a "_".
+    /// A name with nothing usable left becomes <paramref name="fallback"/> ("Foundry table", or "Tables+ table" for Tables+).
     /// </summary>
-    public static string SuggestedFileName(string name)
+    public static string SuggestedFileName(string name, string fallback = "Foundry table")
     {
         var invalid = Path.GetInvalidFileNameChars().Concat("<>:\"/\\|?*").ToHashSet();
         var safe = new string(name.Select(c => invalid.Contains(c) || char.IsControl(c) ? '_' : c).ToArray()).Trim().TrimEnd('.', ' ');
         if (safe.Length > 100) safe = safe[..100].TrimEnd('.', ' ');
-        if (safe.Length == 0) safe = "Foundry table";
+        if (safe.Length == 0) safe = fallback;
         if (ReservedNames.Contains(safe.Split('.')[0].TrimEnd(' '))) safe += "_";
         return safe + ".json";
     }

@@ -341,10 +341,10 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_V1_release_candidate_20()
+    public void The_build_identifies_itself_as_V1_release_candidate_21()
     {
-        Assert.Equal("1.0.0-rc20", AppInfo.Version);
-        Assert.Contains("<Version>1.0.0-rc20</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Equal("1.0.0-rc21", AppInfo.Version);
+        Assert.Contains("<Version>1.0.0-rc21</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
     }
 
     [Fact]

@@ -1,0 +1,22 @@
+{
+  "name": "TF Test d4-2",
+  "type": "weighted",
+  "dice": "1d4-2",
+  "entries": [
+    {
+      "low": -1,
+      "high": 0,
+      "text": "Negative or zero"
+    },
+    {
+      "low": 1,
+      "high": 1,
+      "text": "One"
+    },
+    {
+      "low": 2,
+      "high": 2,
+      "text": "Two"
+    }
+  ]
+}

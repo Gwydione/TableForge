@@ -1,0 +1,22 @@
+{
+  "name": "TF Test d20",
+  "type": "weighted",
+  "dice": "1d20",
+  "entries": [
+    {
+      "low": 1,
+      "high": 5,
+      "text": "Wolf pack"
+    },
+    {
+      "low": 6,
+      "high": 15,
+      "text": "Nothing"
+    },
+    {
+      "low": 16,
+      "high": 20,
+      "text": "Travelling merchant"
+    }
+  ]
+}

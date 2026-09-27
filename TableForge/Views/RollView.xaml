@@ -162,13 +162,13 @@
 
             <WrapPanel Margin="0,24,0,6">
                 <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
-                <!-- Export…: one result set of this table, as plain text, Sojour rows or Foundry VTT JSON. Read-only: rolls and results are untouched. -->
+                <!-- Export…: one result set of this table, as plain text, Sojour rows, Foundry VTT JSON or Owlbear Rodeo Tables+ JSON. Read-only: rolls and results are untouched. -->
                 <ComboBox x:Name="CopyResultSetBox" ItemsSource="{Binding CopyResultSetNames}" SelectedIndex="{Binding CopyResultSetIndex}"
                           MinWidth="120" Margin="0,0,6,0" VerticalAlignment="Center"
                           AutomationProperties.Name="Result set to export" ToolTip="Which result set Export… copies or saves"
                           Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
                 <Button x:Name="ExportButton" Content="Export…" Padding="10,2" VerticalAlignment="Center" Click="OnExportClick"
-                        ToolTip="Copy this table as plain text, as rows for a Sojour Lookup Table, or as JSON for Foundry VTT's Roll Table Importer">
+                        ToolTip="Copy this table as plain text, as rows for a Sojour Lookup Table, or as JSON for Foundry VTT's Roll Table Importer or Owlbear Rodeo (Tables+)">
                     <Button.ContextMenu>
                         <ContextMenu x:Name="ExportMenu">
                             <MenuItem Header="Copy Table Text" Command="{Binding CopyTableTextCommand}"
@@ -180,6 +180,11 @@
                                       ToolTip="JSON to paste into Foundry VTT's Roll Table Importer" />
                             <MenuItem Header="Save Foundry JSON…" Command="{Binding SaveFoundryJsonCommand}"
                                       ToolTip="The same JSON, saved as a .json file for Roll Table Importer" />
+                            <Separator />
+                            <MenuItem Header="Copy Tables+ JSON" Command="{Binding CopyTablesPlusJsonCommand}"
+                                      ToolTip="JSON to import into Owlbear Rodeo (Tables+)" />
+                            <MenuItem Header="Save Tables+ JSON…" Command="{Binding SaveTablesPlusJsonCommand}"
+                                      ToolTip="The same JSON, saved as a .json file to import into Owlbear Rodeo (Tables+)" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
