@@ -63,6 +63,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IDiceProvider _dice;
     private readonly Func<string, bool> _confirm;
     private readonly Action<string>? _copyText;
+    private readonly Func<string, string?>? _chooseSaveFile;
     private readonly Action<string>? _openFolder;
     private readonly Action? _showAbout;
     private List<TableSummary> _allTables = [];
@@ -83,13 +84,15 @@ public sealed class MainViewModel : ObservableObject
     /// <param name="dataFolder">The folder holding the database and settings, for Open Data Folder. Null hides the command.</param>
     /// <param name="openFolder">Shows a folder in File Explorer.</param>
     /// <param name="showAbout">Shows About TableForge. Null hides the command.</param>
+    /// <param name="chooseSaveFile">Asks where to save an exported file (Save Foundry JSON…). Null means the Windows Save dialog.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
-        string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null)
+        string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<string, string?>? chooseSaveFile = null)
     {
         _db = db;
         _dice = dice;
         _confirm = confirm ?? (_ => false);
         _copyText = copyText;
+        _chooseSaveFile = chooseSaveFile;
         DataFolder = dataFolder;
         _openFolder = openFolder;
         _showAbout = showAbout;
@@ -525,7 +528,7 @@ public sealed class MainViewModel : ObservableObject
     {
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
-            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText);
+            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile);
     }
 
     private void MarkUsed(long tableId)

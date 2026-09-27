@@ -328,7 +328,7 @@ public class CopyTableTextReviewTests
     }
 }
 
-/// <summary>The two Copy Table Text buttons through the real window.</summary>
+/// <summary>Copy Table Text through the real window: under Export… on the Roll screen, its own button on Review.</summary>
 [Collection("UI")]
 public class CopyTableTextViewTests
 {
@@ -342,8 +342,9 @@ public class CopyTableTextViewTests
             ui.SelectTable("Weather");
             ui.Click("Roll");
             Assert.False(ui.One<ComboBox>(b => b.Name == "CopyResultSetBox").IsVisible);          // one result set: no chooser
+            Assert.False(ui.HasVisibleButton("Copy Table Text"));                                   // RC19: it lives under Export… here
 
-            ui.Click("Copy Table Text");
+            ui.ChooseExport("Copy Table Text");
 
             const string expected = "Weather\r\nd6\r\n\r\n1-3\tLow, | odd\r\n4-6\tHigh";
             Assert.Equal([expected], ui.Copied);

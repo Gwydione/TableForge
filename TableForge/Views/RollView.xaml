@@ -162,16 +162,30 @@
 
             <WrapPanel Margin="0,24,0,6">
                 <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
-                <!-- Copy Table Text: one result set of this table as plain text. Read-only: rolls and results are untouched. -->
+                <!-- Export…: one result set of this table, as plain text or Foundry VTT JSON. Read-only: rolls and results are untouched. -->
                 <ComboBox x:Name="CopyResultSetBox" ItemsSource="{Binding CopyResultSetNames}" SelectedIndex="{Binding CopyResultSetIndex}"
                           MinWidth="120" Margin="0,0,6,0" VerticalAlignment="Center"
-                          AutomationProperties.Name="Result set to copy" ToolTip="Which result set Copy Table Text copies"
+                          AutomationProperties.Name="Result set to export" ToolTip="Which result set Export… copies or saves"
                           Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
-                <Button x:Name="CopyTableTextButton" Content="Copy Table Text" Padding="10,2" VerticalAlignment="Center" Command="{Binding CopyTableTextCommand}"
-                        ToolTip="Copy this table as plain text (name, dice, then one range and result per line)" />
+                <Button x:Name="ExportButton" Content="Export…" Padding="10,2" VerticalAlignment="Center" Click="OnExportClick"
+                        ToolTip="Copy this table as plain text, or as JSON for Foundry VTT's Roll Table Importer">
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="ExportMenu">
+                            <MenuItem Header="Copy Table Text" Command="{Binding CopyTableTextCommand}"
+                                      ToolTip="Plain text: name, dice, then one range and result per line" />
+                            <Separator />
+                            <MenuItem Header="Copy Foundry JSON" Command="{Binding CopyFoundryJsonCommand}"
+                                      ToolTip="JSON to paste into Foundry VTT's Roll Table Importer" />
+                            <MenuItem Header="Save Foundry JSON…" Command="{Binding SaveFoundryJsonCommand}"
+                                      ToolTip="The same JSON, saved as a .json file for Roll Table Importer" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
                 <TextBlock x:Name="CopyMessageText" Text="{Binding CopyMessage}" Foreground="#2E6B3A" VerticalAlignment="Center" Margin="8,0,0,0"
                            Visibility="{Binding HasCopyMessage, Converter={StaticResource BoolToVis}}" />
             </WrapPanel>
+            <TextBlock x:Name="ExportWarningText" Text="{Binding ExportWarning}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap"
+                       Margin="0,0,0,6" Visibility="{Binding HasExportWarning, Converter={StaticResource BoolToVis}}" />
 
             <!-- Result sets that are genuine parallel outputs of one roll (same row count, same range at every row):
                  shown as one aligned multi-column grid instead of separate stacked sections, mirroring the Review

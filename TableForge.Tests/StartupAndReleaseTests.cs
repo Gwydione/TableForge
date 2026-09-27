@@ -343,8 +343,8 @@ public class ReleaseTests
     [Fact]
     public void The_build_identifies_itself_as_V1_release_candidate_18()
     {
-        Assert.Equal("1.0.0-rc18", AppInfo.Version);
-        Assert.Contains("<Version>1.0.0-rc18</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Equal("1.0.0-rc19", AppInfo.Version);
+        Assert.Contains("<Version>1.0.0-rc19</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
     }
 
     [Fact]
@@ -368,6 +368,6 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("1.0.0-rc18", readme);
+        Assert.Contains("1.0.0-rc19", readme);
     }
 }

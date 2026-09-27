@@ -22,6 +22,10 @@ internal sealed class UiHarness : IDisposable
 
     /// <summary>Everything Copy Table Text put on the "clipboard" (the real one is never touched by tests).</summary>
     public List<string> Copied { get; } = [];
+
+    /// <summary>Where Save Foundry JSON… "chooses" to save (null: the person cancels), and every file name it suggested.</summary>
+    public string? SavePath { get; set; }
+    public List<string> SuggestedFileNames { get; } = [];
     public AppDatabase Db { get; }
     public Collection? Collection { get; }
     public MainViewModel Main { get; }
@@ -42,7 +46,11 @@ internal sealed class UiHarness : IDisposable
             seed(Db, Collection);
         }
         Dice = new FixedDice(roll);
-        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add);
+        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: name =>
+        {
+            SuggestedFileNames.Add(name);
+            return SavePath;
+        });
         Window = new MainWindow
         {
             DataContext = Main,
@@ -82,6 +90,18 @@ internal sealed class UiHarness : IDisposable
         Layout();
         Assert.True(button.IsEnabled, $"'{content}' should be enabled");
         ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)).Invoke();
+        Layout();
+    }
+
+    /// <summary>Opens the Roll screen's Export… menu with its button, then chooses <paramref name="header"/> from it.</summary>
+    public void ChooseExport(string header)
+    {
+        var button = One<Button>(b => b.IsVisible && b.Content as string == "Export…");
+        Click("Export…");
+        Assert.True(button.ContextMenu.IsOpen, "Export… should open its menu");
+        var item = button.ContextMenu.Items.OfType<MenuItem>().Single(i => i.Header as string == header);
+        Assert.True(item.IsEnabled, $"'{header}' should be enabled");
+        ((IInvokeProvider)new MenuItemAutomationPeer(item).GetPattern(PatternInterface.Invoke)).Invoke();
         Layout();
     }
 

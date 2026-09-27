@@ -17,6 +17,14 @@ public partial class RollView : UserControl
 
     private int _stepCount = 1;
 
+    /// <summary>Export… opens its menu under the button, by mouse or keyboard alike.</summary>
+    private void OnExportClick(object sender, RoutedEventArgs e)
+    {
+        ExportMenu.PlacementTarget = ExportButton;
+        ExportMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        ExportMenu.IsOpen = true;
+    }
+
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.OldValue is INotifyPropertyChanged old) old.PropertyChanged -= OnViewModelChanged;

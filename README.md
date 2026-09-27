@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc18 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc19 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -17,7 +17,8 @@ TableForge can also:
   dddice account;
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
 - make **several rolls at once**, keeping every result;
-- **Copy Table Text** as clean plain text for other tools and VTTs.
+- **Copy Table Text** as clean plain text for other tools and VTTs;
+- **export to Foundry VTT** as JSON for the Roll Table Importer module.
 
 ## Install
 
@@ -72,6 +73,8 @@ access token is protected with Windows DPAPI for your Windows user. See [PRIVACY
 - Unusual PDF layouts may need some manual cleanup on the Review screen.
 - TableForge does not find tables in a whole PDF by itself; you copy the table you want.
 - **Copy Table Text** produces generic tab-separated text, not a format for any particular VTT.
+- **Foundry VTT export** is for the Roll Table Importer module; it exports one result set at a time, with no links, and
+  Foundry does not reproduce Clamp.
 - dddice dice need an internet connection and the WebView2 Runtime.
 - Connecting a dddice account takes a few steps in your web browser.
 - Windows x64 only for now.
@@ -179,7 +182,7 @@ The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinar
 ## Copy Table Text
 
 **Copy Table Text** puts a clean plain-text copy of a table on the clipboard, ready to paste into a VTT, a document or any other
-tool. It is on the Roll screen (beside the table's name) and on the Review screen (beside **Save Table**), so a freshly
+tool. It is on the Roll screen (under **Export…**, beside the table's name) and on the Review screen (beside **Save Table**), so a freshly
 pasted table can be copied out without saving it (it is offered there whenever **Save Table** is). The text is:
 
 ```
@@ -194,6 +197,33 @@ one result set at a time (with several, a chooser beside the button says which),
 row per line with a tab between range and result. Ranges keep how they were written (`00`, `08`, `96-00`, d66 as `11`–`66`).
 Result text is only trimmed, with line breaks and tabs turned into single spaces; links, inline-roll results, the modifier,
 clamp results and roll history are never included, and copying changes nothing on screen.
+
+## Foundry VTT export
+
+On the Roll screen, **Export…** → **Copy Foundry JSON** or **Save Foundry JSON…** turns one result set of a saved table into
+the JSON that Foundry VTT's [Roll Table Importer](https://foundryvtt.com/packages/roll-table-importer) module imports (in
+Foundry: Roll Tables → **Import Tables**, then paste it or choose the file). Copy and Save give exactly the same JSON:
+
+```json
+{
+  "name": "Goods",
+  "formula": "1d12",
+  "results": [
+    { "range": [1, 4], "text": "Backpacks or sacks" }
+  ]
+}
+```
+
+- **One result set per table.** With several, the chooser beside **Export…** says which, and the Foundry table is named
+  `Table — Result Set`.
+- **Formula:** `d20` becomes `1d20`, `2d6+1` stays `2d6+1`, and a `d66` becomes `1d6 * 10 + 1d6`, which is exactly tens and
+  ones (11–66, never 17 or 20). An explicit `1d66` stays a 66-sided die.
+- **Ranges are numbers:** a written `96–00` is `[96, 100]` and `08` is `[8, 8]`. Gaps and overlaps are exported as they are.
+- **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice like `1d6` left as plain text.
+  Links, inline-roll results, the modifier, Clamp and roll history are never exported, and there is no description.
+- **Clamp:** Foundry does not clamp. If this table clamps and its dice can roll past its rows (`d20+2` over rows 1–20), a
+  note says so after exporting; the export still happens.
+- **Save Foundry JSON…** suggests a file name made from the table's name, with characters Windows does not allow replaced by `_`.
 
 ## Several rolls at once
 
@@ -465,7 +495,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc18 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc19 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 

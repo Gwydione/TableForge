@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using TableForge.Dice;
 using TableForge.Domain;
@@ -272,8 +273,10 @@ public sealed class RollViewModel : ObservableObject
     private readonly Action<RollSnapshot>? _rolled;
     private readonly Func<bool>? _diceReady;
     private readonly Action<string> _copyText;
+    private readonly Func<string, string?> _chooseSaveFile;
     private int _copyResultSetIndex;
     private string _copyMessage = "";
+    private string _exportWarning = "";
     private string _manualRollText = "";
     private string _modifierText = "0";
     private string _message = "";
@@ -286,12 +289,16 @@ public sealed class RollViewModel : ObservableObject
     /// <param name="rolled">Called once for every actual resolved roll, with a snapshot of what was shown (recent rolls).
     /// Never called for a followed link or an invalid manual entry.</param>
     /// <param name="diceReady">Whether the chosen dice provider can roll right now (dddice is still preparing, for example). Null means always.</param>
-    /// <param name="copyText">Puts text on the clipboard (Copy Table Text). Null means the Windows clipboard.</param>
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text, Copy Foundry JSON). Null means the Windows clipboard.</param>
+    /// <param name="chooseSaveFile">Asks where to save a file, given a suggested file name; null when the person cancels.
+    /// Null means the Windows Save dialog.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
-        Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null)
+        Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null,
+        Func<string, string?>? chooseSaveFile = null)
     {
         _dice = dice;
         _copyText = copyText ?? ClipboardText.Set;
+        _chooseSaveFile = chooseSaveFile ?? SaveFileChooser.ChooseJson;
         _diceReady = diceReady;
         _loadTable = loadTable;
         _tableUsed = tableUsed;
@@ -300,6 +307,8 @@ public sealed class RollViewModel : ObservableObject
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
         CopyTableTextCommand = new RelayCommand(CopyTableText, () => Current.Table.ResultSets.Count > 0);
+        CopyFoundryJsonCommand = new RelayCommand(CopyFoundryJson, () => Current.Table.ResultSets.Count > 0);
+        SaveFoundryJsonCommand = new RelayCommand(SaveFoundryJson, () => Current.Table.ResultSets.Count > 0);
     }
 
     // ---- Copy Table Text -----------------------------------------------------------------------------------------------
@@ -315,12 +324,21 @@ public sealed class RollViewModel : ObservableObject
     public int CopyResultSetIndex
     {
         get => _copyResultSetIndex;
-        set { if (value >= 0 && value < Current.Table.ResultSets.Count && Set(ref _copyResultSetIndex, value)) CopyMessage = ""; }
+        set
+        {
+            if (value < 0 || value >= Current.Table.ResultSets.Count || !Set(ref _copyResultSetIndex, value)) return;
+            CopyMessage = "";
+            ExportWarning = "";
+        }
     }
 
-    /// <summary>"Table text copied." after a copy; empty otherwise.</summary>
+    /// <summary>"Table text copied." (or "Foundry JSON copied.", and so on) after an export; empty otherwise.</summary>
     public string CopyMessage { get => _copyMessage; private set { if (Set(ref _copyMessage, value)) Raise(nameof(HasCopyMessage)); } }
     public bool HasCopyMessage => CopyMessage.Length > 0;
+
+    /// <summary>After a Foundry export, what Foundry will do differently (only Clamp, today); empty otherwise. Never blocks the export.</summary>
+    public string ExportWarning { get => _exportWarning; private set { if (Set(ref _exportWarning, value)) Raise(nameof(HasExportWarning)); } }
+    public bool HasExportWarning => ExportWarning.Length > 0;
 
     public ICommand CopyTableTextCommand { get; }
 
@@ -333,6 +351,7 @@ public sealed class RollViewModel : ObservableObject
         var table = Current.Table;
         if (table.ResultSets.Count == 0) return;
         var text = TableTextExporter.Export(table, table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)]);
+        ExportWarning = "";
         try
         {
             _copyText(text);
@@ -341,6 +360,66 @@ public sealed class RollViewModel : ObservableObject
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
         {
             CopyMessage = $"The table text could not be copied: {ex.Message}";
+        }
+    }
+
+    // ---- Foundry VTT export --------------------------------------------------------------------------------------------
+
+    public ICommand CopyFoundryJsonCommand { get; }
+    public ICommand SaveFoundryJsonCommand { get; }
+
+    /// <summary>The chosen result set as Roll Table Importer JSON (see <see cref="FoundryTableExporter"/>), or null with the reason shown.</summary>
+    private FoundryExport? ExportFoundry()
+    {
+        var table = Current.Table;
+        ExportWarning = "";
+        if (table.ResultSets.Count == 0) return null;
+        var set = table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)];
+        if (FoundryTableExporter.TryExport(table, set, out var export, out var error)) return export;
+        CopyMessage = $"This table cannot be exported to Foundry: {error}";
+        return null;
+    }
+
+    /// <summary>Copies the Foundry JSON. Read-only, like Copy Table Text.</summary>
+    private void CopyFoundryJson()
+    {
+        if (ExportFoundry() is not { } export) return;
+        try
+        {
+            _copyText(export.Json);
+            CopyMessage = "Foundry JSON copied.";
+            ExportWarning = string.Join(" ", export.Warnings);
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
+        {
+            CopyMessage = $"The Foundry JSON could not be copied: {ex.Message}";
+        }
+    }
+
+    /// <summary>Saves exactly the same JSON Copy Foundry JSON copies (UTF-8), where the person chooses. Cancelling changes nothing.</summary>
+    private void SaveFoundryJson()
+    {
+        if (ExportFoundry() is not { } export) return;
+        string? path;
+        try
+        {
+            path = _chooseSaveFile(FoundryTableExporter.SuggestedFileName(export.Name));
+        }
+        catch (InvalidOperationException ex)
+        {
+            CopyMessage = $"The Foundry JSON could not be saved: {ex.Message}";
+            return;
+        }
+        if (path is null) return;
+        try
+        {
+            File.WriteAllText(path, export.Json, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            CopyMessage = $"Foundry JSON saved to {Path.GetFileName(path)}.";
+            ExportWarning = string.Join(" ", export.Warnings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            CopyMessage = $"The Foundry JSON could not be saved: {ex.Message}";
         }
     }
 
@@ -697,6 +776,7 @@ public sealed class RollViewModel : ObservableObject
         RollCount = 1;      // and so does a choice of several rolls
         _copyResultSetIndex = 0;
         CopyMessage = "";
+        ExportWarning = "";
         Raise(nameof(CopyResultSetIndex));
         Raise(nameof(CopyResultSetNames));
         Raise(nameof(ShowCopyResultSetChoice));
