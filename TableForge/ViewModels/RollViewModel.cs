@@ -289,7 +289,8 @@ public sealed class RollViewModel : ObservableObject
     /// <param name="rolled">Called once for every actual resolved roll, with a snapshot of what was shown (recent rolls).
     /// Never called for a followed link or an invalid manual entry.</param>
     /// <param name="diceReady">Whether the chosen dice provider can roll right now (dddice is still preparing, for example). Null means always.</param>
-    /// <param name="copyText">Puts text on the clipboard (Copy Table Text, Copy for Sojour, Copy Foundry JSON, Copy Tables+ JSON).
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text, Copy Table Text (Spaces), Copy for Sojour, Copy Foundry JSON,
+    /// Copy Tables+ JSON).
     /// Null means the Windows clipboard.</param>
     /// <param name="chooseSaveFile">Asks where to save a file, given the dialog's title and a suggested file name; null when the person
     /// cancels. Null means the Windows Save dialog.</param>
@@ -307,7 +308,8 @@ public sealed class RollViewModel : ObservableObject
         Steps.Add(new RollStepViewModel(table, isFirst: true));
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
-        CopyTableTextCommand = new RelayCommand(CopyTableText, () => Current.Table.ResultSets.Count > 0);
+        CopyTableTextCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Tab), () => Current.Table.ResultSets.Count > 0);
+        CopyTableTextSpacesCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Space), () => Current.Table.ResultSets.Count > 0);
         CopyForSojourCommand = new RelayCommand(CopyForSojour, () => Current.Table.ResultSets.Count > 0);
         CopyFoundryJsonCommand = new RelayCommand(CopyFoundryJson, () => Current.Table.ResultSets.Count > 0);
         SaveFoundryJsonCommand = new RelayCommand(SaveFoundryJson, () => Current.Table.ResultSets.Count > 0);
@@ -346,20 +348,23 @@ public sealed class RollViewModel : ObservableObject
 
     public ICommand CopyTableTextCommand { get; }
 
+    /// <summary>Copy Table Text (Spaces): the same text as Copy Table Text, with one space instead of the tab before each result.</summary>
+    public ICommand CopyTableTextSpacesCommand { get; }
+
     /// <summary>
-    /// Copies the current table's chosen result set as plain text (see <see cref="TableTextExporter"/>). Read-only: rolls, links,
-    /// inline dice, the modifier and Recent Rolls are all left exactly as they were.
+    /// Copies the current table's chosen result set as plain text (see <see cref="TableTextExporter"/>), with a tab or one space
+    /// between range and result. Read-only: rolls, links, inline dice, the modifier and Recent Rolls are all left exactly as they were.
     /// </summary>
-    private void CopyTableText()
+    private void CopyTableText(TableTextSeparator separator)
     {
         var table = Current.Table;
         if (table.ResultSets.Count == 0) return;
-        var text = TableTextExporter.Export(table, table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)]);
+        var text = TableTextExporter.Export(table, table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)], separator);
         ExportWarning = "";
         try
         {
             _copyText(text);
-            CopyMessage = "Table text copied.";
+            CopyMessage = separator == TableTextSeparator.Space ? "Table text copied (spaces)." : "Table text copied.";
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
         {

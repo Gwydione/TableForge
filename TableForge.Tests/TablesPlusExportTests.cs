@@ -528,7 +528,7 @@ public class TablesPlusExportViewTests
                 ui.Click("Roll");
 
                 var menu = ui.One<Button>(b => b.Name == "ExportButton").ContextMenu;
-                Assert.Equal(["Copy Table Text", "Copy for Sojour", "|", "Copy Foundry JSON", "Save Foundry JSON…", "|", "Copy Tables+ JSON", "Save Tables+ JSON…"],
+                Assert.Equal(["Copy Table Text", "Copy Table Text (Spaces)", "Copy for Sojour", "|", "Copy Foundry JSON", "Save Foundry JSON…", "|", "Copy Tables+ JSON", "Save Tables+ JSON…"],
                     menu.Items.Cast<object>().Select(i => i is MenuItem m ? m.Header as string : "|"));
                 Assert.All(menu.Items.OfType<MenuItem>().Where(i => (i.Header as string)!.Contains("Tables+")),
                     i => Assert.Contains("Owlbear Rodeo (Tables+)", i.ToolTip as string));

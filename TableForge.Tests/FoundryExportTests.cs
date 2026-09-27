@@ -439,7 +439,7 @@ public class FoundryExportViewTests
                 ui.SelectTable("Loot: Arms?");
                 ui.Click("Roll");
                 Assert.False(ui.HasVisibleButton("Copy Table Text"));
-                Assert.Equal(["Copy Table Text", "Copy for Sojour", "Copy Foundry JSON", "Save Foundry JSON…", "Copy Tables+ JSON", "Save Tables+ JSON…"],
+                Assert.Equal(["Copy Table Text", "Copy Table Text (Spaces)", "Copy for Sojour", "Copy Foundry JSON", "Save Foundry JSON…", "Copy Tables+ JSON", "Save Tables+ JSON…"],
                     ui.One<Button>(b => b.Name == "ExportButton").ContextMenu.Items.OfType<MenuItem>().Select(i => i.Header as string));
 
                 ui.ChooseExport("Copy Foundry JSON");

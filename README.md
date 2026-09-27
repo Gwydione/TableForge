@@ -205,6 +205,10 @@ row per line with a tab between range and result. Ranges keep how they were writ
 Result text is only trimmed, with line breaks and tabs turned into single spaces; links, inline-roll results, the modifier,
 clamp results and roll history are never included, and copying changes nothing on screen.
 
+**Export…** → **Copy Table Text (Spaces)** (Roll screen) copies exactly the same text for the same result set, with one ordinary
+space instead of the tab between each range and its result (`1-2 Backpack`), for tools where a pasted tab is awkward. It is
+plain text, not a format for any particular VTT.
+
 ## Copy for Sojour
 
 **Export…** → **Copy for Sojour** (Roll screen) copies only the rows of one result set, one per line with a tab between
