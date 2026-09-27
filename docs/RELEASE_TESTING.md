@@ -45,6 +45,18 @@ export from TableForge (Roll screen → **Export…**) and import into Foundry, 
 - [ ] A table with overlapping rows, if Foundry's behavior is sensible.
 - [ ] Note anything Foundry shows differently from TableForge (especially `&`, `<`, `>` and line breaks).
 
+## Sojour
+
+In Sojour, create or open a Lookup Table, select its first cell, then paste with **Ctrl+V** after each TableForge
+**Export…** → **Copy for Sojour** (Roll screen).
+
+- [ ] A `d6` table: each row fills two cells (range, result) and nothing else is pasted above the first row.
+- [ ] A `d100` table with a `96–00` row: the range shows as `96-00`.
+- [ ] A table with several result sets: only the chosen one is pasted.
+- [ ] Result text with commas, curly quotes, em dashes and other Unicode.
+- [ ] Result text on two lines in TableForge: it pastes as one row, with a space where the line break was.
+- [ ] Result text with inline dice (`2d6 Skeletons`): pasted as written.
+
 ## Uninstall and reinstall
 
 - [ ] Uninstall TableForge (Settings → Apps).

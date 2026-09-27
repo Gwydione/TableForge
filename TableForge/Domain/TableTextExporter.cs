@@ -14,18 +14,23 @@ namespace TableForge.Domain;
 /// numbers; a range written as plain numbers is shown as TableForge displays the dice (a d100's 100 is "00"). Text is
 /// only trimmed, and its line breaks and tabs each become one space (a tab separates the columns); nothing else is
 /// changed. Links, inline-roll results and every other runtime state are not table text and are never included.
+/// <see cref="ExportRows"/> is the same text without the name, dice and blank line (Copy for Sojour).
 /// </summary>
 public static class TableTextExporter
 {
     public const string NewLine = "\r\n";
 
-    public static string Export(RollableTable table, ResultSet resultSet)
-    {
-        var lines = new List<string> { Flatten(table.Name), table.Dice.ToString(), "" };
-        foreach (var entry in resultSet.Entries)
-            lines.Add($"{Range(entry, table.Dice)}\t{Flatten(entry.Text)}");
-        return string.Join(NewLine, lines);
-    }
+    public static string Export(RollableTable table, ResultSet resultSet) =>
+        string.Join(NewLine, [Flatten(table.Name), table.Dice.ToString(), "", .. Rows(table, resultSet)]);
+
+    /// <summary>
+    /// Copy for Sojour: exactly the rows <see cref="Export"/> writes, with no name, dice or blank line before them, because a
+    /// Sojour Lookup Table pastes (Ctrl+V) every line as one row of two cells. An empty result set gives "".
+    /// </summary>
+    public static string ExportRows(RollableTable table, ResultSet resultSet) => string.Join(NewLine, Rows(table, resultSet));
+
+    private static IEnumerable<string> Rows(RollableTable table, ResultSet resultSet) =>
+        resultSet.Entries.Select(entry => $"{Range(entry, table.Dice)}\t{Flatten(entry.Text)}");
 
     /// <summary>The written notation when there is one (TableForge stores its separator as an en dash; it is copied as "-").</summary>
     private static string Range(TableEntry entry, DiceExpression dice)

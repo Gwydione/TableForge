@@ -289,7 +289,7 @@ public sealed class RollViewModel : ObservableObject
     /// <param name="rolled">Called once for every actual resolved roll, with a snapshot of what was shown (recent rolls).
     /// Never called for a followed link or an invalid manual entry.</param>
     /// <param name="diceReady">Whether the chosen dice provider can roll right now (dddice is still preparing, for example). Null means always.</param>
-    /// <param name="copyText">Puts text on the clipboard (Copy Table Text, Copy Foundry JSON). Null means the Windows clipboard.</param>
+    /// <param name="copyText">Puts text on the clipboard (Copy Table Text, Copy for Sojour, Copy Foundry JSON). Null means the Windows clipboard.</param>
     /// <param name="chooseSaveFile">Asks where to save a file, given a suggested file name; null when the person cancels.
     /// Null means the Windows Save dialog.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
@@ -307,6 +307,7 @@ public sealed class RollViewModel : ObservableObject
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
         CopyTableTextCommand = new RelayCommand(CopyTableText, () => Current.Table.ResultSets.Count > 0);
+        CopyForSojourCommand = new RelayCommand(CopyForSojour, () => Current.Table.ResultSets.Count > 0);
         CopyFoundryJsonCommand = new RelayCommand(CopyFoundryJson, () => Current.Table.ResultSets.Count > 0);
         SaveFoundryJsonCommand = new RelayCommand(SaveFoundryJson, () => Current.Table.ResultSets.Count > 0);
     }
@@ -360,6 +361,36 @@ public sealed class RollViewModel : ObservableObject
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
         {
             CopyMessage = $"The table text could not be copied: {ex.Message}";
+        }
+    }
+
+    // ---- Copy for Sojour -----------------------------------------------------------------------------------------------
+
+    public ICommand CopyForSojourCommand { get; }
+
+    /// <summary>
+    /// Copies only the rows of the chosen result set, range TAB result (see <see cref="TableTextExporter.ExportRows"/>), for
+    /// pasting into a Sojour Lookup Table. Read-only, like Copy Table Text. A result set with no rows copies nothing.
+    /// </summary>
+    private void CopyForSojour()
+    {
+        var table = Current.Table;
+        if (table.ResultSets.Count == 0) return;
+        var set = table.ResultSets[Math.Clamp(CopyResultSetIndex, 0, table.ResultSets.Count - 1)];
+        ExportWarning = "";
+        if (set.Entries.Count == 0)
+        {
+            CopyMessage = "This result set has no rows to copy.";
+            return;
+        }
+        try
+        {
+            _copyText(TableTextExporter.ExportRows(table, set));
+            CopyMessage = "Copied for Sojour.";
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
+        {
+            CopyMessage = $"The rows could not be copied: {ex.Message}";
         }
     }
 

@@ -162,17 +162,19 @@
 
             <WrapPanel Margin="0,24,0,6">
                 <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
-                <!-- Export…: one result set of this table, as plain text or Foundry VTT JSON. Read-only: rolls and results are untouched. -->
+                <!-- Export…: one result set of this table, as plain text, Sojour rows or Foundry VTT JSON. Read-only: rolls and results are untouched. -->
                 <ComboBox x:Name="CopyResultSetBox" ItemsSource="{Binding CopyResultSetNames}" SelectedIndex="{Binding CopyResultSetIndex}"
                           MinWidth="120" Margin="0,0,6,0" VerticalAlignment="Center"
                           AutomationProperties.Name="Result set to export" ToolTip="Which result set Export… copies or saves"
                           Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
                 <Button x:Name="ExportButton" Content="Export…" Padding="10,2" VerticalAlignment="Center" Click="OnExportClick"
-                        ToolTip="Copy this table as plain text, or as JSON for Foundry VTT's Roll Table Importer">
+                        ToolTip="Copy this table as plain text, as rows for a Sojour Lookup Table, or as JSON for Foundry VTT's Roll Table Importer">
                     <Button.ContextMenu>
                         <ContextMenu x:Name="ExportMenu">
                             <MenuItem Header="Copy Table Text" Command="{Binding CopyTableTextCommand}"
                                       ToolTip="Plain text: name, dice, then one range and result per line" />
+                            <MenuItem Header="Copy for Sojour" Command="{Binding CopyForSojourCommand}"
+                                      ToolTip="Only the rows, range and result per line, to paste with Ctrl+V into a Sojour Lookup Table" />
                             <Separator />
                             <MenuItem Header="Copy Foundry JSON" Command="{Binding CopyFoundryJsonCommand}"
                                       ToolTip="JSON to paste into Foundry VTT's Roll Table Importer" />

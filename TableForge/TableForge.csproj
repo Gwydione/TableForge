@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
 
     <!-- V1 Release Candidate 18. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.0.0-rc19</Version>
+    <Version>1.0.0-rc20</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>TableForge</Product>
     <Company>RPG Frequencies</Company>

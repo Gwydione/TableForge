@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc19 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc20 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -18,6 +18,7 @@ TableForge can also:
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
 - make **several rolls at once**, keeping every result;
 - **Copy Table Text** as clean plain text for other tools and VTTs;
+- **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
 - **export to Foundry VTT** as JSON for the Roll Table Importer module.
 
 ## Install
@@ -75,6 +76,8 @@ access token is protected with Windows DPAPI for your Windows user. See [PRIVACY
 - **Copy Table Text** produces generic tab-separated text, not a format for any particular VTT.
 - **Foundry VTT export** is for the Roll Table Importer module; it exports one result set at a time, with no links, and
   Foundry does not reproduce Clamp.
+- **Copy for Sojour** has been tested only by pasting with **Ctrl+V** into a Sojour Lookup Table; it copies one result
+  set's rows, and the table's name and dice are set up in Sojour yourself.
 - dddice dice need an internet connection and the WebView2 Runtime.
 - Connecting a dddice account takes a few steps in your web browser.
 - Windows x64 only for now.
@@ -197,6 +200,26 @@ one result set at a time (with several, a chooser beside the button says which),
 row per line with a tab between range and result. Ranges keep how they were written (`00`, `08`, `96-00`, d66 as `11`–`66`).
 Result text is only trimmed, with line breaks and tabs turned into single spaces; links, inline-roll results, the modifier,
 clamp results and roll history are never included, and copying changes nothing on screen.
+
+## Copy for Sojour
+
+**Export…** → **Copy for Sojour** (Roll screen) copies only the rows of one result set, one per line with a tab between
+range and result, exactly as they appear in Copy Table Text but with no name, dice or blank line above them:
+
+```
+1<TAB>Axor, God of the Earth
+2<TAB>Dhylesia, Goddess of Dreams
+3<TAB>Irus, God of the Sun
+```
+
+1. In TableForge, choose **Export…** → **Copy for Sojour**.
+2. In Sojour, create or open a Lookup Table.
+3. Select the first cell.
+4. Paste with **Ctrl+V**. Each row fills two cells: range and result.
+
+Compatibility was tested by pasting with **Ctrl+V**; other ways of pasting have not been tested. The table's name and dice
+are not copied, so set them up in Sojour. Ranges keep how they were written (`96-00`), result text is trimmed with line
+breaks and tabs turned into single spaces, inline dice stay as written text, and links and roll state are never copied.
 
 ## Foundry VTT export
 
@@ -495,7 +518,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc19 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0-rc20 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
