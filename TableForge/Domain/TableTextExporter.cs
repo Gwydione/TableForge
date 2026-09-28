@@ -15,22 +15,27 @@ namespace TableForge.Domain;
 /// only trimmed, and its line breaks and tabs each become one space (a tab separates the columns); nothing else is
 /// changed. Links, inline-roll results and every other runtime state are not table text and are never included.
 /// <see cref="ExportRows"/> is the same text without the name, dice and blank line (Copy for Sojour).
+/// Copy Table Text (Spaces) is exactly the same text with one ordinary space instead of the tab between range and result
+/// (<see cref="TableTextSeparator.Space"/>); nothing else differs.
 /// </summary>
 public static class TableTextExporter
 {
     public const string NewLine = "\r\n";
 
-    public static string Export(RollableTable table, ResultSet resultSet) =>
-        string.Join(NewLine, [Flatten(table.Name), table.Dice.ToString(), "", .. Rows(table, resultSet)]);
+    public static string Export(RollableTable table, ResultSet resultSet, TableTextSeparator separator = TableTextSeparator.Tab) =>
+        string.Join(NewLine, [Flatten(table.Name), table.Dice.ToString(), "", .. Rows(table, resultSet, separator)]);
 
     /// <summary>
     /// Copy for Sojour: exactly the rows <see cref="Export"/> writes, with no name, dice or blank line before them, because a
     /// Sojour Lookup Table pastes (Ctrl+V) every line as one row of two cells. An empty result set gives "".
     /// </summary>
-    public static string ExportRows(RollableTable table, ResultSet resultSet) => string.Join(NewLine, Rows(table, resultSet));
+    public static string ExportRows(RollableTable table, ResultSet resultSet) => string.Join(NewLine, Rows(table, resultSet, TableTextSeparator.Tab));
 
-    private static IEnumerable<string> Rows(RollableTable table, ResultSet resultSet) =>
-        resultSet.Entries.Select(entry => $"{Range(entry, table.Dice)}\t{Flatten(entry.Text)}");
+    private static IEnumerable<string> Rows(RollableTable table, ResultSet resultSet, TableTextSeparator separator)
+    {
+        var between = separator == TableTextSeparator.Space ? " " : "\t";
+        return resultSet.Entries.Select(entry => $"{Range(entry, table.Dice)}{between}{Flatten(entry.Text)}");
+    }
 
     /// <summary>The written notation when there is one (TableForge stores its separator as an en dash; it is copied as "-").</summary>
     private static string Range(TableEntry entry, DiceExpression dice)
@@ -42,4 +47,11 @@ public static class TableTextExporter
     /// <summary>Trims, then turns each line break (CRLF, CR or LF) and each tab into exactly one space. Nothing else changes.</summary>
     private static string Flatten(string text) =>
         text.Trim().Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ');
+}
+
+/// <summary>What goes between a row's range and its result text: a tab (Copy Table Text) or one space (Copy Table Text (Spaces)).</summary>
+public enum TableTextSeparator
+{
+    Tab,
+    Space,
 }

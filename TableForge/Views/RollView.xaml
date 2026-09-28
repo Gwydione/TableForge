@@ -173,6 +173,8 @@
                         <ContextMenu x:Name="ExportMenu">
                             <MenuItem Header="Copy Table Text" Command="{Binding CopyTableTextCommand}"
                                       ToolTip="Plain text: name, dice, then one range and result per line" />
+                            <MenuItem Header="Copy Table Text (Spaces)" Command="{Binding CopyTableTextSpacesCommand}"
+                                      ToolTip="The same plain text, with one space instead of a tab between each range and its result" />
                             <MenuItem Header="Copy for Sojour" Command="{Binding CopyForSojourCommand}"
                                       ToolTip="Only the rows, range and result per line, to paste with Ctrl+V into a Sojour Lookup Table" />
                             <Separator />
