@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc20 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc22 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:

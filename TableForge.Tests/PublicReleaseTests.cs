@@ -25,7 +25,7 @@ public class PublicReleaseTests
         Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.0.0-rc21", AppInfo.Version);
+        Assert.Equal("1.0.0-rc22", AppInfo.Version);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class PublicReleaseTests
     [Fact]
     public void The_readme_answers_a_newcomers_questions_first()
     {
-        var readme = Read("README.md");
+        var readme = Read("README.md").ReplaceLineEndings("\n");                               // a Windows checkout may have CRLF
         var sections = new[] { "# TableForge", "## Install", "## First use", "## Your data and backups", "## Privacy",
             "## Known limitations", "## Feedback and bug reports", "# Using TableForge in detail", "# For developers" };
         var positions = sections.Select(s => readme.IndexOf(s + "\n", StringComparison.Ordinal)).ToList();
@@ -115,12 +115,15 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.0.0-rc21.md");
-        Assert.StartsWith("# TableForge 1.0.0-rc21", notes);
+        var notes = Read("docs", "release-notes", "1.0.0-rc22.md");
+        Assert.StartsWith("# TableForge 1.0.0-rc22", notes);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
-        Assert.Contains("TableForge-1.0.0-rc21-Setup.exe", notes);
-        Assert.Contains("**Checked in Tables+:**", notes);                                      // the RC21 status, stated precisely:
+        Assert.Contains("TableForge-1.0.0-rc22-Setup.exe", notes);
+        Assert.Contains("**Copy Table Text (Spaces)**", notes);                                 // the RC22 change, stated precisely:
+        Assert.Contains("**Copy Table Text is unchanged**", notes);                              // the tab-separated copy still has its tab
+        Assert.Contains("**Questline import has not been verified.**", notes);
+        Assert.Contains("**Checked in Tables+:**", notes);                                      // the RC21 Tables+ status is kept:
         Assert.Contains("Still untested there:", notes);                                         // what was checked live and what was not
         Assert.Contains("this is not full", notes);
 

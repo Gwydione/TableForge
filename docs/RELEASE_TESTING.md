@@ -16,6 +16,8 @@ Your data lives in `%LOCALAPPDATA%\TableForge`. Nothing here should ever delete 
 - [ ] Paste a table (copied from a PDF or web page), Interpret, correct a row, Save Table.
 - [ ] Roll it with **Built-in** dice.
 - [ ] Copy Table Text, paste into Notepad: name, dice, blank line, one row per line.
+- [ ] Roll screen → **Export…** → **Copy Table Text (Spaces)** (directly below Copy Table Text), paste into Notepad: the
+      same text, with one space instead of the tab between each range and its result.
 - [ ] Close and restart TableForge: the collection and table are still there.
 - [ ] About shows the right version and RPG Frequencies; License, Privacy and Open Data Folder open.
 
