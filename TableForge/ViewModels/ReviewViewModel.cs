@@ -8,6 +8,9 @@ namespace TableForge.ViewModels;
 
 public enum LinkChoiceKind { None, Unresolved, Table }
 
+/// <summary>What the Review screen's formatting commands do to the selected result text.</summary>
+public enum FormattingAction { Bold, Italic, Clear }
+
 /// <summary>How much a note asks of the user: Info is provenance to glance at, Warning wants a check, Error must be fixed to save.</summary>
 public enum NoteLevel { Info, Warning, Error }
 
@@ -66,13 +69,125 @@ public sealed class EntryRowViewModel : ObservableObject
     public string RangeText
     {
         get => _draft.RangeText;
-        set { if (_draft.RangeText != value) { _draft.RangeText = value; Raise(); _edited(); } }
+        set => SetRangeText(value, refresh: true);
     }
 
+    /// <summary>Sets the range; with <paramref name="refresh"/> false the caller refreshes once itself (an aligned row sets every column first).</summary>
+    internal bool SetRangeText(string value, bool refresh)
+    {
+        if (_draft.RangeText == value) return false;
+        _draft.RangeText = value;
+        Raise(nameof(RangeText));
+        if (refresh) _edited();
+        return true;
+    }
+
+    /// <summary>
+    /// The result text as the person edits it. Any change carries the row's bold/italic along (see <see cref="TextStyles.Remap"/>);
+    /// the editor can then make that exact with <see cref="RefineLastEdit"/>. TableForge's own changes use <see cref="ReplaceText"/>.
+    /// </summary>
     public string Text
     {
         get => _draft.Text;
-        set { if (_draft.Text != value) { _draft.Text = value; Raise(); _edited(); } }
+        set
+        {
+            var before = (_draft.Text, _draft.Styles);
+            if (!ReplaceText(value)) return;
+            _lastEdit = (before.Text, before.Styles, value);
+        }
+    }
+
+    /// <summary>
+    /// Changes the text for a cleanup or an undo, moving the formatting with its characters (<see cref="TextStyles.Remap"/>).
+    /// Not an edit the person typed, so it is never refined by the editor afterwards. False when the text is unchanged.
+    /// </summary>
+    internal bool ReplaceText(string value)
+    {
+        if (_draft.Text == value) return false;
+        _lastEdit = null;
+        _draft.Styles = _draft.Styles.Remap(_draft.Text, value);
+        _draft.Text = value;
+        Raise(nameof(Text));
+        RaiseFormatting();
+        _edited();
+        return true;
+    }
+
+    // ---- bold/italic ------------------------------------------------------------------------------------------------
+
+    private (string Before, TextStyles StylesBefore, string After)? _lastEdit;
+
+    /// <summary>The row's bold/italic; presentation only (see <see cref="TableEntry.Styles"/>).</summary>
+    public TextStyles Styles => _draft.Styles;
+
+    /// <summary>True when any of the text is bold or italic: only then is the formatted preview shown under the row.</summary>
+    public bool HasFormatting => !_draft.Styles.IsEmpty;
+
+    /// <summary>The text as it will look when rolled, for the preview.</summary>
+    public IReadOnlyList<FormattedSegment> FormattedSegments => _draft.Styles.Segments(_draft.Text);
+
+    /// <summary>
+    /// Makes the formatting of the edit just typed exact, once the editor reports where it happened. <see cref="Text"/> can
+    /// only compare the old and new text, and when the typed character matches its neighbour ("aa" → "aaa") that cannot say
+    /// which side of a formatting boundary it went. The text box knows, so its own change (offset, characters removed,
+    /// characters added) is applied to the formatting from before the edit. It is used only when it describes that last
+    /// typed edit exactly, with no more characters changed than the text comparison found — so a whole-text replacement (how
+    /// a text box reports text set by TableForge itself) is never mistaken for a keystroke. Used once.
+    /// </summary>
+    /// <returns>True when the refinement was applied.</returns>
+    public bool RefineLastEdit(int offset, int removed, int added)
+    {
+        if (_lastEdit is not var (before, stylesBefore, after) || after != _draft.Text) return false;
+        if (offset < 0 || removed < 0 || added < 0 || offset + removed > before.Length || offset + added > after.Length) return false;
+        if (before.Length - removed + added != after.Length) return false;
+        if (!before.AsSpan(0, offset).SequenceEqual(after.AsSpan(0, offset))) return false;
+        if (!before.AsSpan(offset + removed).SequenceEqual(after.AsSpan(offset + added))) return false;
+
+        var min = Math.Min(before.Length, after.Length);
+        var prefix = 0;
+        while (prefix < min && before[prefix] == after[prefix]) prefix++;
+        var suffix = 0;
+        while (suffix < min - prefix && before[before.Length - 1 - suffix] == after[after.Length - 1 - suffix]) suffix++;
+        if (removed != before.Length - prefix - suffix || added != after.Length - prefix - suffix) return false;
+
+        _lastEdit = null;
+        SetStyles(stylesBefore.ApplyEdit(before.Length, offset, removed, added));
+        return true;
+    }
+
+    /// <summary>Bold (or italic) on the selected characters, or off again when they all have it. False when nothing changed.</summary>
+    public bool ToggleStyle(int start, int length, TextStyle style) => SetStyles(_draft.Styles.Toggle(_draft.Text, start, length, style));
+
+    /// <summary>Removes bold and italic from the selected characters. False when nothing changed.</summary>
+    public bool ClearFormatting(int start, int length) => SetStyles(_draft.Styles.Clear(_draft.Text, start, length));
+
+    /// <summary>
+    /// Puts back text and formatting exactly as they were (cleanup Undo). Unlike <see cref="Text"/>, the formatting is not
+    /// recalculated from the text, so what the cleanup removed comes back formatted as it was.
+    /// </summary>
+    internal void Restore(string text, TextStyles styles)
+    {
+        ReplaceText(text);
+        SetStyles(styles);
+    }
+
+    /// <summary>
+    /// Formatting is presentation only: changing it never affects validation, Save or the notes, so it deliberately does not
+    /// go through the full refresh a text edit does — the editor keeps its focus and its selection.
+    /// </summary>
+    private bool SetStyles(TextStyles styles)
+    {
+        if (styles.Equals(_draft.Styles)) return false;
+        _draft.Styles = styles;
+        RaiseFormatting();
+        return true;
+    }
+
+    private void RaiseFormatting()
+    {
+        Raise(nameof(Styles));
+        Raise(nameof(HasFormatting));
+        Raise(nameof(FormattedSegments));
     }
 
     public IReadOnlyList<LinkChoice> LinkChoices { get; }
@@ -174,10 +289,27 @@ public sealed class ResultSetEditorViewModel : ObservableObject
 /// </summary>
 public sealed class AlignedRowViewModel : ObservableObject
 {
-    public AlignedRowViewModel(IReadOnlyList<EntryRowViewModel> cells, Action<AlignedRowViewModel> delete)
+    private readonly Action _edited;
+
+    public AlignedRowViewModel(IReadOnlyList<EntryRowViewModel> cells, Action<AlignedRowViewModel> delete, Action edited)
     {
         Cells = cells;
+        _edited = edited;
         DeleteCommand = new RelayCommand(() => delete(this));
+        (_shownRange, _shownNumber) = (RangeText, Number);
+    }
+
+    private string _shownRange;
+    private int _shownNumber;
+
+    /// <summary>
+    /// The aligned row is kept across edits (see ReviewViewModel.Refresh), so after each one it announces a range or number
+    /// that changed underneath it — by a cleanup, or in the one-set-at-a-time layout.
+    /// </summary>
+    internal void Sync()
+    {
+        if (_shownRange != RangeText) { _shownRange = RangeText; Raise(nameof(RangeText)); }
+        if (_shownNumber != Number) { _shownNumber = Number; Raise(nameof(Number)); }
     }
 
     /// <summary>This row's cell in each result set, in the same order as <see cref="ReviewViewModel.ResultSets"/>.</summary>
@@ -189,7 +321,14 @@ public sealed class AlignedRowViewModel : ObservableObject
     public string RangeText
     {
         get => Cells[0].RangeText;
-        set { foreach (var cell in Cells) cell.RangeText = value; }
+        set
+        {
+            // Every column first, then one refresh: refreshing after each column would briefly see the columns disagree,
+            // leave the aligned view and rebuild it, replacing the range box being typed in.
+            var changed = false;
+            foreach (var cell in Cells) changed |= cell.SetRangeText(value, refresh: false);
+            if (changed) _edited();
+        }
     }
 
     public ICommand DeleteCommand { get; }
@@ -453,6 +592,42 @@ public sealed class ReviewViewModel : ObservableObject
     public ICommand AppendPastedRowsCommand { get; }
     public ICommand ReplacePastedRowsCommand { get; }
 
+    // ---- bold / italic --------------------------------------------------------------------------
+
+    private string _formatMessage = "";
+
+    /// <summary>What the last Bold, Italic or Clear Formatting did, or why it did nothing.</summary>
+    public string FormatMessage { get => _formatMessage; private set => Set(ref _formatMessage, value); }
+
+    /// <summary>
+    /// Ctrl+B, Ctrl+I and Ctrl+Space, and the B / I / Clear buttons: formats the characters selected in a row's result text.
+    /// The text itself never changes, so nothing is revalidated and the editor keeps its selection. There is no separate undo:
+    /// the same command again takes Bold or Italic off.
+    /// </summary>
+    /// <param name="row">The row whose result text holds the selection; null when no result text is being edited.</param>
+    public void ApplyFormatting(EntryRowViewModel? row, int start, int length, FormattingAction action)
+    {
+        if (row is null || length <= 0 || start < 0 || start + length > row.Text.Length)
+        {
+            FormatMessage = "Select some result text first, then choose Bold, Italic or Clear Formatting.";
+            return;
+        }
+
+        switch (action)
+        {
+            case FormattingAction.Clear:
+                FormatMessage = row.ClearFormatting(start, length) ? "Removed bold and italic from the selection." : "The selection has no bold or italic.";
+                break;
+            default:
+                var style = action == FormattingAction.Bold ? TextStyle.Bold : TextStyle.Italic;
+                var name = action == FormattingAction.Bold ? "bold" : "italic";
+                row.ToggleStyle(start, length, style);
+                FormatMessage = row.Styles.ToArray(row.Text.Length).AsSpan(start, length).ToArray().All(s => s.HasFlag(style))
+                    ? $"Made the selection {name}." : $"Removed {name} from the selection.";
+                break;
+        }
+    }
+
     // ---- PDF copy/paste cleanup --------------------------------------------------------------
 
     /// <summary>What the last cleanup action did, or why it did nothing. Shared by every cleanup command below.</summary>
@@ -492,9 +667,12 @@ public sealed class ReviewViewModel : ObservableObject
         var previousNumber = previous.Number;
         var rowNumber = row.Number;
         var oldPreviousText = previous.Text;
+        var oldPreviousStyles = previous.Styles;
         var draftIndex = set.Draft.Entries.IndexOf(row.Draft);
 
-        previous.Text = TextCleanup.JoinContinuationText(previous.Text, row.Text);
+        // Both rows' formatting is kept, each on its own part of the joined text.
+        previous.Restore(TextCleanup.JoinContinuationText(previous.Text, row.Text),
+            TextStyles.Join(previous.Text, previous.Styles, row.Text, row.Styles));
         set.Draft.Entries.RemoveAt(draftIndex);
         set.Rows.RemoveAt(index);
         for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
@@ -502,7 +680,7 @@ public sealed class ReviewViewModel : ObservableObject
 
         SetUndoCleanup(() =>
         {
-            previous.Text = oldPreviousText;
+            previous.Restore(oldPreviousText, oldPreviousStyles);
             set.Draft.Entries.Insert(draftIndex, row.Draft);
             set.Rows.Insert(index, row);
             for (var i = 0; i < set.Rows.Count; i++) set.Rows[i].Number = i + 1;
@@ -527,9 +705,9 @@ public sealed class ReviewViewModel : ObservableObject
             return;
         }
 
-        var old = row.Text;
-        row.Text = result;
-        SetUndoCleanup(() => row.Text = old);
+        var (old, oldStyles) = (row.Text, row.Styles);
+        row.ReplaceText(result); // formatting follows the characters that remain
+        SetUndoCleanup(() => row.Restore(old, oldStyles));
         CleanupMessage = "Removed line-wrap hyphenation from the selected row.";
     }
 
@@ -595,7 +773,14 @@ public sealed class ReviewViewModel : ObservableObject
             foreach (var row in set.Rows)
             {
                 Apply(() => row.RangeText, v => row.RangeText = v, TextCleanup.NormalizeRangeText);
-                Apply(() => row.Text, v => row.Text = v, TextCleanup.NormalizeGeneralText);
+                // Result text carries formatting: it follows the characters Normalize keeps, and Undo restores it exactly.
+                var (text, styles) = (row.Text, row.Styles);
+                var normalized = TextCleanup.NormalizeGeneralText(text);
+                if (normalized != text)
+                {
+                    row.ReplaceText(normalized);
+                    undoSteps.Add(() => row.Restore(text, styles));
+                }
             }
         }
 
@@ -879,6 +1064,7 @@ public sealed class ReviewViewModel : ObservableObject
         IsClampAvailable = clampReason is null;
 
         CopyMessage = ""; // a copy describes the table as it was; after an edit it no longer does
+        FormatMessage = "";
         Raise(nameof(ShowCopyResultSetChoice));
 
         Blockers.Clear();
@@ -887,13 +1073,20 @@ public sealed class ReviewViewModel : ObservableObject
         SaveError = "";
 
         IsAligned = ComputeIsAligned();
-        AlignedRows.Clear();
-        if (IsAligned)
+        // Rebuilt only when the rows themselves changed (added, removed, reordered, alignment on or off). Rebuilding on every
+        // keystroke replaced the editor being typed in, which lost the cursor, the selection and the keyboard focus.
+        var wanted = IsAligned
+            ? Enumerable.Range(0, ResultSets[0].Rows.Count).Select(i => ResultSets.Select(s => s.Rows[i]).ToList()).ToList()
+            : [];
+        var unchanged = wanted.Count == AlignedRows.Count
+            && wanted.Zip(AlignedRows).All(p => p.First.SequenceEqual(p.Second.Cells));
+        if (!unchanged)
         {
-            var count = ResultSets[0].Rows.Count;
-            for (var i = 0; i < count; i++)
-                AlignedRows.Add(new AlignedRowViewModel(ResultSets.Select(s => s.Rows[i]).ToList(), DeleteAlignedRow));
+            AlignedRows.Clear();
+            foreach (var cells in wanted) AlignedRows.Add(new AlignedRowViewModel(cells, DeleteAlignedRow, Refresh));
         }
+        else
+            foreach (var row in AlignedRows) row.Sync();
 
         CommandManager.InvalidateRequerySuggested(); // e.g. whether the last result set can still be deleted
     }

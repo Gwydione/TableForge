@@ -42,6 +42,7 @@ public sealed class TableImportDraft
                 RangeText = e.DisplayRange ?? (e.IsOpenBelow || e.IsOpenAbove ? RangeBounds.Label(e.Min, e.Max)
                     : e.Min == e.Max ? $"{e.Min}" : $"{e.Min}-{e.Max}"),
                 Text = e.Text,
+                Styles = e.Styles,
                 LinkedTableId = e.LinkedTableId,
                 UnresolvedLinkName = e.UnresolvedLinkName,
             }).ToList(),
@@ -90,12 +91,14 @@ public sealed class TableImportDraft
                     continue;
                 }
 
+                var text = entry.Text.Trim();
                 set.Entries.Add(new TableEntry
                 {
                     Min = range.Min,
                     Max = range.Max,
                     DisplayRange = range.DisplayRange,
-                    Text = entry.Text.Trim(),
+                    Text = text,
+                    Styles = entry.Styles.Remap(entry.Text, text), // the trim moves formatting with its characters
                     LinkedTableId = entry.LinkedTableId,
                     UnresolvedLinkName = unresolved,
                     SortOrder = i,
@@ -132,6 +135,9 @@ public sealed class EntryDraft
     /// <summary>Range as written, e.g. "9-10" or "96-00". Numeric values are derived from it.</summary>
     public string RangeText { get; set; } = "";
     public string Text { get; set; } = "";
+
+    /// <summary>Bold/italic for <see cref="Text"/> (see <see cref="TableEntry.Styles"/>). Whoever changes <see cref="Text"/> keeps this in step.</summary>
+    public TextStyles Styles { get; set; } = TextStyles.Empty;
 
     /// <summary>Resolved link to another table (stable id). At most one of the two link fields is meaningful.</summary>
     public long? LinkedTableId { get; set; }

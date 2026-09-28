@@ -47,6 +47,33 @@ D20 Injury
       to `26-30` on Review / Edit, save, and both export.
 - [ ] A `d66` table with a `61+` row: Review says open-ended ranges are not available for d66, and it cannot be saved.
 
+## Bold and italic result text
+
+Paste this `d6` table (Paste Table → Interpret):
+
+```
+D6 Boons
+1-2 The creature gains +2 Armor until the next dawn.
+3-4 You gain +1d4 Armor until next dawn.
+5-6 Nothing happens.
+```
+
+- [ ] Row 1: select `+2 Armor` and press **Ctrl+B**; select `next dawn` and click **I**. The words stay selected after
+      the click, the text box still shows plain text, and a preview under the row shows **+2 Armor** and *next dawn*.
+      Row 3 has no preview.
+- [ ] Row 2: select `+1d4 Armor` and apply both **B** and **I**. Select the same words and press **Ctrl+Space**: the
+      formatting goes; apply bold and italic again.
+- [ ] Type inside the bold words (`+2 Heavy Armor`): the new word is bold. Type an `s` right after `Armor`: it is not.
+- [ ] **Normalize Text** and **Undo Last Cleanup** leave the formatting on the same words.
+- [ ] Save, roll `1` (type it): the result shows **+2 Armor** and *next dawn*; the table's rows show it too.
+- [ ] Roll `3`, then **Roll d4**: `Resolved:` shows the number bold and italic, with *next dawn* italic.
+- [ ] Recent rolls, **Copy Table Text**, **Copy Table Text (Spaces)**, **Copy for Sojour**, **Copy Foundry JSON** and
+      **Copy Tables+ JSON** (paste each into Notepad): plain text only, with no `*`, `<b>` or other marks.
+- [ ] Edit the table again: the formatting is still there. Close and restart TableForge: still there.
+- [ ] Paste a two-column table such as `D3 Difficulty` / `1 Easy +10` / `2 Normal +0` / `3 Hard -10`, Interpret, and type
+      several characters into one of the aligned cells, then into a range (add a space after `2`): the cursor stays
+      where you are typing the whole time.
+
 ## dddice
 
 - [ ] Choose **dddice** (guest): the dice panel prepares and a roll shows 3D dice and the right result.
@@ -124,3 +151,5 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] Close TableForge, then run the **newer** installer over it.
 - [ ] The newer version starts (About shows it), and everything from before is still there.
 - [ ] If the newer version changed the data format, a `tableforge.pre-v*-from-v*.backup.db` copy appears in the data folder.
+- [ ] From rc23 to rc24: tables look and roll exactly as before, `tableforge.pre-v9-from-v8.backup.db` appears, and rc23
+      then refuses the data (it was made by a newer version).

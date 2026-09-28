@@ -106,6 +106,12 @@ public sealed class TableEntry
     public bool IsOpenAbove => Max == RangeBounds.OpenAbove;
     public string Text { get; set; } = "";
 
+    /// <summary>
+    /// Bold/italic for <see cref="Text"/>, kept beside it and never inside it: presentation only. <see cref="Text"/> stays the
+    /// plain semantic text that resolution, inline dice, exports and history use. Empty for every row that has no formatting.
+    /// </summary>
+    public TextStyles Styles { get; set; } = TextStyles.Empty;
+
     /// <summary>How the range is shown when it differs from plain numbers, e.g. "96–00", "08" or "26+" (always set for an open-ended row).</summary>
     public string? DisplayRange { get; set; }
 

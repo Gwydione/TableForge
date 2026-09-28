@@ -14,6 +14,10 @@ public sealed class EntryViewModel(TableEntry entry) : ObservableObject
     public TableEntry Entry { get; } = entry;
     public string RangeLabel => Entry.RangeLabel;
     public string Text => Entry.Text;
+
+    /// <summary><see cref="Text"/> as it is shown, with its bold/italic (one plain segment when it has none).</summary>
+    public IReadOnlyList<FormattedSegment> Segments => Entry.Styles.Segments(Entry.Text);
+
     public bool IsMatched { get => _isMatched; set => Set(ref _isMatched, value); }
 }
 
@@ -112,6 +116,27 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
 
     /// <summary>The matched entry's text exactly as stored. Never rewritten — inline results go into <see cref="ResolvedText"/>.</summary>
     public string Text { get; } = text;
+
+    /// <summary>The matched entry's bold/italic (see <see cref="TableEntry.Styles"/>); none for a problem line. Display only.</summary>
+    public TextStyles Styles { get; init; } = TextStyles.Empty;
+
+    /// <summary><see cref="Text"/> as it is shown, with its formatting.</summary>
+    public IReadOnlyList<FormattedSegment> Segments => Styles.Segments(Text);
+
+    /// <summary>
+    /// <see cref="ResolvedText"/> as it is shown — "Resolved: " then the resolved text, each character keeping its formatting and
+    /// each rolled value taking its expression's (see <see cref="InlineDiceDetector.Substitute(string, TextStyles, IReadOnlyList{InlineDiceMatch}, Func{DiceExpression, string?})"/>).
+    /// </summary>
+    public IReadOnlyList<FormattedSegment> ResolvedSegments
+    {
+        get
+        {
+            var (resolved, styles) = InlineDiceDetector.Substitute(Text, Styles, InlineMatches,
+                dice => InlineActions.FirstOrDefault(a => a.Expression == dice)?.LatestResult);
+            return [new FormattedSegment("Resolved: ", TextStyle.None), .. styles.Segments(resolved)];
+        }
+    }
+
     public bool IsProblem { get; } = isProblem;
     public bool HasHeading => Heading.Length > 0;
 
@@ -138,6 +163,7 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
                 {
                     if (e.PropertyName != nameof(InlineDiceAction.LatestValue)) return;
                     Raise(nameof(ResolvedText));
+                    Raise(nameof(ResolvedSegments));
                     Raise(nameof(HasResolved));
                     Raise(nameof(ShowResolved));
                 };
@@ -827,6 +853,7 @@ public sealed class RollViewModel : ObservableObject
         var line = new ResultLineViewModel(heading, entry.RangeLabel, entry.Text, false)
         {
             Link = link, LinkName = linkName, LinkTarget = target, InlineMatches = inlineMatches, InlineActions = inlineActions,
+            Styles = entry.Styles,
         };
         foreach (var action in inlineActions)
             action.RollCommand = new RelayCommand(() => _ = RollInlineAsync(action), () => !IsRolling && (_diceReady?.Invoke() ?? true));

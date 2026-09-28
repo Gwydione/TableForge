@@ -55,6 +55,40 @@ public static class InlineDiceDetector
         }
         return resolved.Append(text, copied, text.Length - copied).ToString();
     }
+
+    /// <summary>
+    /// <see cref="Substitute(string, IReadOnlyList{InlineDiceMatch}, Func{DiceExpression, string?})"/> with the text's formatting
+    /// carried across: every character that is copied keeps its own style, and a substituted value takes the style of the
+    /// first character of the expression it replaces ("**+1d4 Armor**" resolves to a bold "+3 Armor"). The detection itself
+    /// never sees formatting: <paramref name="matches"/> still come from <see cref="FindAll"/> on the plain text.
+    /// </summary>
+    public static (string Text, TextStyles Styles) Substitute(string text, TextStyles styles, IReadOnlyList<InlineDiceMatch> matches,
+        Func<DiceExpression, string?> valueOf)
+    {
+        var source = styles.ToArray(text.Length);
+        var resolved = new StringBuilder(text.Length);
+        var resolvedStyles = new List<TextStyle>(text.Length);
+        var copied = 0;
+        foreach (var match in matches)
+        {
+            resolved.Append(text, copied, match.Index - copied);
+            resolvedStyles.AddRange(source.AsSpan(copied, match.Index - copied));
+            if (valueOf(match.Expression) is { } value)
+            {
+                resolved.Append(value);
+                resolvedStyles.AddRange(Enumerable.Repeat(source[match.Index], value.Length));
+            }
+            else
+            {
+                resolved.Append(text, match.Index, match.Length);
+                resolvedStyles.AddRange(source.AsSpan(match.Index, match.Length));
+            }
+            copied = match.Index + match.Length;
+        }
+        resolved.Append(text, copied, text.Length - copied);
+        resolvedStyles.AddRange(source.AsSpan(copied));
+        return (resolved.ToString(), TextStyles.FromArray([.. resolvedStyles]));
+    }
 }
 
 /// <summary>One supported expression found in a result's text, and the exact characters it occupies there.</summary>

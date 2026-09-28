@@ -165,8 +165,8 @@ public sealed class AppDatabase : IDisposable
                 entry.SortOrder = e;
                 using var insertEntry = Command(tx,
                     """
-                    INSERT INTO Entries (ResultSetId, MinValue, MaxValue, DisplayText, DisplayRange, LinkedTableId, UnresolvedLinkName, SortOrder)
-                    VALUES ($set, $min, $max, $text, $range, $linked, $unresolved, $order);
+                    INSERT INTO Entries (ResultSetId, MinValue, MaxValue, DisplayText, DisplayRange, LinkedTableId, UnresolvedLinkName, SortOrder, TextFormatting)
+                    VALUES ($set, $min, $max, $text, $range, $linked, $unresolved, $order, $formatting);
                     SELECT last_insert_rowid();
                     """);
                 insertEntry.Parameters.AddWithValue("$set", set.Id);
@@ -177,6 +177,7 @@ public sealed class AppDatabase : IDisposable
                 insertEntry.Parameters.AddWithValue("$linked", (object?)entry.LinkedTableId ?? DBNull.Value);
                 insertEntry.Parameters.AddWithValue("$unresolved", (object?)entry.UnresolvedLinkName ?? DBNull.Value);
                 insertEntry.Parameters.AddWithValue("$order", e);
+                insertEntry.Parameters.AddWithValue("$formatting", (object?)entry.Styles.Serialize(entry.Text) ?? DBNull.Value);
                 entry.Id = (long)insertEntry.ExecuteScalar()!;
             }
         }
@@ -226,7 +227,7 @@ public sealed class AppDatabase : IDisposable
             cmd.CommandText =
                 """
                 SELECT e.Id, e.ResultSetId, e.MinValue, e.MaxValue, e.DisplayText, e.DisplayRange,
-                       e.LinkedTableId, e.UnresolvedLinkName, e.SortOrder
+                       e.LinkedTableId, e.UnresolvedLinkName, e.SortOrder, e.TextFormatting
                 FROM Entries e
                 JOIN ResultSets r ON r.Id = e.ResultSetId
                 WHERE r.TableId = $id
@@ -236,12 +237,15 @@ public sealed class AppDatabase : IDisposable
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
+                var text = reader.GetString(4);
                 sets[reader.GetInt64(1)].Entries.Add(new TableEntry
                 {
                     Id = reader.GetInt64(0),
                     Min = reader.GetInt32(2),
                     Max = reader.GetInt32(3),
-                    Text = reader.GetString(4),
+                    Text = text,
+                    // Malformed or stale formatting reads as none: the row loads, plain, and never stops the table loading.
+                    Styles = TextStyles.Parse(reader.IsDBNull(9) ? null : reader.GetString(9), text),
                     DisplayRange = reader.IsDBNull(5) ? null : reader.GetString(5),
                     LinkedTableId = reader.IsDBNull(6) ? null : reader.GetInt64(6),
                     UnresolvedLinkName = reader.IsDBNull(7) ? null : reader.GetString(7),

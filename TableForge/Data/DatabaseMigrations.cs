@@ -117,6 +117,14 @@ public static class DatabaseMigrations
         """
         SELECT 1;
         """,
+
+        // 9: bold/italic result text. Entries.DisplayText stays the plain text everything else uses; the formatting is kept
+        // beside it as style runs (see TextStyles.Serialize). NULL means no formatting, which every existing row gets, so
+        // nothing already saved looks or behaves differently. Older versions refuse this database rather than re-saving
+        // tables and silently dropping the formatting.
+        """
+        ALTER TABLE Entries ADD COLUMN TextFormatting TEXT NULL;
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

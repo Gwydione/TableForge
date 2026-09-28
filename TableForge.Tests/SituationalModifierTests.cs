@@ -555,7 +555,7 @@ public class SituationalModifierHistoryMigrationTests
         var item = Assert.Single(db.GetRollHistory());
         Assert.Equal(("Omens", "d100", 100, "Doom", 0), (item.TableName, item.DiceText, item.RollValue, item.ResultText, item.SituationalModifier));
         Assert.Equal("00", item.RollDisplay);                          // an unmodified d100 still reads 00
-        Assert.Equal(8, DatabaseMigrations.CurrentVersion);            // pinned: bump deliberately with each migration
+        Assert.Equal(9, DatabaseMigrations.CurrentVersion);            // pinned: bump deliberately with each migration
     }
 
     [Fact]

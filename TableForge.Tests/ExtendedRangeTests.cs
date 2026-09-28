@@ -541,9 +541,9 @@ public class ExtendedRangeTests
     }
 
     [Fact]
-    public void The_schema_is_version_8_and_open_bounds_are_stored_as_the_documented_integers()
+    public void Open_bounds_are_stored_as_the_documented_integers_in_the_current_schema()
     {
-        Assert.Equal(8, DatabaseMigrations.CurrentVersion);
+        Assert.Equal(9, DatabaseMigrations.CurrentVersion); // pinned: 8 introduced open bounds; 9 (RC24) added Entries.TextFormatting
 
         using var temp = new TempDatabase();
         using (var db = temp.Open())
@@ -551,7 +551,7 @@ public class ExtendedRangeTests
 
         using var raw = new SqliteConnection($"Data Source={temp.Path};Pooling=False");
         raw.Open();
-        Assert.Equal(8, DatabaseMigrations.GetVersion(raw));
+        Assert.Equal(9, DatabaseMigrations.GetVersion(raw));
         using var cmd = raw.CreateCommand();
         cmd.CommandText = "SELECT MinValue, MaxValue, DisplayRange FROM Entries ORDER BY SortOrder";
         using var reader = cmd.ExecuteReader();
@@ -571,7 +571,8 @@ public class ExtendedRangeTests
         {
             raw.Open();
             using var cmd = raw.CreateCommand();
-            cmd.CommandText = "PRAGMA user_version = 7";
+            // A real version-7 file: later migrations' columns are not there yet (9 added Entries.TextFormatting).
+            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; PRAGMA user_version = 7";
             cmd.ExecuteNonQuery();
         }
 
@@ -581,7 +582,7 @@ public class ExtendedRangeTests
         Assert.NotEmpty(DatabaseBackup.Existing(temp.Path));
         using var check = new SqliteConnection($"Data Source={temp.Path};Pooling=False");
         check.Open();
-        Assert.Equal(8, DatabaseMigrations.GetVersion(check));
+        Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(check)); // through 8, and on to the current version
     }
 
     // ---- exports ------------------------------------------------------------------------------------

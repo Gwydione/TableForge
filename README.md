@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc23 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc24 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -16,6 +16,7 @@ TableForge can also:
 - roll with fast **Built-in dice**, or optionally with **dddice** 3D visual dice, including themes from your own
   dddice account;
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
+- make words in a result **bold** or *italic* on the Review screen, shown that way when it is rolled;
 - make **several rolls at once**, keeping every result;
 - **Copy Table Text** as clean plain text for other tools and VTTs;
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
@@ -121,7 +122,8 @@ components are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 Keyboard: in the table search box **Enter** opens the first match and **Escape** clears the search. In the table list the
 arrow keys move the highlight and **Enter** opens. In “Paste rows into this set…”, **Escape** closes it and **Ctrl+Enter**
-adds the rows. On the Review screen, **Ctrl+J** joins the selected row into the row above it (see below).
+adds the rows. On the Review screen, **Ctrl+J** joins the selected row into the row above it (see below), and in a row's
+result text **Ctrl+B**, **Ctrl+I** and **Ctrl+Space** make the selected words bold, italic or plain again.
 
 **Recent** (under the search box) lists the tables you opened most recently in the current collection. **Recent rolls**
 (bottom left) shows the last 10 rolls anywhere as read-only snapshots; clicking one reopens its table (a snapshot of a
@@ -455,6 +457,25 @@ Not included yet: custom dice, OBS output, other dice apps.
 
 Anything the parser is not sure about is kept together and flagged on the Review screen: information (blue) for
 things it did and you may want to glance at, warnings (amber) for things to check.
+
+## Bold and italic in results
+
+On the Review / Edit screen, select some words in a row's result text and choose **B** (**Ctrl+B**) or **I** (**Ctrl+I**)
+to make them bold or italic; both together are fine. The same command again takes it off, and **Clear Formatting**
+(**Ctrl+Space**) removes both from the selection. The buttons never take the cursor away, so the words stay selected. The
+text box itself stays plain; a row with formatting shows a small preview underneath of how it will look when rolled.
+
+The Roll screen shows the formatting in the result, in the "Resolved:" line of an inline dice roll (a rolled value takes
+the formatting of the expression it replaces: **+1d4 Armor** resolves to **+3 Armor**), in the table's rows, and on
+linked tables. Formatting follows its words as you edit: typing inside a bold word stays bold, typing just before or
+after it does not, and Join With Previous Row, Dehyphenate, Normalize Text, Undo Last Cleanup and saving all keep it on
+the same words.
+
+Formatting is presentation only. It never changes how a table rolls, what inline dice are found, links or search, and it
+is kept beside the text rather than inside it, so nothing like `**` or `<b>` ever appears in your text. Everything that
+copies or exports text — Copy Table Text (and Spaces), Copy for Sojour, Foundry and Tables+ JSON — and Recent Rolls get
+exactly the plain text, as before. Only result text can be formatted (not table or result-set names). Pasting keeps
+text only: bold or italic in a copied PDF or web page is not brought in.
 
 ## Cleaning up imperfect PDF copies (Review screen)
 
