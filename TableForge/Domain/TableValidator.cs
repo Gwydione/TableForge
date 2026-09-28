@@ -10,8 +10,14 @@ public enum ValidationKind { Gap, Overlap, BelowMinimum, AboveMaximum, Impossibl
 /// <param name="Start">First affected numeric value.</param>
 /// <param name="End">Last affected numeric value.</param>
 /// <param name="EntryIndexes">Positions (within the result set) of the entries involved; empty for a gap.</param>
+/// <param name="IsAuthoredExtension">
+/// For <see cref="ValidationKind.BelowMinimum"/> and <see cref="ValidationKind.AboveMaximum"/> only: the result set covers every
+/// value its dice can roll, so a row beyond them is taken as authored for modified rolls (-10-0 or 26+ on a d20) rather than as a
+/// mistake. It is still reported, as information.
+/// </param>
+/// <remarks><see cref="Start"/> and <see cref="End"/> may be <see cref="RangeBounds"/> sentinels; show them with <see cref="RangeBounds.Label"/>.</remarks>
 public sealed record ValidationFinding(
-    int ResultSetIndex, ValidationKind Kind, int Start, int End, IReadOnlyList<int> EntryIndexes);
+    int ResultSetIndex, ValidationKind Kind, int Start, int End, IReadOnlyList<int> EntryIndexes, bool IsAuthoredExtension = false);
 
 public static class TableValidator
 {
@@ -37,6 +43,7 @@ public static class TableValidator
 
         var legalMin = dice.Min;
         var legalMax = dice.Max;
+        var first = findings.Count;
 
         for (var i = 0; i < entries.Count; i++)
         {
@@ -72,6 +79,49 @@ public static class TableValidator
         }
         if (next <= legalMax)
             findings.Add(new(setIndex, ValidationKind.Gap, next, legalMax, []));
+
+        // A set that covers every value its dice can roll, and has rows beyond them, was authored for modified rolls: its
+        // out-of-range rows are information, and its gaps are looked for across everything its rows reach, not only the dice.
+        var extends = entries.Any(e => e.Min < legalMin || e.Max > legalMax);
+        var naturalGap = findings.Skip(first).Any(f => f.Kind == ValidationKind.Gap);
+        if (!extends || naturalGap) return;
+
+        for (var k = first; k < findings.Count; k++)
+            if (findings[k].Kind is ValidationKind.BelowMinimum or ValidationKind.AboveMaximum)
+                findings[k] = findings[k] with { IsAuthoredExtension = true };
+        AddAuthoredGaps(setIndex, entries, legalMin, legalMax, findings);
+    }
+
+    /// <summary>
+    /// Gaps outside the dice's range, within the authored domain: from the lowest to the highest finite number any row names (or
+    /// the dice's own bounds, if wider). Open-ended rows reach the domain's edge. Works on clipped intervals, never value by value,
+    /// so an open bound is never scanned toward. Only called when the dice's own range has no gap, so every gap found lies outside it.
+    /// </summary>
+    private static void AddAuthoredGaps(int setIndex, List<TableEntry> entries, int legalMin, int legalMax, List<ValidationFinding> findings)
+    {
+        var finite = entries.SelectMany(e => new[] { e.Min, e.Max }).Where(v => !RangeBounds.IsOpen(v)).ToList();
+        long low = Math.Min(legalMin, finite.DefaultIfEmpty(legalMin).Min());
+        long high = Math.Max(legalMax, finite.DefaultIfEmpty(legalMax).Max());
+
+        var covered = entries
+            .Select(e => (Min: Math.Max(e.Min, low), Max: Math.Min(e.Max, high)))
+            .Where(r => r.Min <= r.Max)
+            .OrderBy(r => r.Min)
+            .ToList();
+
+        var next = low; // lowest value not yet known to be covered
+        foreach (var (min, max) in covered)
+        {
+            if (min > next) AddOutside(next, min - 1);
+            next = Math.Max(next, max + 1);
+        }
+        if (next <= high) AddOutside(next, high);
+
+        void AddOutside(long start, long end)
+        {
+            if (start < legalMin) findings.Add(new(setIndex, ValidationKind.Gap, (int)start, (int)Math.Min(end, legalMin - 1L), []));
+            if (end > legalMax) findings.Add(new(setIndex, ValidationKind.Gap, (int)Math.Max(start, legalMax + 1L), (int)end, []));
+        }
     }
 
     /// <summary>
@@ -118,7 +168,7 @@ public static class TableValidator
 
             // Report the stretch of shared POSSIBLE values (an overlap only in impossible values is already reported as such).
             int? first = null, last = null;
-            for (var v = start; v <= end; v++)
+            for (var v = Math.Max(start, dice.Min); v <= Math.Min(end, dice.Max); v++) // only possible values count, and the loop stays finite
                 if (dice.IsLegal(v)) { first ??= v; last = v; }
             if (first is not null) findings.Add(new(setIndex, ValidationKind.Overlap, first.Value, last!.Value, [i, j]));
         }

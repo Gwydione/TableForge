@@ -37,9 +37,11 @@ public static partial class TextCleanup
         var m = RangeShape().Match(t);
         if (!m.Success) return t;
 
-        var a = m.Groups["a"].Value;
+        // A real minus sign (−) leading a number is spelled as a hyphen-minus.
+        static string Sign(string n) => n.StartsWith('−') ? "-" + n[1..] : n;
+        var a = Sign(m.Groups["a"].Value);
         var b = m.Groups["b"];
-        return b.Success ? $"{a}-{b.Value}" : a;
+        return b.Success ? $"{a}-{Sign(b.Value)}" : a;
     }
 
     /// <summary>True if the text contains a Unicode replacement character (U+FFFD): the mark a broken PDF font mapping leaves behind.</summary>
@@ -206,7 +208,8 @@ public static partial class TextCleanup
     private static partial Regex Whitespace();
 
     // A plain number, or two numbers separated by a hyphen/en dash/em dash/minus sign with optional surrounding whitespace.
-    [GeneratedRegex(@"^(?<a>-?[0-9]+)(?:\s*[-–—−]\s*(?<b>-?[0-9]+))?$")]
+    // Either number may lead with a hyphen-minus or a real minus sign.
+    [GeneratedRegex(@"^(?<a>[-−]?[0-9]+)(?:\s*[-–—−]\s*(?<b>[-−]?[0-9]+))?$")]
     private static partial Regex RangeShape();
 
     // A letter, then a hyphen with no space before it, then either horizontal whitespace or a single real line break

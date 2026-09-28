@@ -490,7 +490,7 @@ public class ClampToRangeMigrationTests
         Assert.Null(item.ClampedValue);
         Assert.Equal((1L, 9, 2, "No entry covers 9."), (item.TableId!.Value, item.RollValue, item.SituationalModifier, item.ResultText));
         Assert.Equal("9 (+2)", new RecentRollViewModel(item).RollDisplay);
-        Assert.Equal(7, DatabaseMigrations.CurrentVersion);
+        Assert.Equal(8, DatabaseMigrations.CurrentVersion);
     }
 }
 

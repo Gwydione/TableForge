@@ -18,7 +18,8 @@ public sealed record TablesPlusExport(string Name, string Json, IReadOnlyList<st
 ///  - several summed dice with no modifier: "bell-curve", "2d6", "3d6";
 ///  - several dice with a modifier (2d6+1) are refused until Tables+ is known to handle them; the modifier is never dropped.
 /// low/high are the numbers TableForge resolves with (a written "96–00" is 96 to 100), exported as they are: gaps, overlaps,
-/// negative numbers and d66 ranges that cover unrollable values are never filled, resolved, shifted or clamped. Text is the
+/// negative numbers and d66 ranges that cover unrollable values are never filled, resolved, shifted or clamped. A result set with
+/// an open-ended row ("26+", "1 or less") is refused: low/high cannot say "no bound", and no number stands in for one. Text is the
 /// authored result text, only trimmed, exactly as the Foundry export writes it: line breaks, Unicode, &amp;, &lt;, inline dice,
 /// "{2d6}" and "#reroll" are all kept as written. Links, clamp settings and runtime state are never exported.
 /// Checked live in Tables+ (2026-09-27) only for d20, d66 (T66) and 2d6 exports; see docs/RELEASE_TESTING.md for what is untested.
@@ -39,7 +40,7 @@ public static class TablesPlusTableExporter
     public static bool TryExport(RollableTable table, ResultSet resultSet, out TablesPlusExport? export, out string? error)
     {
         export = null;
-        if ((error = FoundryTableExporter.Refusal(table, resultSet, out var index)) is not null) return false;
+        if ((error = FoundryTableExporter.Refusal(table, resultSet, out var index) ?? FoundryTableExporter.OpenRangeRefusal(resultSet, "Tables+")) is not null) return false;
         if (!TryMapDice(table.Dice, out var type, out var dice))
         {
             error = ModifiedDiceError;

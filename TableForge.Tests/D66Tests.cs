@@ -475,11 +475,14 @@ public class D66ValidatorTests
     [Fact]
     public void Ordinary_dice_are_validated_exactly_as_before()
     {
-        // 2d6 is a continuous 2-12: a row for 17 is simply above the maximum, and 13-20 gaps do not exist.
+        // 2d6 is a continuous 2-12: a row for 17 is above the maximum, never an impossible value. The 2-12 range is complete, so
+        // the row is taken as authored for modified rolls (RC23) and 13-16 is a gap in that authored range.
         var findings = TableValidator.Validate(Fixtures.Table(DiceExpression.Parse("2d6"), (2, 6, "a"), (7, 12, "b"), (17, 17, "c")));
 
-        var finding = Assert.Single(findings);
-        Assert.Equal((ValidationKind.AboveMaximum, 17, 17), (finding.Kind, finding.Start, finding.End));
+        Assert.DoesNotContain(findings, f => f.Kind == ValidationKind.ImpossibleValue);
+        Assert.Equal(
+            [(ValidationKind.AboveMaximum, 17, 17, true), (ValidationKind.Gap, 13, 16, false)],
+            findings.Select(f => (f.Kind, f.Start, f.End, f.IsAuthoredExtension)));
         Assert.Empty(TableValidator.Validate(Fixtures.Table(DiceExpression.Parse("2d6"), (2, 6, "a"), (7, 12, "b"))));
     }
 

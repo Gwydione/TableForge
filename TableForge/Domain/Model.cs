@@ -95,12 +95,18 @@ public sealed class TableEntry
 {
     public long Id { get; set; }
 
-    /// <summary>Numeric bounds are what resolution uses. Display strings never are.</summary>
+    /// <summary>
+    /// Numeric bounds are what resolution uses. Display strings never are. An open-ended row ("26+", "1 or less") holds
+    /// <see cref="RangeBounds.OpenAbove"/> or <see cref="RangeBounds.OpenBelow"/>, which must never be shown or exported as numbers.
+    /// </summary>
     public int Min { get; set; }
     public int Max { get; set; }
+
+    public bool IsOpenBelow => Min == RangeBounds.OpenBelow;
+    public bool IsOpenAbove => Max == RangeBounds.OpenAbove;
     public string Text { get; set; } = "";
 
-    /// <summary>How the range is shown when it differs from plain numbers, e.g. "96–00" or "08".</summary>
+    /// <summary>How the range is shown when it differs from plain numbers, e.g. "96–00", "08" or "26+" (always set for an open-ended row).</summary>
     public string? DisplayRange { get; set; }
 
     /// <summary>At most one link target. Resolved links use the stable table id.</summary>
@@ -109,7 +115,7 @@ public sealed class TableEntry
 
     public int SortOrder { get; set; }
 
-    public string RangeLabel => DisplayRange ?? (Min == Max ? $"{Min}" : $"{Min}–{Max}");
+    public string RangeLabel => DisplayRange ?? RangeBounds.Label(Min, Max);
 
     public bool Covers(int value) => value >= Min && value <= Max;
 }

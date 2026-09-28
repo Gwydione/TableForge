@@ -109,6 +109,14 @@ public static class DatabaseMigrations
         ALTER TABLE Tables ADD COLUMN ClampResultsToRange INTEGER NOT NULL DEFAULT 0 CHECK (ClampResultsToRange IN (0, 1));
         ALTER TABLE RollHistory ADD COLUMN ClampedValue INTEGER NULL;
         """,
+
+        // 8: open-ended ranges ("26+", "1 or less"). No column changes: an open bound is stored in Entries.MinValue or
+        // Entries.MaxValue as the 32-bit integer minimum (-2147483648, no lower bound) or maximum (2147483647, no upper
+        // bound), always with DisplayRange set to the written form. Older versions would read those as ordinary numbers,
+        // so this version number exists to make them refuse the database instead. Every existing row is unchanged.
+        """
+        SELECT 1;
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

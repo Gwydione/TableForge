@@ -41,6 +41,7 @@ public static class TableTextExporter
     private static string Range(TableEntry entry, DiceExpression dice)
     {
         if (entry.DisplayRange is { } written && written.Trim().Length > 0) return written.Trim().Replace('–', '-');
+        if (entry.IsOpenBelow || entry.IsOpenAbove) return RangeBounds.Label(entry.Min, entry.Max, dice); // "26+", never a sentinel
         return entry.Min == entry.Max ? dice.FormatValue(entry.Min) : $"{dice.FormatValue(entry.Min)}-{dice.FormatValue(entry.Max)}";
     }
 

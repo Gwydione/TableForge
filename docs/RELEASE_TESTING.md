@@ -21,6 +21,32 @@ Your data lives in `%LOCALAPPDATA%\TableForge`. Nothing here should ever delete 
 - [ ] Close and restart TableForge: the collection and table are still there.
 - [ ] About shows the right version and RPG Frequencies; License, Privacy and Open Data Folder open.
 
+## Extended and open-ended ranges
+
+Paste this `d20` table (Paste Table → Interpret):
+
+```
+D20 Injury
+-10-0 The character is dead.
+1-5 Succumbs to wounds.
+6-10 Severely wounded.
+11-15 A week of rest.
+16-20 In shock, but alive.
+21-25 Knocked out.
+26+ Recovers immediately.
+```
+
+- [ ] Review shows seven rows with the ranges as written (`-10–0`, `26+`), no warnings, and information notes for the
+      `-10–0`, `21–25` and `26+` rows ("outside the natural d20 range").
+- [ ] Save, then roll with a situational modifier of `-10` until a roll resolves to "The character is dead."; and with
+      `+10` until one resolves to "Recovers immediately." The Roll screen and Recent rolls never show a number like
+      2147483647 or -2147483648.
+- [ ] Type a roll of `-5` and of `40` by hand: both are accepted and find the right rows.
+- [ ] **Export…** → **Copy Table Text** and **Copy for Sojour**: the ranges read `-10-0` and `26+`.
+- [ ] **Export…** → **Copy Foundry JSON** and **Copy Tables+ JSON**: both refuse, naming the `26+` range. Change `26+`
+      to `26-30` on Review / Edit, save, and both export.
+- [ ] A `d66` table with a `61+` row: Review says open-ended ranges are not available for d66, and it cannot be saved.
+
 ## dddice
 
 - [ ] Choose **dddice** (guest): the dice panel prepares and a roll shows 3D dice and the right result.

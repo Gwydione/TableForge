@@ -143,7 +143,6 @@ public class DiceTests
     [InlineData("")]
     [InlineData("abc")]
     [InlineData("5-")]
-    [InlineData("-5")]
     [InlineData("1-2-3")]
     [InlineData("10-5")]
     [InlineData("99999999999")]

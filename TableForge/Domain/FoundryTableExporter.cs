@@ -19,7 +19,8 @@ public sealed record FoundryExport(string Name, string Json, IReadOnlyList<strin
 /// resolves with (a written "96–00" is [96, 100]). Text is the authored result text, only trimmed; line breaks, Unicode and
 /// characters like &amp; and &lt; are kept as they are, and inline dice stay plain text. Links, ids, clamp settings and every
 /// kind of runtime state (rolls, modifiers, resolved inline values) are never exported, and there is no description.
-/// Gaps and overlaps are exported as they are; only a table that cannot become a Foundry table at all is refused.
+/// Gaps and overlaps are exported as they are; only a table that cannot become a Foundry table at all is refused, including one
+/// with an open-ended row ("26+"), since a Foundry range is two finite numbers and no number stands in for "no bound".
 /// </summary>
 public static class FoundryTableExporter
 {
@@ -39,7 +40,7 @@ public static class FoundryTableExporter
     public static bool TryExport(RollableTable table, ResultSet resultSet, out FoundryExport? export, out string? error)
     {
         export = null;
-        if ((error = Refusal(table, resultSet, out var index)) is not null) return false;
+        if ((error = Refusal(table, resultSet, out var index) ?? OpenRangeRefusal(resultSet, "Foundry")) is not null) return false;
 
         var name = Name(table, index);
         var dto = new FoundryTableDto(name, Formula(table.Dice),
@@ -78,6 +79,16 @@ public static class FoundryTableExporter
             return $"The row \"{backwards.RangeLabel}\" has a range that runs backwards.";
         return null;
     }
+
+    /// <summary>
+    /// Why <paramref name="target"/> cannot take this result set because a row is open-ended ("26+", "1 or less"), or null. Its range
+    /// is two finite numbers, and replacing an open bound with one would change what the row means, so such a set is refused
+    /// rather than exported differently. Bounded rows beyond the dice (-10-0 on a d20) are exported as they are.
+    /// </summary>
+    internal static string? OpenRangeRefusal(ResultSet resultSet, string target) =>
+        resultSet.Entries.FirstOrDefault(e => e.IsOpenBelow || e.IsOpenAbove) is { } open
+            ? $"This table contains an open-ended range (\"{open.RangeLabel}\") that {target} cannot represent faithfully."
+            : null;
 
     /// <summary>
     /// Clamp is the one thing Foundry (and Tables+) cannot reproduce, and it only matters when the dice can land outside the rows:

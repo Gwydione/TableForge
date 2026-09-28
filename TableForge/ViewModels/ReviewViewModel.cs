@@ -706,7 +706,10 @@ public sealed class ReviewViewModel : ObservableObject
     {
         // Suggest the number after the highest one already used.
         DiceExpression? dice = DiceExpression.TryParse(DiceText, out var parsed) ? parsed : null;
-        var highest = set.Rows.Select(r => r.Draft.TryParseRange(dice, out var range, out _) ? range.Max : 0).DefaultIfEmpty(0).Max();
+        // Only finite bounds count ("26+" suggests 27), so an open-ended row never turns into a sentinel number here.
+        var highest = set.Rows
+            .Select(r => r.Draft.TryParseRange(dice, out var range, out _) ? (range.IsOpenAbove ? range.Min : range.Max) : 0)
+            .DefaultIfEmpty(0).Max();
         var next = highest == 0 && dice is { } d ? d.Min : highest + 1;
         var entry = new EntryDraft { RangeText = next.ToString() };
         set.Draft.Entries.Add(entry);
@@ -836,7 +839,16 @@ public sealed class ReviewViewModel : ObservableObject
             {
                 var s = f.ResultSetIndex;
                 var rows = f.EntryIndexes.Select(e => parsedRows[s][e].RowIndex).ToList();
-                var span = f.Start == f.End ? d.FormatValue(f.Start) : $"{d.FormatValue(f.Start)}–{d.FormatValue(f.End)}";
+                var span = RangeBounds.Label(f.Start, f.End, d);
+                if (f.IsAuthoredExtension)
+                {
+                    // Rows beyond the dice in a set that covers every roll of them: authored for modified rolls, so information only.
+                    var natural = $"{d.FormatValue(d.Min)}–{d.FormatValue(d.Max)}";
+                    var info = $"Row {rows[0] + 1} includes {span}, outside the natural {d} range ({natural}); only a modified roll reaches it.";
+                    InfoNotes.Add(ResultSets.Count > 1 ? $"{ResultSets[s].DisplayName}: {info}" : info);
+                    foreach (var r in rows) rowNotes[s][r].Add((NoteLevel.Info, info));
+                    continue;
+                }
                 var message = f.Kind switch
                 {
                     ValidationKind.Gap => $"No row covers {span}.",

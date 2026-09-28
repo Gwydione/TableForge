@@ -733,11 +733,17 @@ public sealed class RollViewModel : ObservableObject
         var dice = Current.Table.Dice;
         // A typed roll is the FINAL result (dice plus any modifier, worked out by hand), so it is checked as it is and never modified again.
         var parsed = RangeText.TryParseRollValue(ManualRollText, dice, out var value);
-        if (parsed && dice.IsLegal(value))
+        // A table with rows beyond its dice (-10-0 or 26+ on a d20) was authored for modified rolls: a value one of its rows
+        // covers is a legitimate final result too, even though the dice alone never give it.
+        var rows = Current.Table.ResultSets.SelectMany(s => s.Entries).ToList();
+        var extended = !dice.IsD66 && rows.Any(e => e.Min < dice.Min || e.Max > dice.Max);
+        if (parsed && (dice.IsLegal(value) || (extended && rows.Any(e => e.Covers(value)))))
             Apply(value);
         else if (dice.IsD66)
             // The final d66 value is typed (35), never two separate dice; say why an impossible one is refused.
             Message = parsed ? $"{value} is not a possible d66 result. Enter two digits from 1 to 6, such as 35." : "Enter a d66 result: two digits from 1 to 6, such as 35.";
+        else if (extended)
+            Message = "Enter a value covered by this table.";
         else
             Message = $"Enter a whole number from {dice.FormatValue(dice.Min)} to {dice.FormatValue(dice.Max)}.";
     }

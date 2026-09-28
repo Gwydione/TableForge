@@ -231,13 +231,15 @@ public class DiceModifierTests
         Assert.Equal((min, max, (string?)null), (range.Min, range.Max, range.DisplayRange));
     }
 
+    // RC23: a table may be authored for modified rolls, so a negative range parses on any dice; the validator reports it
+    // as below the dice's lowest roll instead (see ExtendedRangeTests).
     [Theory]
     [InlineData("d10")]
     [InlineData("2d6+1")]
-    public void Negative_ranges_stay_rejected_for_dice_that_cannot_go_negative(string dice)
+    public void Negative_ranges_parse_even_for_dice_that_cannot_go_negative(string dice)
     {
-        Assert.False(RangeText.TryParse("-1", DiceExpression.Parse(dice), out _, out var error));
-        Assert.False(string.IsNullOrEmpty(error));
+        Assert.True(RangeText.TryParse("-1", DiceExpression.Parse(dice), out var range, out _));
+        Assert.Equal((-1, -1), (range.Min, range.Max));
     }
 
     [Fact]

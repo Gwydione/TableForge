@@ -53,6 +53,8 @@ public static class TableClamp
     /// <summary>
     /// The value to look <paramref name="finalValue"/> up with. It differs from <paramref name="finalValue"/> only when the table
     /// has Clamp turned on, has a clamp range, and the value lies outside it; a value inside the range (even in a gap) is unchanged.
+    /// An open-ended side ("26+", "1 or less") never clamps: its bound is a <see cref="RangeBounds"/> sentinel that no value lies beyond,
+    /// so the value resolves naturally against that row and is never replaced by the sentinel.
     /// </summary>
     public static int LookupValue(RollableTable table, int finalValue)
     {

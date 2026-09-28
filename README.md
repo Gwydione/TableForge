@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc22 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc23 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -162,7 +162,10 @@ variables. Anything else is refused with a message rather than partly understood
 
 The legal results include the modifier: `2d6+1` produces 3–13 and `d20-2` produces -1–18, and a table is checked against that
 final range. When you type a roll by hand, enter the **final** result (dice already added to the modifier, e.g. 9); TableForge
-never adds the modifier again. Rows for negative results (only for dice that can go negative) are written like `-1-0`.
+never adds the modifier again. Rows for negative results are written like `-1-0`, and open-ended rows like `26+`,
+`20 or more` or `1 or less` (not for `d66`). A table may have rows its dice alone never reach (`-10-0` or `26+` on a `d20`,
+for modified rolls): when a result set covers every number its dice can roll, the Review screen shows those rows as
+information rather than a warning, and a roll typed by hand may be any number the rows cover.
 
 ### `2d6` and `d66` are different
 
@@ -250,6 +253,7 @@ Foundry: Roll Tables → **Import Tables**, then paste it or choose the file). C
 - **Formula:** `d20` becomes `1d20`, `2d6+1` stays `2d6+1`, and a `d66` becomes `1d6 * 10 + 1d6`, which is exactly tens and
   ones (11–66, never 17 or 20). An explicit `1d66` stays a 66-sided die.
 - **Ranges are numbers:** a written `96–00` is `[96, 100]` and `08` is `[8, 8]`. Gaps and overlaps are exported as they are.
+  A result set with an open-ended row (`26+`, `1 or less`) is refused, since a Foundry range needs two numbers.
 - **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice like `1d6` left as plain text.
   Links, inline-roll results, the modifier, Clamp and roll history are never exported, and there is no description.
 - **Clamp:** Foundry does not clamp. If this table clamps and its dice can roll past its rows (`d20+2` over rows 1–20), a
@@ -284,7 +288,7 @@ exactly the same JSON:
   (tens and ones) is `weighted` with `T66`; several dice with no modifier are `bell-curve` (`2d6`, `3d6`). Several dice
   with a modifier, like `2d6+1`, are refused until Tables+ is known to handle them; the modifier is never dropped.
 - **Ranges are numbers:** `96–00` is 96 to 100, negative numbers stay negative, and gaps and overlaps are exported as
-  they are (the Review screen already points them out).
+  they are (the Review screen already points them out). A result set with an open-ended row (`26+`, `1 or less`) is refused.
 - **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice kept. Text that means something
   special when typed into Tables+, such as `{2d6}` or `#reroll`, is exported unchanged; whether Tables+ acts on it after
   an import has not been checked. Links, ids, roll state and Clamp are never exported.
@@ -331,7 +335,8 @@ time; nothing about it is saved with the table, and the table's own dice (`2d6+1
 A table can opt in to **Clamp out-of-range rolls to table range** (a checkbox under the name and dice on Review / Edit
 table; off for every table unless you turn it on). Then a roll that lands below the table's lowest row uses that lowest
 value, and one above its highest row uses the highest value. The range is the one the rows actually cover (a d20 table
-whose rows run 5–15 clamps 3 to 5 and 18 to 15), not the dice's theoretical range.
+whose rows run 5–15 clamps 3 to 5 and 18 to 15), not the dice's theoretical range. An open-ended side (`26+`) never
+clamps: every roll past it already lands on that row.
 
 - The calculated number is never hidden: a d6 rolling 6 with `+2` shows "Rolled 8", "6 +2 situational", then
   "Resolved as 6 (clamped)" and row 6's result. Stored modifiers count the same way (`d6+1` rolling 7 on rows 1–6 uses 6).

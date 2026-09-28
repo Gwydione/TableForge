@@ -286,7 +286,7 @@ public static partial class TableTextParser
         private bool LooksLikeParagraphText(List<LineEntry> entries, int k)
         {
             if (!_lastStandalone || _last is null || entries.Count != 1 || entries[0].Text.Length == 0) return false;
-            if (Parse(_last.RangeText) is not { } previous || Parse(entries[0].Range) is not { } next || next.Min == previous.Max + 1) return false;
+            if (Parse(_last.RangeText) is not { } previous || Parse(entries[0].Range) is not { } next || RangeBounds.Next(previous.Max) == next.Min) return false;
             if (dice is { } d && d.NextLegal(previous.Max) == next.Min) return false;   // 16 then 21 is continuous numbering on a d66
 
             AttachParagraphLine(lines[k], k + 1);
@@ -366,6 +366,7 @@ public static partial class TableTextParser
             warning = null;
             var m = EntryLine().Match(lines[k]);
             if (!m.Success) return null;
+            if (m.Groups["range"].Value[0] is '-' or '−' && !SignedRowFits(m)) return null;
 
             var columns = ColumnCandidates(raw[k]);
             if (columns is { Count: >= 2 })
@@ -393,6 +394,19 @@ public static partial class TableTextParser
                           "if it is really two side-by-side entries, split it.";
             }
             return [single];
+        }
+
+        /// <summary>
+        /// A line that starts with a minus sign ("-10-0 Dead") is a row only where a negative row can sit: the first row, or one
+        /// that continues upward from the row before it. Anywhere else it is far more likely wrapped text ("…take\n-5 to hit"),
+        /// so it is left to be handled as a line that is not a row, exactly as before signed rows were read.
+        /// </summary>
+        private bool SignedRowFits(Match row)
+        {
+            if (Parse(RangeSeparator().Replace(row.Groups["range"].Value, "-")) is not { } range) return false;
+            var previous = _last ?? Current.Entries.LastOrDefault();
+            if (previous is null) return true;
+            return Parse(previous.RangeText) is { } before && range.Min > before.Max;
         }
 
         /// <summary>Range/text pieces of a line where each range starts after a column gap (two spaces or a tab).</summary>
@@ -468,7 +482,7 @@ public static partial class TableTextParser
 
             for (var c = 0; c < n; c++)
                 for (var r = 1; r < rows.Count; r++)
-                    if (rows[r][c].Min != rows[r - 1][c].Max + 1) return false;      // rows continue straight down a column
+                    if (RangeBounds.Next(rows[r - 1][c].Max) != rows[r][c].Min) return false;      // rows continue straight down a column
 
             for (var c = 1; c < n; c++)
                 if (rows.Max(row => row[c - 1].Max) >= rows.Min(row => row[c].Min)) return false;  // columns follow one another
@@ -615,7 +629,7 @@ public static partial class TableTextParser
 
         /// <summary>Whether <paramref name="next"/> starts right after <paramref name="previous"/> ends (16 then 21 on a d66).</summary>
         private bool Follows(ParsedRange previous, ParsedRange next) =>
-            dice is { IsD66: true } d ? d.NextLegal(previous.Max) == next.Min : next.Min == previous.Max + 1;
+            dice is { IsD66: true } d ? d.NextLegal(previous.Max) == next.Min : RangeBounds.Next(previous.Max) == next.Min;
 
         private ParsedRange? Parse(string range) => RangeText.TryParse(range, dice, out var r, out _) ? r : null;
 
@@ -923,8 +937,9 @@ public static partial class TableTextParser
     /// <summary>Collapses runs of spaces and tabs to one space.</summary>
     private static string Collapse(string line) => Spaces().Replace(line, " ").Trim();
 
-    // A row: range, optional "." ")" ":" after it, then text.
-    [GeneratedRegex(@"^(?<range>[0-9]+(?:\s*[-–—]\s*[0-9]+)?)(?:[.):]?(?:\s+(?<text>\S.*))?)$")]
+    // A row: range, optional "." ")" ":" after it, then text. The range is a number or span whose numbers may carry a leading
+    // minus ("-10-0", "−3--1"; never an en or em dash), or open-ended: "26+", "20 or more", "1 or less".
+    [GeneratedRegex(@"^(?<range>[-−]?[0-9]+(?:\s*[-–—]\s*[-−]?[0-9]+|\+|\s+[Oo][Rr]\s+(?:[Ll][Ee][Ss][Ss]|[Mm][Oo][Rr][Ee])(?![A-Za-z]))?)(?:[.):]?(?:\s+(?<text>\S.*))?)$")]
     private static partial Regex EntryLine();
 
     // Two or more spaces, or a tab: the gap between printed columns.

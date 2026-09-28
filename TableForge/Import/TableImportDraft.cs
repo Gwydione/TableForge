@@ -39,7 +39,8 @@ public sealed class TableImportDraft
             Name = s.Name,
             Entries = s.Entries.Select(e => new EntryDraft
             {
-                RangeText = e.DisplayRange ?? (e.Min == e.Max ? $"{e.Min}" : $"{e.Min}-{e.Max}"),
+                RangeText = e.DisplayRange ?? (e.IsOpenBelow || e.IsOpenAbove ? RangeBounds.Label(e.Min, e.Max)
+                    : e.Min == e.Max ? $"{e.Min}" : $"{e.Min}-{e.Max}"),
                 Text = e.Text,
                 LinkedTableId = e.LinkedTableId,
                 UnresolvedLinkName = e.UnresolvedLinkName,

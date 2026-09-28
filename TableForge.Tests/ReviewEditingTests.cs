@@ -178,7 +178,9 @@ public class ReviewEditingTests
 
         ambient.AddRowCommand.Execute(null);
         Assert.Equal(5, ambient.Rows.Count);
-        Assert.Contains("Ambient: Row 5 includes 101, above the highest roll (00).", review.ValidationNotes);
+        // RC23: Ambient still covers every d100 roll, so a row beyond it reads as authored for modified rolls: information, not a warning.
+        Assert.Empty(review.ValidationNotes);
+        Assert.Contains("Ambient: Row 5 includes 101, outside the natural d100 range (1–00); only a modified roll reaches it.", review.InfoNotes);
 
         ambient.Rows[4].DeleteCommand.Execute(null);
         Assert.Equal(4, ambient.Rows.Count);

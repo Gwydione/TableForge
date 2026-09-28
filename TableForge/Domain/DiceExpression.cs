@@ -63,6 +63,7 @@ public readonly partial record struct DiceExpression(int Count, int Sides, int M
     /// <summary>The next legal result above <paramref name="value"/> (the next number for ordinary dice, 16 to 21 for d66), or null if there is none.</summary>
     public int? NextLegal(int value)
     {
+        if (value >= Max) return null; // also keeps value + 1 from overflowing for an open upper bound
         for (var v = Math.Max(value + 1, Min); v <= Max; v++)
             if (IsLegal(v)) return v;
         return null;
