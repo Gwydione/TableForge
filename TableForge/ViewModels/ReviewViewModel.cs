@@ -447,6 +447,9 @@ public sealed class ReviewViewModel : ObservableObject
     public string HeadingDetail => _draft.TableId == 0 ? $" — saving to {_collection.Name}" : $" — in {_collection.Name}";
     public string CollectionName => _collection.Name;
 
+    /// <summary>The collection this table is saved to.</summary>
+    public long CollectionId => _collection.Id;
+
     public string SourceText => _draft.SourceText.Length > 0
         ? _draft.SourceText
         : "(No original text: this table is being edited from its saved copy.)";

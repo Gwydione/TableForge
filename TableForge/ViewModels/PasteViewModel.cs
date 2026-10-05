@@ -12,6 +12,7 @@ public sealed class PasteViewModel : ObservableObject
     public PasteViewModel(Collection collection, Action<TableImportDraft> interpreted, Action cancelled)
     {
         CollectionName = collection.Name;
+        CollectionId = collection.Id;
         InterpretCommand = new RelayCommand(
             () => interpreted(TableTextParser.Parse(SourceText)),
             () => !string.IsNullOrWhiteSpace(SourceText));
@@ -19,6 +20,9 @@ public sealed class PasteViewModel : ObservableObject
     }
 
     public string CollectionName { get; }
+
+    /// <summary>The collection a table pasted here will be saved to.</summary>
+    public long CollectionId { get; }
 
     public string SourceText
     {

@@ -44,7 +44,9 @@ public partial class App : Application
             var dice = new DiceProviderViewModel(new BuiltInDiceProvider(), new DddiceDiceProvider(_dddice), LoadDicePreference, SaveDicePreference,
                 connection, openAccount: () => OpenDddiceAccount(window, connection, rest));
             var main = new MainViewModel(_db, dice,
-                confirm: message => MessageBox.Show(message, "Delete table", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
+                confirm: message => MessageBox.Show(message, "Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes,
+                confirmImport: message => MessageBox.Show(message, "Import Collection", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK,
+                showMessage: message => MessageBox.Show(window, message, AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Warning),
                 dataFolder: DataFolder, openFolder: OpenInExplorer,
                 showAbout: () => new AboutWindow
                 {

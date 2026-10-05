@@ -95,7 +95,16 @@
                     <TextBlock Text="Collection" FontWeight="SemiBold" Margin="0,0,0,4" />
                     <ComboBox x:Name="CollectionBox" ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}"
                               DisplayMemberPath="Name" Margin="0,0,0,6" />
-                    <Grid Margin="0,0,0,16">
+                    <!-- Acting on the selected collection: save it as a .tfcollection file, or delete it with everything in it. -->
+                    <UniformGrid x:Name="CollectionActions" Rows="1" Columns="2" Margin="0,0,0,6">
+                        <Button x:Name="ExportCollectionButton" Content="Export Collection…" Margin="0,0,3,0" Padding="4,2"
+                                Command="{Binding ExportCollectionCommand}"
+                                ToolTip="Save the selected collection as a file another TableForge can import" />
+                        <Button x:Name="DeleteCollectionButton" Content="Delete Collection…" Margin="3,0,0,0" Padding="4,2"
+                                Command="{Binding DeleteCollectionCommand}"
+                                ToolTip="Delete the selected collection and every table in it" />
+                    </UniformGrid>
+                    <Grid Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -109,6 +118,10 @@
                         <Button Grid.Column="1" Content="New collection" Margin="6,0,0,0" Padding="8,2"
                                 Command="{Binding CreateCollectionCommand}" />
                     </Grid>
+                    <!-- The other way to get a new collection: from a .tfcollection file. Existing collections are never changed. -->
+                    <Button x:Name="ImportCollectionButton" Content="Import Collection…" HorizontalAlignment="Left" Padding="8,2" Margin="0,0,0,16"
+                            Command="{Binding ImportCollectionCommand}"
+                            ToolTip="Add a collection from a .tfcollection file (existing collections are not changed)" />
 
                     <Button x:Name="PasteTableButton" Content="Paste Table…" Padding="8,6" Margin="0,0,0,16"
                             Command="{Binding PasteTableCommand}" />

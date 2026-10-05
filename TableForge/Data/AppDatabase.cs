@@ -101,6 +101,140 @@ public sealed class AppDatabase : IDisposable
         return list;
     }
 
+    /// <summary>
+    /// The name an imported Collection called <paramref name="name"/> gets: the name itself if no Collection has it, otherwise
+    /// "name (2)", "name (3)"... — the lowest number free. Compared the way the database compares names (NOCASE). A name that
+    /// already ends in "(2)" is not read specially: it simply gets another suffix.
+    /// </summary>
+    public string UniqueCollectionName(string name)
+    {
+        using var tx = _connection.BeginTransaction();
+        return UniqueCollectionName(tx, name);
+    }
+
+    private string UniqueCollectionName(SqliteTransaction tx, string name)
+    {
+        using var taken = Command(tx, "SELECT 1 FROM Collections WHERE Name = $name COLLATE NOCASE LIMIT 1");
+        var parameter = taken.Parameters.AddWithValue("$name", name);
+        var candidate = name;
+        for (var n = 2; taken.ExecuteScalar() is not null; n++)
+            parameter.Value = candidate = $"{name} ({n})";
+        return candidate;
+    }
+
+    /// <summary>
+    /// Import Collection: creates ONE new Collection holding everything in <paramref name="portable"/> (already fully validated by
+    /// <see cref="Portable.PortableCollectionReader"/>), in a single transaction, and returns it. It never touches an existing
+    /// Collection; any failure before the commit leaves the database exactly as it was. The new Collection's name is made unique
+    /// (<see cref="UniqueCollectionName(string)"/>). Tables are inserted first, in file order, so every link can then be stored
+    /// with its destination's new id — including links to a later table, to the table itself, and links that form a cycle.
+    /// </summary>
+    public Collection ImportCollection(Portable.PortableCollection portable)
+    {
+        using var tx = _connection.BeginTransaction();
+        var now = DateTime.UtcNow;
+        var collection = new Collection { Name = UniqueCollectionName(tx, portable.Name), CreatedUtc = now };
+        using (var insert = Command(tx, "INSERT INTO Collections (Name, CreatedUtc) VALUES ($name, $created); SELECT last_insert_rowid();"))
+        {
+            insert.Parameters.AddWithValue("$name", collection.Name);
+            insert.Parameters.AddWithValue("$created", FormatUtc(now));
+            collection.Id = (long)insert.ExecuteScalar()!;
+        }
+
+        var folderIds = new List<long>();
+        foreach (var name in portable.Folders)
+        {
+            using var insert = Command(tx, "INSERT INTO Folders (CollectionId, Name) VALUES ($collection, $name); SELECT last_insert_rowid();");
+            insert.Parameters.AddWithValue("$collection", collection.Id);
+            insert.Parameters.AddWithValue("$name", name);
+            folderIds.Add((long)insert.ExecuteScalar()!);
+        }
+
+        // Pass A: every table row, so each file position has its new id before any entry refers to it.
+        var tableIds = new List<long>();
+        foreach (var item in portable.Tables)
+        {
+            tableIds.Add(InsertTableRow(tx, new RollableTable
+            {
+                CollectionId = collection.Id,
+                Name = item.Table.Name,
+                Dice = item.Table.Dice,
+                FolderId = item.FolderIndex is { } f ? folderIds[f] : null,
+                ClampResultsToRange = item.Table.ClampResultsToRange,
+                CreatedUtc = now,
+                UpdatedUtc = now,
+            }));
+        }
+
+        // Pass B: result sets and entries, with each link translated from a file position to the new table id.
+        for (var t = 0; t < portable.Tables.Count; t++)
+            InsertResultSets(tx, tableIds[t], portable.Tables[t].Table.ResultSets, link => link is { } position ? tableIds[(int)position] : null);
+
+        tx.Commit();
+        return collection;
+    }
+
+    /// <summary>How many entries in OTHER Collections link to a table in this one (only a damaged database has any).</summary>
+    public int CountLinksIntoCollection(long collectionId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM Entries e JOIN ResultSets r ON r.Id = e.ResultSetId JOIN Tables source ON source.Id = r.TableId
+            JOIN Tables target ON target.Id = e.LinkedTableId
+            WHERE target.CollectionId = $c AND source.CollectionId <> $c
+            """;
+        cmd.Parameters.AddWithValue("$c", collectionId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    /// <summary>
+    /// Deletes a Collection with all its folders, tables, result sets and entries, in one transaction: any failure rolls it all
+    /// back. Other Collections are never changed, except that an entry elsewhere linking to one of these tables (which only a
+    /// damaged database can have) keeps the destination's name as an unresolved link, exactly as <see cref="DeleteTable"/> does.
+    /// Recent Rolls from these tables stay as readable records (their table id becomes NULL, as the schema says).
+    /// </summary>
+    /// <returns>False if no such Collection exists.</returns>
+    public bool DeleteCollection(long collectionId)
+    {
+        using var tx = _connection.BeginTransaction();
+
+        using (var find = Command(tx, "SELECT COUNT(*) FROM Collections WHERE Id = $id"))
+        {
+            find.Parameters.AddWithValue("$id", collectionId);
+            if (Convert.ToInt64(find.ExecuteScalar()) == 0) return false;
+        }
+
+        // Every link to one of these tables becomes unresolved first. Links inside the Collection are about to be deleted
+        // anyway; links from outside it keep their intent, and none is left pointing at a table that no longer exists.
+        using (var unlink = Command(tx,
+            """
+            UPDATE Entries
+            SET UnresolvedLinkName = (SELECT t.Name FROM Tables t WHERE t.Id = Entries.LinkedTableId), LinkedTableId = NULL
+            WHERE LinkedTableId IN (SELECT Id FROM Tables WHERE CollectionId = $id)
+            """))
+        {
+            unlink.Parameters.AddWithValue("$id", collectionId);
+            unlink.ExecuteNonQuery();
+        }
+
+        foreach (var sql in new[]
+                 {
+                     "DELETE FROM Tables WHERE CollectionId = $id", // result sets and entries cascade; Recent Rolls are set to NULL
+                     "DELETE FROM Folders WHERE CollectionId = $id",
+                     "DELETE FROM Collections WHERE Id = $id",
+                 })
+        {
+            using var delete = Command(tx, sql);
+            delete.Parameters.AddWithValue("$id", collectionId);
+            delete.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+        return true;
+    }
+
     // ---- Tables ------------------------------------------------------------------------------
 
     /// <summary>
@@ -119,15 +253,7 @@ public sealed class AppDatabase : IDisposable
         if (isNew)
         {
             table.CreatedUtc = now;
-            using var insert = Command(tx,
-                """
-                INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, ClampResultsToRange, CreatedUtc, UpdatedUtc)
-                VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $clamp, $created, $updated);
-                SELECT last_insert_rowid();
-                """);
-            AddTableParameters(insert, table);
-            insert.Parameters.AddWithValue("$created", FormatUtc(table.CreatedUtc));
-            table.Id = (long)insert.ExecuteScalar()!;
+            table.Id = InsertTableRow(tx, table);
         }
         else
         {
@@ -146,14 +272,40 @@ public sealed class AppDatabase : IDisposable
             clear.ExecuteNonQuery();
         }
 
-        for (var s = 0; s < table.ResultSets.Count; s++)
+        InsertResultSets(tx, table.Id, table.ResultSets, link => link);
+        tx.Commit();
+        return table;
+    }
+
+    /// <summary>Inserts one Tables row (CreatedUtc and UpdatedUtc as the table holds them) and returns its new id.</summary>
+    private long InsertTableRow(SqliteTransaction tx, RollableTable table)
+    {
+        using var insert = Command(tx,
+            """
+            INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, ClampResultsToRange, CreatedUtc, UpdatedUtc)
+            VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $clamp, $created, $updated);
+            SELECT last_insert_rowid();
+            """);
+        AddTableParameters(insert, table);
+        insert.Parameters.AddWithValue("$created", FormatUtc(table.CreatedUtc));
+        return (long)insert.ExecuteScalar()!;
+    }
+
+    /// <summary>
+    /// Inserts a table's result sets and their entries in list order, assigning ids and sort orders on the passed objects.
+    /// Each entry's <see cref="TableEntry.LinkedTableId"/> is stored as <paramref name="link"/> maps it (unchanged for a
+    /// normal save; from a file position to a new table id for an import).
+    /// </summary>
+    private void InsertResultSets(SqliteTransaction tx, long tableId, List<ResultSet> resultSets, Func<long?, long?> link)
+    {
+        for (var s = 0; s < resultSets.Count; s++)
         {
-            var set = table.ResultSets[s];
+            var set = resultSets[s];
             set.SortOrder = s;
             using (var insertSet = Command(tx,
                 "INSERT INTO ResultSets (TableId, Name, SortOrder) VALUES ($table, $name, $order); SELECT last_insert_rowid();"))
             {
-                insertSet.Parameters.AddWithValue("$table", table.Id);
+                insertSet.Parameters.AddWithValue("$table", tableId);
                 insertSet.Parameters.AddWithValue("$name", set.Name);
                 insertSet.Parameters.AddWithValue("$order", s);
                 set.Id = (long)insertSet.ExecuteScalar()!;
@@ -174,16 +326,13 @@ public sealed class AppDatabase : IDisposable
                 insertEntry.Parameters.AddWithValue("$max", entry.Max);
                 insertEntry.Parameters.AddWithValue("$text", entry.Text);
                 insertEntry.Parameters.AddWithValue("$range", (object?)entry.DisplayRange ?? DBNull.Value);
-                insertEntry.Parameters.AddWithValue("$linked", (object?)entry.LinkedTableId ?? DBNull.Value);
+                insertEntry.Parameters.AddWithValue("$linked", (object?)link(entry.LinkedTableId) ?? DBNull.Value);
                 insertEntry.Parameters.AddWithValue("$unresolved", (object?)entry.UnresolvedLinkName ?? DBNull.Value);
                 insertEntry.Parameters.AddWithValue("$order", e);
                 insertEntry.Parameters.AddWithValue("$formatting", (object?)entry.Styles.Serialize(entry.Text) ?? DBNull.Value);
                 entry.Id = (long)insertEntry.ExecuteScalar()!;
             }
         }
-
-        tx.Commit();
-        return table;
     }
 
     public RollableTable? LoadTable(long id)

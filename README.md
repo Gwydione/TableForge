@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc24 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc25 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -21,7 +21,9 @@ TableForge can also:
 - **Copy Table Text** as clean plain text for other tools and VTTs;
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
 - **export to Foundry VTT** as JSON for the Roll Table Importer module;
-- **export to Owlbear Rodeo (Tables+)** as Tables+ import JSON (`d20`, `d66` and `2d6` checked in Tables+ so far).
+- **export to Owlbear Rodeo (Tables+)** as Tables+ import JSON (`d20`, `d66` and `2d6` checked in Tables+ so far);
+- **export a whole Collection** to a `.tfcollection` file and give it to another TableForge user, who can **import** it as
+  a new Collection without changing anything already in their library.
 
 ## Install
 
@@ -63,6 +65,9 @@ Everything TableForge keeps (your tables, settings, dice choice and any dddice c
 - **To back up**, close TableForge and copy the whole folder somewhere safe. To restore, put it back.
 - When a future version needs to update your data's format, TableForge first saves an automatic safety copy of your
   database beside it (and changes nothing if it cannot).
+- **Export Collection…** (see [Sharing a Collection](#sharing-a-collection-tfcollection)) saves one collection's tables
+  to a file. It is a way to share a collection, not a full backup: it does not include your other collections, recent
+  rolls or settings.
 
 ## Privacy
 
@@ -190,6 +195,27 @@ The dice you write decide which one it is; TableForge never guesses from the row
 Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still means a die with 66 sides, as it did in earlier
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
 The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinary d6 whose order becomes tens and ones.
+
+## Sharing a Collection (.tfcollection)
+
+**Export Collection…** (under the Collection list) saves the selected collection as one `.tfcollection` file: its folders,
+tables, dice, result sets, rows and their ranges (including `96-00`, negative and open-ended ranges such as `26+`), bold
+and italic text, Clamp settings and the links between its tables. It is plain, readable UTF-8 text (JSON). It does not
+include recent tables, recent rolls, dice settings or anything from your other collections.
+
+**Import Collection…** (under the New collection box) reads a `.tfcollection` file and, after showing you its name and
+how many folders and tables it holds, adds it as a **new** collection. It never merges into, replaces or changes a
+collection you already have. If a collection with the same name exists, the new one is called `Name (2)`, then
+`Name (3)`, and so on. Links between its tables point at the imported copies.
+
+The whole file is checked before anything is saved, and the import is all or nothing: a file that is damaged, from a
+newer TableForge, or that contains something TableForge cannot hold is refused with the reason, and nothing is changed.
+A file contains table data only, never anything that runs. A collection whose rows link to a table in a *different*
+collection cannot be exported (TableForge itself never creates such links).
+
+**Delete Collection…** deletes the selected collection with all its folders and tables, after asking you to confirm.
+This cannot be undone. Recent rolls from its tables stay readable in Recent rolls. Use it, for example, to remove an
+imported collection you no longer want.
 
 ## Copy Table Text
 

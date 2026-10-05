@@ -28,6 +28,9 @@ internal sealed class UiHarness : IDisposable
     public string? SavePath { get; set; }
     public List<string> SuggestedFileNames { get; } = [];
     public List<string> SaveTitles { get; } = [];
+
+    /// <summary>The file Import Collection… "chooses" (null: the person cancels). Its confirmation is always accepted.</summary>
+    public string? ImportPath { get; set; }
     public AppDatabase Db { get; }
     public Collection? Collection { get; }
     public MainViewModel Main { get; }
@@ -48,12 +51,8 @@ internal sealed class UiHarness : IDisposable
             seed(Db, Collection);
         }
         Dice = new FixedDice(roll);
-        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: request =>
-        {
-            SuggestedFileNames.Add(request.SuggestedName);
-            SaveTitles.Add(request.Title);
-            return SavePath;
-        });
+        Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: ChooseSave,
+            chooseCollectionFile: ChooseSave, chooseImportFile: () => ImportPath, confirmImport: _ => true);
         Window = new MainWindow
         {
             DataContext = Main,
@@ -62,6 +61,13 @@ internal sealed class UiHarness : IDisposable
         };
         Window.Show();
         Layout();
+    }
+
+    private string? ChooseSave(SaveFileRequest request)
+    {
+        SuggestedFileNames.Add(request.SuggestedName);
+        SaveTitles.Add(request.Title);
+        return SavePath;
     }
 
     /// <summary>Lets queued work run as the real message loop would, then lays out.</summary>

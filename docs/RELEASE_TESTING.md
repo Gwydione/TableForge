@@ -74,6 +74,24 @@ D6 Boons
       several characters into one of the aligned cells, then into a range (add a space after `2`): the cursor stays
       where you are typing the whole time.
 
+## Portable Collections
+
+Use a collection with folders, a linked table and some bold or italic text (the Boons table above works).
+
+- [ ] Select it and choose **Export Collection…**: the Save dialog offers `<collection name>.tfcollection`. Save it
+      somewhere outside the data folder. Open the file in Notepad: readable text starting with
+      `"format": "TableForgeCollection"` and `"formatVersion": 1`, and `"generator"` shows this version.
+- [ ] **Import Collection…** and choose that file: before anything changes it asks to import `<name> (2)`, with the
+      right folder and table counts and "Existing Collections will not be changed." Choose **Cancel**: nothing is added.
+- [ ] Import it again and choose **OK**: `<name> (2)` is added and selected. Its tables roll exactly like the
+      originals, the bold and italic text is still there, and following a link opens the table in `<name> (2)`.
+- [ ] Import it once more: `<name> (3)`. Close and restart TableForge: both copies are still there.
+- [ ] Copy the file, open the copy in Notepad and change `"formatVersion": 1` to `2`. Importing it is refused ("newer
+      file format … Nothing was changed.") and the collection list is unchanged.
+- [ ] Select `<name> (3)` and choose **Delete Collection…**: it names the collection and its table count, says its
+      folders are deleted too and that this cannot be undone. **No** keeps it; **Yes** removes it and selects the next
+      collection. The original and `<name> (2)` are unchanged.
+
 ## dddice
 
 - [ ] Choose **dddice** (guest): the dice panel prepares and a roll shows 3D dice and the right result.
@@ -153,3 +171,5 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] If the newer version changed the data format, a `tableforge.pre-v*-from-v*.backup.db` copy appears in the data folder.
 - [ ] From rc23 to rc24: tables look and roll exactly as before, `tableforge.pre-v9-from-v8.backup.db` appears, and rc23
       then refuses the data (it was made by a newer version).
+- [ ] From rc24 to rc25: no data-format change, so no new backup copy appears; tables, formatting and rolls are exactly
+      as before, and the Export / Import / Delete Collection buttons are there. rc24 can still open the data afterwards.

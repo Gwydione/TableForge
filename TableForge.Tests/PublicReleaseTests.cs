@@ -25,7 +25,7 @@ public class PublicReleaseTests
         Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.0.0-rc24", AppInfo.Version);
+        Assert.Equal("1.0.0-rc25", AppInfo.Version);
     }
 
     [Fact]
@@ -115,16 +115,20 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.0.0-rc24.md");
-        Assert.StartsWith("# TableForge 1.0.0-rc24", notes);
+        var notes = Read("docs", "release-notes", "1.0.0-rc25.md");
+        Assert.StartsWith("# TableForge 1.0.0-rc25", notes);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
-        Assert.Contains("TableForge-1.0.0-rc24-Setup.exe", notes);
-        Assert.Contains("**Bold and italic result text**", notes);                              // the RC24 change, stated precisely:
-        Assert.Contains("**Exports stay plain**", notes);                                       // no export carries formatting
-        Assert.Contains("Fixed: typing in a table shown as aligned columns", notes);            // the aligned-view fix
-        Assert.Contains("**The data format changes (version 9)**", notes);                      // older versions cannot open upgraded data
-        Assert.Contains("rc23 and earlier cannot open the data", notes);
+        Assert.Contains("TableForge-1.0.0-rc25-Setup.exe", notes);
+        Assert.Contains("**Portable Collections**", notes);                                    // the RC25 change, stated precisely:
+        Assert.Contains("never merges into, replaces or", notes);                               // an import is always a new collection
+        Assert.Contains("the import is all or nothing", notes);
+        Assert.Contains("**Delete Collection…**", notes);
+        Assert.Contains("**Existing exports are unchanged**", notes);
+        Assert.Contains("**The data format does not change** (still version 9)", notes);         // rc24 and rc25 share the data
+        Assert.Contains("rc24 can still open data that rc25 has used", notes);
+        Assert.Contains("rc23 and earlier cannot open the data", notes);                         // the RC24 upgrade status is kept
+        Assert.Contains("**Bold and italic result text**", notes);
         Assert.Contains("**Open-ended ranges**", notes);                                        // the RC23 status is kept
         Assert.Contains("**Questline import has not been verified.**", notes);                   // the RC22 status is kept
         Assert.Contains("**Checked in Tables+:**", notes);                                      // the RC21 Tables+ status is kept:
@@ -132,7 +136,7 @@ public class PublicReleaseTests
         Assert.Contains("this is not full", notes);
 
         var checklist = Read("docs", "RELEASE_TESTING.md");
-        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
+        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
             Assert.Contains(heading, checklist);
     }
 }

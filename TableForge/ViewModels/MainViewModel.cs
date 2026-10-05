@@ -4,6 +4,7 @@ using TableForge.Data;
 using TableForge.Dice;
 using TableForge.Domain;
 using TableForge.Import;
+using TableForge.Portable;
 
 namespace TableForge.ViewModels;
 
@@ -66,6 +67,10 @@ public sealed class MainViewModel : ObservableObject
     private readonly Func<SaveFileRequest, string?>? _chooseSaveFile;
     private readonly Action<string>? _openFolder;
     private readonly Action? _showAbout;
+    private readonly Func<SaveFileRequest, string?> _chooseCollectionFile;
+    private readonly Func<string?> _chooseImportFile;
+    private readonly Func<string, bool> _confirmImport;
+    private readonly Action<string>? _showMessage;
     private List<TableSummary> _allTables = [];
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
@@ -85,8 +90,14 @@ public sealed class MainViewModel : ObservableObject
     /// <param name="openFolder">Shows a folder in File Explorer.</param>
     /// <param name="showAbout">Shows About TableForge. Null hides the command.</param>
     /// <param name="chooseSaveFile">Asks where to save an exported file (Save Foundry JSON…, Save Tables+ JSON…). Null means the Windows Save dialog.</param>
+    /// <param name="chooseCollectionFile">Asks where to save an exported Collection (.tfcollection). Null means the Windows Save dialog.</param>
+    /// <param name="chooseImportFile">Asks which .tfcollection file to import. Null means the Windows Open dialog.</param>
+    /// <param name="confirmImport">Asks the user to confirm an import, before anything is changed. Null means <paramref name="confirm"/>.</param>
+    /// <param name="showMessage">Shows a refused export or import with its details. The status bar always has the summary.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
-        string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<SaveFileRequest, string?>? chooseSaveFile = null)
+        string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<SaveFileRequest, string?>? chooseSaveFile = null,
+        Func<SaveFileRequest, string?>? chooseCollectionFile = null, Func<string?>? chooseImportFile = null, Func<string, bool>? confirmImport = null,
+        Action<string>? showMessage = null)
     {
         _db = db;
         _dice = dice;
@@ -96,12 +107,19 @@ public sealed class MainViewModel : ObservableObject
         DataFolder = dataFolder;
         _openFolder = openFolder;
         _showAbout = showAbout;
+        _chooseCollectionFile = chooseCollectionFile ?? CollectionFileChooser.ChooseSave;
+        _chooseImportFile = chooseImportFile ?? CollectionFileChooser.ChooseOpen;
+        _confirmImport = confirmImport ?? _confirm;
+        _showMessage = showMessage;
         AboutCommand = new RelayCommand(() => _showAbout?.Invoke(), () => _showAbout is not null);
         OpenDataFolderCommand = new RelayCommand(() => Try("open the data folder", () => _openFolder!(DataFolder!)),
             () => DataFolder is not null && _openFolder is not null);
 
         // Every command that touches the database reports a failure in the status bar instead of throwing into WPF.
         CreateCollectionCommand = new RelayCommand(() => Try("create the collection", CreateCollection), () => !string.IsNullOrWhiteSpace(NewCollectionName));
+        ExportCollectionCommand = new RelayCommand(() => Try("export the collection", ExportCollection), () => SelectedCollection is not null);
+        ImportCollectionCommand = new RelayCommand(() => Try("import the collection", ImportCollection));
+        DeleteCollectionCommand = new RelayCommand(() => Try("delete the collection", DeleteCollection), () => SelectedCollection is not null);
         NewFolderCommand = new RelayCommand(() => Try("create the folder", CreateFolder), () => SelectedCollection is not null && !string.IsNullOrWhiteSpace(NewFolderName));
         RenameFolderCommand = new RelayCommand(() => Try("rename the folder", RenameFolder), () => IsRealFolderSelected && !string.IsNullOrWhiteSpace(RenameFolderName));
         DeleteFolderCommand = new RelayCommand(() => Try("delete the folder", DeleteFolder), () => IsRealFolderSelected);
@@ -274,6 +292,9 @@ public sealed class MainViewModel : ObservableObject
     public DiceProviderViewModel? DiceProviders => _dice as DiceProviderViewModel;
 
     public ICommand CreateCollectionCommand { get; }
+    public ICommand ExportCollectionCommand { get; }
+    public ICommand ImportCollectionCommand { get; }
+    public ICommand DeleteCollectionCommand { get; }
 
     /// <summary>The folder TableForge keeps its data in (%LOCALAPPDATA%\TableForge, or TABLEFORGE_DATA_DIR); null when not known.</summary>
     public string? DataFolder { get; }
@@ -310,6 +331,131 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(EmptyStateText));
         Status = $"Created collection \"{collection.Name}\".";
         CollectionCreated?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ---- Export, Import and Delete Collection ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Writes the selected Collection to a .tfcollection file where the person chooses. A Collection that cannot be carried
+    /// faithfully is refused, with every reason, before anything is asked or written. Cancelling changes nothing.
+    /// </summary>
+    private void ExportCollection()
+    {
+        var collection = SelectedCollection!;
+        var export = PortableCollectionExporter.Export(_db, collection);
+        if (!export.Succeeded)
+        {
+            Refuse($"\"{collection.Name}\" can't be exported to a Collection file. Nothing was saved.", export.Problems);
+            return;
+        }
+
+        var path = _chooseCollectionFile(new SaveFileRequest("Export Collection", PortableCollectionExporter.SuggestedFileName(collection.Name)));
+        if (path is null) return;
+        try
+        {
+            System.IO.File.WriteAllBytes(path, export.Json!);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            Refuse($"The collection could not be saved: {ex.Message}", []);
+            return;
+        }
+        Status = $"Exported \"{collection.Name}\" to {System.IO.Path.GetFileName(path)}.";
+    }
+
+    /// <summary>
+    /// Reads and fully validates a .tfcollection file, says what it will create, and only then (if confirmed) creates it as a
+    /// brand-new Collection in one transaction. Existing Collections are never changed; a refused or failed import changes nothing.
+    /// </summary>
+    private void ImportCollection()
+    {
+        var path = _chooseImportFile();
+        if (path is null) return;
+
+        var read = PortableCollectionReader.ReadFile(path);
+        if (!read.Succeeded)
+        {
+            Refuse(read.Summary, read.Problems);
+            return;
+        }
+
+        var portable = read.Collection!;
+        var name = _db.UniqueCollectionName(portable.Name);
+        var folders = portable.Folders.Count;
+        var tables = portable.Tables.Count;
+        var message = $"Import the collection \"{name}\"?\n\n" +
+            $"{folders} {(folders == 1 ? "folder" : "folders")}, {tables} {(tables == 1 ? "table" : "tables")}." +
+            (name == portable.Name ? "" : $"\n\nA collection named \"{portable.Name}\" already exists, so this one will be called \"{name}\".") +
+            "\n\nThis will create a new Collection. Existing Collections will not be changed.";
+        if (!_confirmImport(message)) return;
+
+        Collection created;
+        try
+        {
+            created = _db.ImportCollection(portable); // one transaction: all of it, or nothing
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Refuse("The collection could not be imported. Nothing was imported.", [ex.Message]);
+            return;
+        }
+
+        ReloadCollections(created.Id); // like choosing a collection, this leaves whatever screen is open (and any unsaved draft) alone
+        Status = $"Imported \"{created.Name}\" ({tables} {(tables == 1 ? "table" : "tables")}).";
+    }
+
+    /// <summary>Deletes the selected Collection and everything in it, after confirmation, then selects the one beside it (if any).</summary>
+    private void DeleteCollection()
+    {
+        var collection = SelectedCollection!;
+        var count = _db.GetTableSummaries(collection.Id).Count;
+        var links = _db.CountLinksIntoCollection(collection.Id);
+        var message = (count == 0
+                ? $"Delete the collection \"{collection.Name}\"? It has no tables."
+                : $"Delete the collection \"{collection.Name}\" and {(count == 1 ? "the 1 table" : $"all {count} tables")} in it?") +
+            "\n\nIts folders are deleted too. Recent rolls from its tables stay in Recent Rolls as readable records.";
+        if (links > 0)
+            message += $"\n\n{links} {(links == 1 ? "entry" : "entries")} in other collections link to its tables. They will keep the table names as unresolved links.";
+        message += "\n\nThis cannot be undone.";
+        if (!_confirm(message)) return;
+
+        var index = Collections.IndexOf(collection);
+        _db.DeleteCollection(collection.Id);
+        if (ShowsCollection(collection.Id)) Current = null; // its tables are gone; a screen for another collection stays
+        Collections.Remove(collection);
+        SelectedCollection = Collections.Count == 0 ? null : Collections[Math.Min(index, Collections.Count - 1)];
+        ReloadRecentRolls(); // rolls from the deleted tables can no longer be opened
+        Raise(nameof(EmptyStateText));
+        Status = $"Deleted the collection \"{collection.Name}\"." + (Collections.Count == 0 ? " Create a collection to begin." : "");
+    }
+
+    /// <summary>Whether the open screen (pasting, reviewing or rolling) belongs to the collection.</summary>
+    private bool ShowsCollection(long collectionId) => Current switch
+    {
+        PasteViewModel paste => paste.CollectionId == collectionId,
+        ReviewViewModel review => review.CollectionId == collectionId,
+        RollViewModel roll => roll.Steps.Any(s => s.Table.CollectionId == collectionId),
+        _ => false,
+    };
+
+    /// <summary>Rebuilds the Collection list in the database's order (as at startup) and selects <paramref name="selectId"/>.</summary>
+    private void ReloadCollections(long selectId)
+    {
+        Collections.Clear();
+        foreach (var c in _db.GetCollections()) Collections.Add(c);
+        SelectedCollection = Collections.First(c => c.Id == selectId);
+        Raise(nameof(EmptyStateText));
+    }
+
+    /// <summary>A refused export or import: the summary in the status bar, and with its details where they can be shown.</summary>
+    private void Refuse(string summary, IReadOnlyList<string> problems)
+    {
+        Status = summary;
+        if (_showMessage is null) return;
+        const int shown = 12;
+        var details = string.Join("\n", problems.Take(shown).Select(p => $"• {p}"));
+        if (problems.Count > shown) details += $"\n• …and {problems.Count - shown} more.";
+        _showMessage(details.Length == 0 ? summary : $"{summary}\n\n{details}");
     }
 
     private void ReloadTables()
