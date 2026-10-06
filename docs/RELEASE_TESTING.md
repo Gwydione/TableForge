@@ -74,20 +74,54 @@ D6 Boons
       several characters into one of the aligned cells, then into a range (add a space after `2`): the cursor stays
       where you are typing the whole time.
 
+## Table description
+
+Use a table that links to another table (or make one: a row whose text names another table, linked on Review / Edit).
+
+- [ ] **Edit table**: a **Description (optional)** box sits between the name / dice / folder row and the Clamp checkbox,
+      about three lines high. Type two lines (**Enter** makes a new line, it does not save) and **Save Table**.
+- [ ] The Roll screen shows both lines under the table's dice, in plain grey text with no label.
+- [ ] A table without a description shows nothing there: no empty line or gap before "Not rolled yet."
+- [ ] Give the linked-to table its own description. Roll (or type) the linking row and open the link: each step in the
+      trail shows only its own table's description.
+- [ ] The table list, Recent and Recent rolls (and its tooltip) never show description text.
+- [ ] Paste more than 2,000 characters into the box: only the first 2,000 are kept. Save: the long text wraps under the
+      dice and **Roll** stays usable.
+- [ ] **Export…** → **Copy Table Text**, **Copy Table Text (Spaces)**, **Copy for Sojour**, **Copy Foundry JSON** and
+      **Copy Tables+ JSON** (paste each into Notepad): none contains the description.
+- [ ] Close and restart TableForge: the descriptions are still there.
+
+## Situational modifier entry
+
+On a `d20` table, with the **Modifier** box showing `0`:
+
+- [ ] Open the table (focus is on **Roll**), press **Tab**: the `0` in the Modifier box is selected. Type `+2`: the box
+      shows `+2` (never `+20`). Press **Enter**: the roll shows "… +2 situational" and the box is back to a selected `0`.
+- [ ] Without deleting anything, type `-1`: the box shows `-1` (never `-10`). **Enter** rolls with "… -1 situational".
+- [ ] Click into the "or enter a roll" box, then **Shift+Tab**: the `0` is selected again.
+- [ ] Click into the "or enter a roll" box, then click once into the Modifier box: the `0` is selected; typing `3` gives
+      `3`. Click again just left of the `3`: a normal cursor appears there, and typing `1` gives `13`.
+
 ## Portable Collections
 
-Use a collection with folders, a linked table and some bold or italic text (the Boons table above works).
+Use a collection with folders, a linked table and some bold or italic text (the Boons table above works), and **no**
+table descriptions.
 
 - [ ] Select it and choose **Export Collection…**: the Save dialog offers `<collection name>.tfcollection`. Save it
       somewhere outside the data folder. Open the file in Notepad: readable text starting with
-      `"format": "TableForgeCollection"` and `"formatVersion": 1`, and `"generator"` shows this version.
+      `"format": "TableForgeCollection"` and `"formatVersion": 1`, with no `"description"`, and `"generator"` shows this
+      version.
 - [ ] **Import Collection…** and choose that file: before anything changes it asks to import `<name> (2)`, with the
       right folder and table counts and "Existing Collections will not be changed." Choose **Cancel**: nothing is added.
 - [ ] Import it again and choose **OK**: `<name> (2)` is added and selected. Its tables roll exactly like the
       originals, the bold and italic text is still there, and following a link opens the table in `<name> (2)`.
 - [ ] Import it once more: `<name> (3)`. Close and restart TableForge: both copies are still there.
-- [ ] Copy the file, open the copy in Notepad and change `"formatVersion": 1` to `2`. Importing it is refused ("newer
+- [ ] Copy the file, open the copy in Notepad and change `"formatVersion": 1` to `3`. Importing it is refused ("newer
       file format … Nothing was changed.") and the collection list is unchanged.
+- [ ] Give one table in the collection a description and export again: the file says `"formatVersion": 2`, and only that
+      table has a `"description"`. Import it: the copy shows the description under that table's dice.
+- [ ] With rc25 (see Upgrade): the version 1 file imports; the version 2 file is refused ("uses a newer file format …
+      Nothing was changed.") and rc25's collection list is unchanged.
 - [ ] Select `<name> (3)` and choose **Delete Collection…**: it names the collection and its table count, says its
       folders are deleted too and that this cannot be undone. **No** keeps it; **Yes** removes it and selects the next
       collection. The original and `<name> (2)` are unchanged.
@@ -173,3 +207,6 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
       then refuses the data (it was made by a newer version).
 - [ ] From rc24 to rc25: no data-format change, so no new backup copy appears; tables, formatting and rolls are exactly
       as before, and the Export / Import / Delete Collection buttons are there. rc24 can still open the data afterwards.
+- [ ] From rc25 to rc26: `tableforge.pre-v10-from-v9.backup.db` appears; every collection, table, formatting, link and
+      Clamp setting is exactly as before, and no table has a description yet. rc25 then refuses the data (it was made
+      by a newer version) and changes nothing.

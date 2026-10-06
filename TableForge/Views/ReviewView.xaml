@@ -74,6 +74,12 @@
                               DisplayMemberPath="Name" Padding="4" ToolTip="Which folder in this collection the table belongs to" />
                 </StackPanel>
             </Grid>
+            <!-- Optional plain-text notes on when or how to use the table, shown under its dice while rolling. Never parsed from the paste. -->
+            <TextBlock Text="Description (optional)" Foreground="#555" Margin="0,8,0,0" />
+            <TextBox x:Name="DescriptionBox" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Padding="4"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="62" MaxLength="2000"
+                     AutomationProperties.Name="Table description"
+                     ToolTip="Plain text shown under the table's dice while rolling, for example when to roll it. Up to 2,000 characters." />
             <!-- Per-table Clamp to Range. Off by default; unavailable (with the reason beside it) for d66 or result sets with different ranges. -->
             <WrapPanel Margin="0,8,0,0">
                 <CheckBox x:Name="ClampBox" Content="Clamp out-of-range rolls to table range" VerticalAlignment="Center"

@@ -132,7 +132,7 @@ public class PortableCollectionValidationTests
     [Fact]
     public void A_newer_format_version_is_refused_as_newer()
     {
-        var read = Refused(d => d["formatVersion"] = 2, PortableReadFailure.NewerFormat, "version 2");
+        var read = Refused(d => d["formatVersion"] = PortableFormat.NewestVersion + 1, PortableReadFailure.NewerFormat, $"version {PortableFormat.NewestVersion + 1}");
         Assert.Contains("newer file format", read.Summary);
         Assert.Contains("Nothing was changed", read.Summary);
     }

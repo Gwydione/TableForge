@@ -158,9 +158,9 @@ public class RichTextPersistenceTests
     // ---- schema 9 -----------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void The_schema_is_version_9_with_one_nullable_text_formatting_column()
+    public void Since_version_9_the_schema_has_one_nullable_text_formatting_column()
     {
-        Assert.Equal(9, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration
+        Assert.Equal(10, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration (10, RC26, added Tables.Description)
 
         using var temp = new TempDatabase();
         using var db = temp.Open();
@@ -175,7 +175,7 @@ public class RichTextPersistenceTests
     }
 
     [Fact]
-    public void An_rc23_version_8_database_upgrades_to_9_with_a_backup_and_every_row_unchanged_and_plain()
+    public void An_rc23_version_8_database_upgrades_with_a_backup_and_every_row_unchanged_and_plain()
     {
         using var temp = new TempDatabase();
         long gearId, roomId;
@@ -186,11 +186,11 @@ public class RichTextPersistenceTests
             gearId = db.SaveTable(Fixtures.ParseAndBuild(Fixtures.RandomStartingGear, c)).Id;
             roomId = db.SaveTable(Fixtures.RoomFeatures(c)).Id;
         }
-        // Make it a real RC23 file: version 8, and no TextFormatting column.
+        // Make it a real RC23 file: version 8, with neither TextFormatting (9) nor Tables.Description (10).
         using (var raw = Raw(temp.Path))
         {
             using var cmd = raw.CreateCommand();
-            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; PRAGMA user_version = 8";
+            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; ALTER TABLE Tables DROP COLUMN Description; PRAGMA user_version = 8";
             cmd.ExecuteNonQuery();
         }
         using (var raw = Raw(temp.Path))
@@ -211,13 +211,13 @@ public class RichTextPersistenceTests
         }
 
         Assert.Equal(before, StoredEntries(temp.Path));                      // every DisplayText identical, every TextFormatting NULL
-        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith(".pre-v9-from-v8.backup.db", StringComparison.Ordinal));
+        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith($".pre-v{DatabaseMigrations.CurrentVersion}-from-v8.backup.db", StringComparison.Ordinal));
         using var check = Raw(temp.Path);
-        Assert.Equal(9, DatabaseMigrations.GetVersion(check));
+        Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(check));
     }
 
     [Fact]
-    public void A_version_9_database_is_newer_than_rc23_understands_so_rc23_refuses_it()
+    public void A_database_newer_than_this_build_understands_is_refused_as_rc23_refuses_version_9()
     {
         // RC23's CurrentVersion is 8; its AppDatabase refuses anything newer (DatabaseTooNewException) instead of re-saving
         // tables and silently dropping their formatting. The same rule, seen from this build, one version ahead:
@@ -225,14 +225,14 @@ public class RichTextPersistenceTests
         using (temp.Open()) { }
         using (var raw = Raw(temp.Path))
         {
-            Assert.Equal(9, DatabaseMigrations.GetVersion(raw));
+            Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
             Assert.True(DatabaseMigrations.GetVersion(raw) > 8);
             using var cmd = raw.CreateCommand();
-            cmd.CommandText = "PRAGMA user_version = 10";
+            cmd.CommandText = $"PRAGMA user_version = {DatabaseMigrations.CurrentVersion + 1}";
             cmd.ExecuteNonQuery();
         }
         var ex = Assert.Throws<DatabaseTooNewException>(() => temp.Open());
-        Assert.Equal((10, 9), (ex.FileVersion, ex.SupportedVersion));
+        Assert.Equal((DatabaseMigrations.CurrentVersion + 1, DatabaseMigrations.CurrentVersion), (ex.FileVersion, ex.SupportedVersion));
     }
 
     // ---- editing a saved table ----------------------------------------------------------------------------------------

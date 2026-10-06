@@ -543,7 +543,7 @@ public class ExtendedRangeTests
     [Fact]
     public void Open_bounds_are_stored_as_the_documented_integers_in_the_current_schema()
     {
-        Assert.Equal(9, DatabaseMigrations.CurrentVersion); // pinned: 8 introduced open bounds; 9 (RC24) added Entries.TextFormatting
+        Assert.Equal(10, DatabaseMigrations.CurrentVersion); // pinned: 8 introduced open bounds; 9 (RC24) added Entries.TextFormatting; 10 (RC26) Tables.Description
 
         using var temp = new TempDatabase();
         using (var db = temp.Open())
@@ -551,7 +551,7 @@ public class ExtendedRangeTests
 
         using var raw = new SqliteConnection($"Data Source={temp.Path};Pooling=False");
         raw.Open();
-        Assert.Equal(9, DatabaseMigrations.GetVersion(raw));
+        Assert.Equal(10, DatabaseMigrations.GetVersion(raw));
         using var cmd = raw.CreateCommand();
         cmd.CommandText = "SELECT MinValue, MaxValue, DisplayRange FROM Entries ORDER BY SortOrder";
         using var reader = cmd.ExecuteReader();
@@ -571,8 +571,8 @@ public class ExtendedRangeTests
         {
             raw.Open();
             using var cmd = raw.CreateCommand();
-            // A real version-7 file: later migrations' columns are not there yet (9 added Entries.TextFormatting).
-            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; PRAGMA user_version = 7";
+            // A real version-7 file: later migrations' columns are not there yet (9 added Entries.TextFormatting, 10 Tables.Description).
+            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; ALTER TABLE Tables DROP COLUMN Description; PRAGMA user_version = 7";
             cmd.ExecuteNonQuery();
         }
 

@@ -77,6 +77,12 @@ public sealed class RollableTable
     /// </summary>
     public bool ClampResultsToRange { get; set; }
 
+    /// <summary>
+    /// Optional plain-text notes on when or how the table is used; "" for none. Informational only: it never affects parsing,
+    /// rolling or resolution. See <see cref="TableDescription"/>.
+    /// </summary>
+    public string Description { get; set; } = "";
+
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
     public List<ResultSet> ResultSets { get; set; } = [];

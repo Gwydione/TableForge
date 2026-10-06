@@ -22,11 +22,28 @@ public sealed record PortableCollection(string Name, IReadOnlyList<string> Folde
 /// <param name="FolderIndex">Position of its folder in <see cref="PortableCollection.Folders"/>; null for Unfiled.</param>
 public sealed record PortableTable(RollableTable Table, int? FolderIndex);
 
-/// <summary>The fixed facts of the <c>.tfcollection</c> format. Its version is independent of the database schema version.</summary>
+/// <summary>
+/// The fixed facts of the <c>.tfcollection</c> format. Its version is independent of the database schema version.
+/// <para>
+/// Version 1 (RC25) is everything except table descriptions. Version 2 adds an optional "description" on each table. A file is
+/// written in the LOWEST version that carries all of its content (<see cref="VersionFor"/>): a Collection with no descriptions
+/// stays version 1, which RC25 imports exactly, and one with any description is version 2, which RC25 refuses as a newer
+/// format instead of importing it and silently dropping the descriptions.
+/// </para>
+/// </summary>
 public static class PortableFormat
 {
     public const string FormatName = "TableForgeCollection";
-    public const int FormatVersion = 1;
+
+    /// <summary>The newest format version this TableForge reads (and the newest it ever writes).</summary>
+    public const int NewestVersion = 2;
+
+    /// <summary>The first version with table descriptions.</summary>
+    public const int DescriptionsVersion = 2;
+
+    /// <summary>The version a file holding <paramref name="collection"/> is written in: the lowest that carries all of it.</summary>
+    public static int VersionFor(PortableCollection collection) =>
+        collection.Tables.Any(t => t.Table.Description.Length > 0) ? DescriptionsVersion : 1;
     public const string Extension = ".tfcollection";
 
     /// <summary>Files larger than this are refused before they are read.</summary>

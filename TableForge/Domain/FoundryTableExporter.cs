@@ -18,7 +18,7 @@ public sealed record FoundryExport(string Name, string Json, IReadOnlyList<strin
 /// "1d6 * 10 + 1d6" (tens and ones, exactly), while a genuine 66-sided die stays "1d66". Ranges are the numbers TableForge
 /// resolves with (a written "96–00" is [96, 100]). Text is the authored result text, only trimmed; line breaks, Unicode and
 /// characters like &amp; and &lt; are kept as they are, and inline dice stay plain text. Links, ids, clamp settings and every
-/// kind of runtime state (rolls, modifiers, resolved inline values) are never exported, and there is no description.
+/// kind of runtime state (rolls, modifiers, resolved inline values) are never exported, nor is the table's Description.
 /// Gaps and overlaps are exported as they are; only a table that cannot become a Foundry table at all is refused, including one
 /// with an open-ended row ("26+"), since a Foundry range is two finite numbers and no number stands in for "no bound".
 /// </summary>

@@ -13,7 +13,7 @@ namespace TableForge.Domain;
 /// same text. Ranges keep their written notation ("00", "08", "96-00"; d66 as 11-66) with a plain hyphen between the two
 /// numbers; a range written as plain numbers is shown as TableForge displays the dice (a d100's 100 is "00"). Text is
 /// only trimmed, and its line breaks and tabs each become one space (a tab separates the columns); nothing else is
-/// changed. Links, inline-roll results and every other runtime state are not table text and are never included.
+/// changed. Links, inline-roll results, the table's Description and every runtime state are not table text and are never included.
 /// <see cref="ExportRows"/> is the same text without the name, dice and blank line (Copy for Sojour).
 /// Copy Table Text (Spaces) is exactly the same text with one ordinary space instead of the tab between range and result
 /// (<see cref="TableTextSeparator.Space"/>); nothing else differs.

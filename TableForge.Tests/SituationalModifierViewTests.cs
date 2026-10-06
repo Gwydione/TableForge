@@ -183,4 +183,111 @@ public class SituationalModifierViewTests
             Assert.Equal("+3", box.Text);
         });
     }
+
+    // ---- arriving at the box selects its value (RC26): typing replaces the "0" instead of joining it ("+20") --------------
+
+    /// <summary>Types as the keyboard does, through WPF's text input into whatever has keyboard focus (honouring caret and selection).</summary>
+    private static void TypeKeys(UiHarness ui, string text)
+    {
+        foreach (var c in text)
+        {
+            TextCompositionManager.StartComposition(new TextComposition(InputManager.Current, Keyboard.FocusedElement, c.ToString()));
+            ui.Layout();
+        }
+        CommandManager.InvalidateRequerySuggested();
+        ui.Layout();
+    }
+
+    private static void AssertWholeValueSelected(TextBox box, string value)
+    {
+        Assert.True(box.IsKeyboardFocused);
+        Assert.Equal(value, box.Text);
+        Assert.Equal((0, value.Length), (box.SelectionStart, box.SelectionLength));
+    }
+
+    [Fact]
+    public void Tabbing_into_the_modifier_selects_the_0_so_typing_replaces_it_and_so_does_the_reset_after_a_roll()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = Open(11);
+            ui.SelectTable("Omens");
+            ui.Window.Activate();
+            var box = ModifierBox(ui);
+            var roll = ui.One<Button>(b => b.Name == "RollButton");
+            Assert.Equal("0", box.Text);
+
+            roll.Focus();
+            roll.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));                    // what Tab does
+            ui.Layout();
+            AssertWholeValueSelected(box, "0");
+
+            TypeKeys(ui, "+2");
+            Assert.Equal("+2", box.Text);                                                             // RC25 gave "+20"
+
+            ui.Press(box, Key.Enter, until: () => ui.Texts().Any(t => t.Text == "Rolled 13"));
+            Assert.Contains(ui.Texts(), t => t.Text == "11 +2 situational");
+            AssertWholeValueSelected(box, "0");                                                        // reset, focus kept, ready to type over
+
+            TypeKeys(ui, "-2");
+            Assert.Equal("-2", box.Text);
+            TypeKeys(ui, "1");
+            Assert.Equal("-21", box.Text);                                                             // typing itself never reselects
+        });
+    }
+
+    [Theory]
+    [InlineData("2", "2")]
+    [InlineData("-2", "-2")]
+    [InlineData("+2", "+2")]
+    public void Shift_tabbing_back_into_the_modifier_selects_the_0_too(string typed, string expected)
+    {
+        Sta.Run(() =>
+        {
+            using var ui = Open(11);
+            ui.SelectTable("Omens");
+            ui.Window.Activate();
+            var box = ModifierBox(ui);
+            var manual = ui.One<TextBox>(t => t.Name == "ManualBox");
+
+            manual.Focus();
+            manual.MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous));               // what Shift+Tab does
+            ui.Layout();
+            AssertWholeValueSelected(box, "0");
+
+            TypeKeys(ui, typed);
+            Assert.Equal(expected, box.Text);
+            Assert.Equal(expected, ((RollViewModel)ui.Main.Current!).ModifierText);
+        });
+    }
+
+    [Fact]
+    public void The_first_click_into_the_modifier_selects_the_0_and_a_later_click_places_the_caret_as_usual()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = Open(11);
+            ui.SelectTable("Omens");
+            ui.Window.Activate();
+            var box = ModifierBox(ui);
+            ui.One<Button>(b => b.Name == "RollButton").Focus();
+            ui.Layout();
+
+            MouseButtonEventArgs Click()
+            {
+                var e = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent };
+                box.RaiseEvent(e);
+                ui.Layout();
+                return e;
+            }
+
+            Assert.True(Click().Handled);                                                              // only focuses: no caret beside the 0
+            AssertWholeValueSelected(box, "0");
+            TypeKeys(ui, "+2");
+            Assert.Equal("+2", box.Text);
+
+            Assert.False(Click().Handled);                                                             // already focused: the TextBox handles it normally
+            Assert.Equal("+2", box.Text);
+        });
+    }
 }

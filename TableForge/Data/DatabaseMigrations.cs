@@ -125,6 +125,14 @@ public static class DatabaseMigrations
         """
         ALTER TABLE Entries ADD COLUMN TextFormatting TEXT NULL;
         """,
+
+        // 10: table descriptions. Tables.Description is optional plain text; every existing table gets '' (none), so nothing
+        // already saved looks or behaves differently. The CHECK is a backstop for TableDescription.MaxLength: SQLite's length()
+        // counts characters, never more than the UTF-16 units TableForge itself limits. Older versions refuse this database
+        // rather than carrying descriptions they cannot show.
+        """
+        ALTER TABLE Tables ADD COLUMN Description TEXT NOT NULL DEFAULT '' CHECK (length(Description) <= 2000);
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;

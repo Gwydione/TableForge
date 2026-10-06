@@ -69,6 +69,7 @@ public static class PortableCollectionExporter
             var table = db.LoadTable(summary.Id) ?? throw new InvalidOperationException($"The table \"{summary.Name}\" could not be read.");
             var where = $"Table \"{table.Name}\"";
             CheckText(table.Name, where, problems);
+            CheckText(table.Description, $"{where}'s description", problems);
 
             if (!DiceExpression.TryParse(table.Dice.ToString(), out var back) || back != table.Dice)
                 problems.Add($"{where} has dice ({table.Dice}) that cannot be written to a Collection file.");
@@ -85,6 +86,7 @@ public static class PortableCollectionExporter
                 Name = table.Name,
                 Dice = table.Dice,
                 ClampResultsToRange = table.ClampResultsToRange,
+                Description = table.Description,
             };
             for (var s = 0; s < table.ResultSets.Count; s++)
             {
@@ -167,7 +169,7 @@ public static class PortableCollectionExporter
         {
             w.WriteStartObject();
             w.WriteString("format", PortableFormat.FormatName);
-            w.WriteNumber("formatVersion", PortableFormat.FormatVersion);
+            w.WriteNumber("formatVersion", PortableFormat.VersionFor(portable));
             w.WriteString("generator", $"TableForge {AppInfo.Version}"); // information only; never read back
             w.WriteStartObject("collection");
             w.WriteString("name", portable.Name);
@@ -200,6 +202,7 @@ public static class PortableCollectionExporter
         if (portable.FolderIndex is { } folder) w.WriteString("folder", FolderId(folder));
         w.WriteString("dice", table.Dice.ToString());
         w.WriteBoolean("clampToRange", table.ClampResultsToRange);
+        if (table.Description.Length > 0) w.WriteString("description", table.Description); // only ever in a version 2 file
         w.WriteStartArray("resultSets");
         foreach (var set in table.ResultSets)
         {

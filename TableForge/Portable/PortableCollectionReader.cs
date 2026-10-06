@@ -107,9 +107,9 @@ public static class PortableCollectionReader
             if (!root.TryGetProperty("formatVersion", out var versionElement) || versionElement.ValueKind != JsonValueKind.Number
                 || !versionElement.TryGetInt32(out var version) || version < 1)
                 return new(null, PortableReadFailure.NotACollectionFile, ["The file's formatVersion is missing or is not a whole number of 1 or more."]);
-            if (version > PortableFormat.FormatVersion)
+            if (version > PortableFormat.NewestVersion)
                 return new(null, PortableReadFailure.NewerFormat,
-                    [$"The file uses format version {version}; this version of TableForge reads version {PortableFormat.FormatVersion}."]);
+                    [$"The file uses format version {version}; this version of TableForge reads versions 1 to {PortableFormat.NewestVersion}."]);
 
             try
             {
@@ -207,6 +207,16 @@ public static class PortableCollectionReader
             {
                 if (clampElement.ValueKind is JsonValueKind.True or JsonValueKind.False) clamp = clampElement.GetBoolean();
                 else Shape($"{where}: clampToRange must be true or false.");
+            }
+
+            // Optional; absent is "". Kept exactly as written (never trimmed, normalized or cut short). It is read whatever the
+            // file's version says: a description is never silently dropped, even from a hand-made version 1 file.
+            if (element.TryGetProperty("description", out var descriptionElement))
+            {
+                if (descriptionElement.ValueKind != JsonValueKind.String) Shape($"{where}: \"description\" must be text.");
+                else if (descriptionElement.GetString()! is var description && description.Length > TableDescription.MaxLength)
+                    Content($"{where} has a description of {description.Length:N0} characters; the most TableForge keeps is {TableDescription.MaxLength:N0}.");
+                else table.Description = description;
             }
 
             var sets = Array(element, "resultSets", where).ToList();

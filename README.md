@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc25 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0-rc26 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -17,6 +17,7 @@ TableForge can also:
   dddice account;
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
 - make words in a result **bold** or *italic* on the Review screen, shown that way when it is rolled;
+- give a table an optional plain-text **description** ("Roll when entering a new region"), shown under its dice while rolling;
 - make **several rolls at once**, keeping every result;
 - **Copy Table Text** as clean plain text for other tools and VTTs;
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
@@ -196,12 +197,29 @@ Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still m
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
 The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinary d6 whose order becomes tens and ones.
 
+## Table description
+
+A table can have an optional **Description**: a few lines of plain text saying when or how to use it, such as "Roll when
+entering a new region or when the weather changes." or "Apply +1 if the NPC is already friendly." Type it in the
+**Description** box on the Review screen (below the name, dice and folder; up to 2,000 characters, line breaks allowed). A
+newly pasted table starts with none: TableForge never takes one from the pasted text. When saved, line breaks are kept and
+spaces or blank lines at the very start and end are removed.
+
+While rolling, the description appears under the table's dice. A table with no description shows nothing there. A
+followed table shows its own description in its own step. The description is only a note: it never changes how the table
+rolls or resolves, and it does not appear in the table list, Recent tables or Recent rolls.
+
 ## Sharing a Collection (.tfcollection)
 
 **Export Collection…** (under the Collection list) saves the selected collection as one `.tfcollection` file: its folders,
 tables, dice, result sets, rows and their ranges (including `96-00`, negative and open-ended ranges such as `26+`), bold
-and italic text, Clamp settings and the links between its tables. It is plain, readable UTF-8 text (JSON). It does not
-include recent tables, recent rolls, dice settings or anything from your other collections.
+and italic text, Clamp settings, table descriptions and the links between its tables. It is plain, readable UTF-8 text
+(JSON). It does not include recent tables, recent rolls, dice settings or anything from your other collections.
+
+**Older TableForge versions:** a collection whose tables have no descriptions is saved in the same file format as
+1.0.0-rc25 (format version 1), so rc25 can import it. A collection with any table description is saved as format version
+2, which rc25 refuses ("uses a newer file format… Nothing was changed") instead of importing it without the descriptions.
+This version imports both.
 
 **Import Collection…** (under the New collection box) reads a `.tfcollection` file and, after showing you its name and
 how many folders and tables it holds, adds it as a **new** collection. It never merges into, replaces or changes a
@@ -234,7 +252,7 @@ d10
 one result set at a time (with several, a chooser beside the button says which), the name, the dice, a blank line, then one
 row per line with a tab between range and result. Ranges keep how they were written (`00`, `08`, `96-00`, d66 as `11`–`66`).
 Result text is only trimmed, with line breaks and tabs turned into single spaces; links, inline-roll results, the modifier,
-clamp results and roll history are never included, and copying changes nothing on screen.
+clamp results, the table's description and roll history are never included, and copying changes nothing on screen.
 
 **Export…** → **Copy Table Text (Spaces)** (Roll screen) copies exactly the same text for the same result set, with one ordinary
 space instead of the tab between each range and its result (`1-2 Backpack`), for tools where a pasted tab is awkward. It is
@@ -258,7 +276,8 @@ range and result, exactly as they appear in Copy Table Text but with no name, di
 
 Compatibility was tested by pasting with **Ctrl+V**; other ways of pasting have not been tested. The table's name and dice
 are not copied, so set them up in Sojour. Ranges keep how they were written (`96-00`), result text is trimmed with line
-breaks and tabs turned into single spaces, inline dice stay as written text, and links and roll state are never copied.
+breaks and tabs turned into single spaces, inline dice stay as written text, and links, the table's description and roll
+state are never copied.
 
 ## Foundry VTT export
 
@@ -283,7 +302,8 @@ Foundry: Roll Tables → **Import Tables**, then paste it or choose the file). C
 - **Ranges are numbers:** a written `96–00` is `[96, 100]` and `08` is `[8, 8]`. Gaps and overlaps are exported as they are.
   A result set with an open-ended row (`26+`, `1 or less`) is refused, since a Foundry range needs two numbers.
 - **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice like `1d6` left as plain text.
-  Links, inline-roll results, the modifier, Clamp and roll history are never exported, and there is no description.
+  Links, inline-roll results, the modifier, Clamp and roll history are never exported, and the table's description is not
+  included.
 - **Clamp:** Foundry does not clamp. If this table clamps and its dice can roll past its rows (`d20+2` over rows 1–20), a
   note says so after exporting; the export still happens.
 - **Save Foundry JSON…** suggests a file name made from the table's name, with characters Windows does not allow replaced by `_`.
@@ -319,7 +339,7 @@ exactly the same JSON:
   they are (the Review screen already points them out). A result set with an open-ended row (`26+`, `1 or less`) is refused.
 - **Text** is the result as written (trimmed), with line breaks, Unicode and inline dice kept. Text that means something
   special when typed into Tables+, such as `{2d6}` or `#reroll`, is exported unchanged; whether Tables+ acts on it after
-  an import has not been checked. Links, ids, roll state and Clamp are never exported.
+  an import has not been checked. Links, ids, the table's description, roll state and Clamp are never exported.
 - **Clamp:** Tables+ JSON has no Clamp setting. If this table clamps and its dice can roll past its rows, a note says so
   after exporting; the export still happens.
 
@@ -349,7 +369,8 @@ time; nothing about it is saved with the table, and the table's own dice (`2d6+1
   shows "No entry covers 0." TableForge never rerolls or picks the nearest row, and clamps only a table you have
   explicitly set to (see **Clamp to table range** below). That roll still uses the modifier up.
 - Anything that is not one whole number in range (`+`, `2.5`, `1d4`, `+1001`) turns Roll off and says why; it is never
-  read as 0. **Enter** in the box rolls.
+  read as 0. **Enter** in the box rolls. Moving into the box (**Tab**, **Shift+Tab** or a click) selects its value, and so
+  does the reset to 0 after a roll, so what you type next replaces the 0.
 - If the dice cannot finish (a dddice roll is cancelled or fails), the modifier stays for the retry. dddice still shows
   the real die (11); TableForge adds the modifier once the dice settle. The box is locked while dice are in the air.
 - A roll you type yourself is already final, so it ignores the modifier and leaves it waiting. Inline dice rolls ignore

@@ -466,6 +466,16 @@ public sealed class ReviewViewModel : ObservableObject
         set { if (_draft.DiceText != value) { _draft.DiceText = value; Raise(); Refresh(); } }
     }
 
+    /// <summary>
+    /// The table's optional plain-text description, as typed (normalized only when saved: see <see cref="TableDescription.Normalize"/>).
+    /// A new table starts empty; editing loads the saved one. No cleanup command ever touches it.
+    /// </summary>
+    public string Description
+    {
+        get => _draft.Description;
+        set { if (_draft.Description != value) { _draft.Description = value ?? ""; Raise(); Refresh(); } }
+    }
+
     /// <summary>Unfiled plus every folder in the table's collection. Only these can ever be chosen: a table can never reference another collection's folder.</summary>
     public IReadOnlyList<FolderPickerOption> FolderOptions { get; }
 

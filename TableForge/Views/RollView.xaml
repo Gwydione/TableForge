@@ -31,6 +31,9 @@
 
                             <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding DiceInfo}" Foreground="#666" Margin="0,2,0,8" />
+                            <!-- The table's own description, when it has one: secondary, plain, wrapping. Collapsed (no space at all) when empty. -->
+                            <TextBlock x:Name="DescriptionText" Text="{Binding Description}" Foreground="#666" TextWrapping="Wrap" Margin="0,-4,0,8"
+                                       Visibility="{Binding HasDescription, Converter={StaticResource BoolToVis}}" />
                             <TextBlock Text="Not rolled yet." Foreground="#888" FontStyle="Italic" Margin="0,0,0,4">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -138,7 +141,9 @@
                              AutomationProperties.Name="Situational modifier"
                              ToolTip="Added to the next Roll only (for example +2 or -1), then reset to 0. Not used by a typed roll."
                              IsEnabled="{Binding IsModifierEditable}"
-                             Text="{Binding ModifierText, UpdateSourceTrigger=PropertyChanged}">
+                             Text="{Binding ModifierText, UpdateSourceTrigger=PropertyChanged, NotifyOnTargetUpdated=True}"
+                             GotKeyboardFocus="OnModifierGotKeyboardFocus" PreviewMouseLeftButtonDown="OnModifierPreviewMouseDown"
+                             TargetUpdated="OnModifierTargetUpdated">
                         <TextBox.InputBindings>
                             <KeyBinding Key="Return" Command="{Binding RollCommand}" />
                         </TextBox.InputBindings>

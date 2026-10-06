@@ -11,7 +11,7 @@ public sealed record TablesPlusExport(string Name, string Json, IReadOnlyList<st
 /// <code>
 /// { "name": "Wilderness Encounters", "type": "weighted", "dice": "1d20", "entries": [ { "low": 1, "high": 3, "text": "Wolf pack" } ] }
 /// </code>
-/// Tables+ assigns ids and timestamps on import, so they are left out, as are description, tags, folder and anything
+/// Tables+ assigns ids and timestamps on import, so they are left out, as are description (TableForge's Description included), tags, folder and anything
 /// TableForge-specific. The type and dice come from the dice's structured fields, never their display text:
 ///  - one die, with or without a fixed modifier: "weighted", "1d20", "1d100", "1d20+2", "1d20-2" (a genuine 66-sided die is "1d66");
 ///  - the d66 convention (tens and ones): "weighted", "T66";

@@ -75,7 +75,7 @@ public class StartupTests
         using var raw = Raw(path);
         raw.Open();
         Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
-        Assert.Equal(9, DatabaseMigrations.GetVersion(raw));
+        Assert.Equal(10, DatabaseMigrations.GetVersion(raw));
     }
 
     [Fact]
@@ -341,10 +341,10 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_V1_release_candidate_25()
+    public void The_build_identifies_itself_as_V1_release_candidate_26()
     {
-        Assert.Equal("1.0.0-rc25", AppInfo.Version);
-        Assert.Contains("<Version>1.0.0-rc25</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Equal("1.0.0-rc26", AppInfo.Version);
+        Assert.Contains("<Version>1.0.0-rc26</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
     }
 
     [Fact]
@@ -368,6 +368,6 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("1.0.0-rc25", readme);
+        Assert.Contains("1.0.0-rc26", readme);
     }
 }

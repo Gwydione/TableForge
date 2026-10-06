@@ -23,6 +23,9 @@ public sealed class TableImportDraft
     /// </summary>
     public bool ClampResultsToRange { get; set; }
 
+    /// <summary>The table's description as typed (<see cref="RollableTable.Description"/>). Never read from pasted text: a new table starts empty.</summary>
+    public string Description { get; set; } = "";
+
     public List<ResultSetDraft> ResultSets { get; set; } = [];
     public List<ParseIssue> Issues { get; set; } = [];
 
@@ -34,6 +37,7 @@ public sealed class TableImportDraft
         DiceText = table.Dice.ToString(),
         FolderId = table.FolderId,
         ClampResultsToRange = table.ClampResultsToRange,
+        Description = table.Description,
         ResultSets = table.ResultSets.Select(s => new ResultSetDraft
         {
             Name = s.Name,
@@ -64,6 +68,9 @@ public sealed class TableImportDraft
         if (!haveDice) errors.Add($"Dice expression '{DiceText}' is not supported. Use a dice expression such as d20, 2d6, or 2d6+1.{DiceExpression.UnsupportedHint(DiceText)}");
 
         if (ResultSets.Count == 0) errors.Add("There are no result sets to save.");
+
+        var description = TableDescription.Normalize(Description);
+        if (description.Length > TableDescription.MaxLength) errors.Add(TableDescription.TooLongMessage);
 
         var built = new List<ResultSet>();
         for (var s = 0; s < ResultSets.Count; s++)
@@ -116,6 +123,7 @@ public sealed class TableImportDraft
             Name = TableName.Trim(),
             Dice = dice,
             FolderId = FolderId,
+            Description = description,
             ResultSets = built,
         };
         // A table that cannot be clamped (d66, result sets with different ranges) is saved with Clamp off, never a dormant "on".

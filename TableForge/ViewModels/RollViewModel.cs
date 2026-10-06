@@ -238,6 +238,10 @@ public sealed class RollStepViewModel(RollableTable table, bool isFirst) : Obser
     public string DiceInfo => Table.Dice.IsD66
         ? "d66 · two d6 read as tens and ones · legal rolls 11–66"
         : $"{Table.Dice} · legal rolls {Table.Dice.FormatValue(Table.Dice.Min)}–{Table.Dice.FormatValue(Table.Dice.Max)}";
+
+    /// <summary>This step's own table's description, shown under its dice; "" for none (then nothing is shown at all).</summary>
+    public string Description => Table.Description;
+    public bool HasDescription => Description.Length > 0;
     public IReadOnlyList<ResultSetViewModel> ResultSets { get; } = table.ResultSets.Select(s => new ResultSetViewModel(s)).ToList();
     public ObservableCollection<RollOutcomeViewModel> Outcomes { get; } = [];
     public bool HasOutcomes => Outcomes.Count > 0;

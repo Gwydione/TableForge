@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using TableForge.ViewModels;
@@ -16,6 +18,28 @@ public partial class RollView : UserControl
     }
 
     private int _stepCount = 1;
+
+    // ---- Modifier box: arriving at it selects its whole value, so typing replaces the "0" instead of joining it ("+20") ----
+
+    /// <summary>Tab, Shift+Tab or any other way in selects the whole value.</summary>
+    private void OnModifierGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => ModifierBox.SelectAll();
+
+    /// <summary>
+    /// The first click into the box only focuses it (selecting the whole value), instead of also placing the caret beside the
+    /// "0". Once it has focus, clicks place the caret as usual so the value can be edited.
+    /// </summary>
+    private void OnModifierPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ModifierBox.IsKeyboardFocusWithin) return;
+        ModifierBox.Focus();
+        e.Handled = true;
+    }
+
+    /// <summary>The view model reset the value (a roll used it up) while the box still has focus: select it, ready to be typed over.</summary>
+    private void OnModifierTargetUpdated(object? sender, DataTransferEventArgs e)
+    {
+        if (ModifierBox.IsKeyboardFocused) ModifierBox.SelectAll();
+    }
 
     /// <summary>Export… opens its menu under the button, by mouse or keyboard alike.</summary>
     private void OnExportClick(object sender, RoutedEventArgs e)
