@@ -1,6 +1,6 @@
 # TableForge release testing checklist
 
-For testing a packaged release candidate (`TableForge-<version>-Setup.exe`) on a Windows 10/11 x64 machine, ideally one
+For testing a packaged release (`TableForge-<version>-Setup.exe`) on a Windows 10/11 x64 machine, ideally one
 that has never had TableForge on it. Tick each item; note anything unexpected with the TableForge version (About, or the
 bottom right of the window) and your Windows version.
 
@@ -133,6 +133,30 @@ table descriptions.
 - [ ] Restart: the account and theme are remembered.
 - [ ] With the network off (or dddice failing), **Use Built-in Dice** still works and rolls normally.
 
+## Streaming Overlay (OBS)
+
+Needs OBS Studio. The dddice items also need a connected dddice account.
+
+- [ ] **Streaming Overlay…** (bottom of the window) opens; **Enable streaming overlay** is off. Tick it: "Running on port
+      41285."
+- [ ] **Copy** beside the Local file path, then in OBS add a **Browser** source with **Local file** ticked and that file:
+      the source is transparent and empty.
+- [ ] **Show Test Result**: "TableForge Overlay Test" and "12 — Your streaming overlay is working." appear. **Clear Overlay**
+      empties it. Recent rolls is unchanged.
+- [ ] Roll a table: its name, roll value and result appear. Untick **Show roll value**, then **Show table name**: each
+      disappears straight away and the result stays.
+- [ ] Open other tables, edit one, import or export: the overlay does not change. Roll a linked table after following a
+      link: it becomes the overlay.
+- [ ] With a situational modifier of `+2`: the overlay shows the final number only. A Clamp table rolled past its range
+      shows the number rolled. A roll no row covers shows "No entry covers N." in place of the previous result.
+- [ ] A result with inline dice (`1d4`): roll the inline dice and the overlay updates the same result in place.
+- [ ] Close TableForge: the overlay goes blank within a few seconds. Start TableForge again: it works without touching OBS.
+- [ ] Close OBS and TableForge, start OBS first, then TableForge: the Local file source starts working by itself.
+- [ ] With another program on port 41285 (or a second TableForge with the overlay on), the dialog says the port is in use.
+      Type another port, **Apply**: it runs there; refresh the OBS source once and it shows results again.
+- [ ] dddice: **Open my dddice room** opens the room on dddice.com; its **Streaming tools** → **3D Dice** link, added as a
+      second Browser Source, shows the dice of TableForge's rolls, then the TableForge result appears when they settle.
+
 ## Foundry VTT export
 
 In Foundry VTT v13 or v14 with the **Roll Table Importer** module enabled (Roll Tables → Import Tables). For each table,
@@ -198,7 +222,7 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 
 ## Upgrade
 
-- [ ] Install an **older** packaged release candidate.
+- [ ] Install an **older** packaged release.
 - [ ] Create a collection and a table, roll it (and connect dddice if you use it).
 - [ ] Close TableForge, then run the **newer** installer over it.
 - [ ] The newer version starts (About shows it), and everything from before is still there.
@@ -210,3 +234,6 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] From rc25 to rc26: `tableforge.pre-v10-from-v9.backup.db` appears; every collection, table, formatting, link and
       Clamp setting is exactly as before, and no table has a description yet. rc25 then refuses the data (it was made
       by a newer version) and changes nothing.
+- [ ] From rc26 to 1.0.0: no data-format change, so no new backup copy appears; tables, descriptions and rolls are exactly
+      as before, and **Streaming Overlay…** is there (off). After turning the overlay on, rc26 can still open the data and
+      ignores `streaming-overlay.json` and `streaming-overlay.html`.

@@ -53,6 +53,17 @@ public sealed class DddiceConnection
     public string? ThemeId => Account?.ThemeId;
 
     /// <summary>
+    /// dddice's own page for the account's saved room (where its Streaming tools are), or null for a guest or before the account
+    /// has a room. TableForge only opens it in the person's browser; it never sees or handles the room's streaming key.
+    /// </summary>
+    public string? RoomUrl => State == DddiceConnectionState.Connected && Account?.RoomSlug is { Length: > 0 } slug
+        ? $"https://dddice.com/room/{Uri.EscapeDataString(slug)}"
+        : null;
+
+    /// <summary>True once, this run, dddice refused the account's saved room and TableForge had to create a new one (see <see cref="DddiceMessages.RoomChanged"/>).</summary>
+    public bool RoomChanged { get; private set; }
+
+    /// <summary>
     /// A newly approved activation. A previous choice of theme and room is kept (a reconnect should not lose it); both are checked
     /// against dddice again before use, so a different account simply gets asked for a theme and given its own room.
     /// Saving happens first: if it fails, nothing changes.
@@ -97,6 +108,7 @@ public sealed class DddiceConnection
     {
         _store.Delete();
         Account = null;
+        RoomChanged = false;
         State = DddiceConnectionState.Guest;
         Changed?.Invoke(this, DddiceChange.Identity);
     }
@@ -122,10 +134,18 @@ public sealed class DddiceConnection
             if (!theme.IsCompatible)
                 throw new DddiceException(DddiceMessages.ThemeIncompatible(theme.Name, theme.Reason)) { IsAccountProblem = true };
 
-            var room = account.RoomSlug is { } saved && await rest.RoomIsAccessibleAsync(account.Token, saved, ct)
+            var previous = account.RoomSlug;
+            var room = previous is { } saved && await rest.RoomIsAccessibleAsync(account.Token, saved, ct)
                 ? saved
                 : await rest.CreateAccountRoomAsync(account.Token, ct);
             RememberRoom(room);
+            // A saved room dddice no longer lets this account use was replaced: anything pointing at the old room (an OBS dice
+            // source made from its Streaming tools) no longer receives rolls. The first room an account ever gets is not a change.
+            if (previous is not null && room != previous && !RoomChanged)
+            {
+                RoomChanged = true;
+                Changed?.Invoke(this, DddiceChange.Status);
+            }
             return new DddiceSession(account.Token, room, theme.Id, IsAccount: true);
         }
         catch (DddiceException ex) when (ex.IsAuthProblem)

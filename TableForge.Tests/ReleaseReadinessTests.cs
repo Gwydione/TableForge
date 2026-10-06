@@ -317,7 +317,11 @@ public class PackagingTests
             .Where(f =>
             {
                 var text = File.ReadAllText(f);
-                return text.Contains(@"C:\Projects", StringComparison.OrdinalIgnoreCase) || text.Contains("CurrentDirectory") || text.Contains("localhost");
+                // OverlayServer.cs validates the HTTP Host header and must accept "localhost:<port>" as well as "127.0.0.1:<port>":
+                // that is the Streaming Overlay's own loopback contract, not a dependency on the developer's machine.
+                var hostValidation = Path.GetFileName(f) == "OverlayServer.cs" && Path.GetFileName(Path.GetDirectoryName(f)) == "Streaming";
+                return text.Contains(@"C:\Projects", StringComparison.OrdinalIgnoreCase) || text.Contains("CurrentDirectory")
+                    || (text.Contains("localhost") && !hostValidation);
             })
             .Select(Path.GetFileName)
             .ToList();

@@ -4,6 +4,7 @@ using System.Windows.Input;
 using TableForge.Dice;
 using TableForge.Domain;
 using TableForge.Import;
+using TableForge.Streaming;
 
 namespace TableForge.ViewModels;
 
@@ -227,6 +228,13 @@ public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLi
     public bool HasBreakdown => Breakdown.Length > 0;
     public bool HasClampNote => ClampNote.Length > 0;
     public bool HasBatchLabel => BatchLabel.Length > 0;
+
+    /// <summary>This result's place on the Streaming Overlay (see <see cref="OverlayPublisher"/>); null when no overlay is wired in.
+    /// Each result of a multi-roll action has its own.</summary>
+    public OverlayToken? OverlayToken { get; internal set; }
+
+    /// <summary>What the overlay heads this result with: the table's name and the roll exactly as shown ("Rolled 14" → "14").</summary>
+    internal (string TableName, string RollValue) OverlayHeader { get; set; }
 }
 
 /// <summary>A table in the linked-roll trail and every roll made on it. Repeat rolls stay in the same step.</summary>
@@ -304,6 +312,7 @@ public sealed class RollViewModel : ObservableObject
     private readonly Func<bool>? _diceReady;
     private readonly Action<string> _copyText;
     private readonly Func<SaveFileRequest, string?> _chooseSaveFile;
+    private readonly OverlayPublisher? _overlay;
     private int _copyResultSetIndex;
     private string _copyMessage = "";
     private string _exportWarning = "";
@@ -324,11 +333,14 @@ public sealed class RollViewModel : ObservableObject
     /// Null means the Windows clipboard.</param>
     /// <param name="chooseSaveFile">Asks where to save a file, given the dialog's title and a suggested file name; null when the person
     /// cancels. Null means the Windows Save dialog.</param>
+    /// <param name="overlay">The Streaming Overlay: every resolved result is published to it, and a successful inline roll updates
+    /// it while that result is still the current one. Nothing else on this screen (links, exports, navigation) touches it.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
         Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null,
-        Func<SaveFileRequest, string?>? chooseSaveFile = null)
+        Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null)
     {
         _dice = dice;
+        _overlay = overlay;
         _copyText = copyText ?? ClipboardText.Set;
         _chooseSaveFile = chooseSaveFile ?? SaveFileChooser.ChooseJson;
         _diceReady = diceReady;
@@ -752,6 +764,34 @@ public sealed class RollViewModel : ObservableObject
             cancel.Dispose();
         }
         action.SetResult(roll);
+        PublishInline(action);
+    }
+
+    /// <summary>
+    /// A successful inline roll: the result it belongs to now reads differently, so the overlay shows it resolved in context —
+    /// but only while that result is still the one on the overlay (a newer result, Clear or Test has the final say).
+    /// </summary>
+    private void PublishInline(InlineDiceAction action)
+    {
+        if (_overlay is null) return;
+        var outcome = Steps.SelectMany(s => s.Outcomes).FirstOrDefault(o => o.Lines.Any(l => l.InlineActions.Contains(action)));
+        if (outcome?.OverlayToken is { } token) _overlay.UpdateIfCurrent(token, OverlayResultFor(outcome));
+    }
+
+    /// <summary>The overlay's copy of one result: each result set's line, its inline rolls substituted in context, with its bold/italic.</summary>
+    private static OverlayResult OverlayResultFor(RollOutcomeViewModel outcome) =>
+        new(outcome.OverlayHeader.TableName, outcome.OverlayHeader.RollValue, outcome.Lines.Select(OverlayLineFor).ToList());
+
+    private static OverlayLine OverlayLineFor(ResultLineViewModel line)
+    {
+        var segments = line.Segments;
+        if (line.HasResolved)
+        {
+            var (text, styles) = InlineDiceDetector.Substitute(line.Text, line.Styles, line.InlineMatches,
+                dice => line.InlineActions.FirstOrDefault(a => a.Expression == dice)?.LatestResult);
+            segments = styles.Segments(text);
+        }
+        return new OverlayLine(line.Heading, segments.Select(OverlaySegment.From).ToList());
     }
 
     /// <summary>Abandons a roll still in progress (the person left this table, or switched provider) — the parent table's own
@@ -826,6 +866,14 @@ public sealed class RollViewModel : ObservableObject
         Raise(nameof(RollDisplay));
         Raise(nameof(RollBreakdown));
         Raise(nameof(RollClampNote));
+
+        // The Streaming Overlay: this result becomes the current one (a No Match line included). It shows the roll exactly as
+        // calculated and displayed above — never the clamped lookup value, the clamp note or the modifier's arithmetic.
+        if (_overlay is not null)
+        {
+            outcome.OverlayHeader = (step.Table.Name, formatted);
+            outcome.OverlayToken = _overlay.Publish(OverlayResultFor(outcome));
+        }
 
         // What the user saw, as text: each set's output, headed by the set's name when it has one.
         var shown = string.Join("\n", lines.Select(l => l.HasHeading ? $"{l.Heading}: {l.Text}" : l.Text));

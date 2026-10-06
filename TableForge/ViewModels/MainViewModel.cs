@@ -5,6 +5,7 @@ using TableForge.Dice;
 using TableForge.Domain;
 using TableForge.Import;
 using TableForge.Portable;
+using TableForge.Streaming;
 
 namespace TableForge.ViewModels;
 
@@ -65,8 +66,10 @@ public sealed class MainViewModel : ObservableObject
     private readonly Func<string, bool> _confirm;
     private readonly Action<string>? _copyText;
     private readonly Func<SaveFileRequest, string?>? _chooseSaveFile;
+    private readonly OverlayPublisher? _overlay;
     private readonly Action<string>? _openFolder;
     private readonly Action? _showAbout;
+    private readonly Action? _showStreamingOverlay;
     private readonly Func<SaveFileRequest, string?> _chooseCollectionFile;
     private readonly Func<string?> _chooseImportFile;
     private readonly Func<string, bool> _confirmImport;
@@ -94,24 +97,29 @@ public sealed class MainViewModel : ObservableObject
     /// <param name="chooseImportFile">Asks which .tfcollection file to import. Null means the Windows Open dialog.</param>
     /// <param name="confirmImport">Asks the user to confirm an import, before anything is changed. Null means <paramref name="confirm"/>.</param>
     /// <param name="showMessage">Shows a refused export or import with its details. The status bar always has the summary.</param>
+    /// <param name="overlay">The Streaming Overlay, shared by every Roll screen this opens: only resolved results reach it.</param>
+    /// <param name="showStreamingOverlay">Shows the Streaming Overlay dialog. Null hides the command.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
         string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<SaveFileRequest, string?>? chooseSaveFile = null,
         Func<SaveFileRequest, string?>? chooseCollectionFile = null, Func<string?>? chooseImportFile = null, Func<string, bool>? confirmImport = null,
-        Action<string>? showMessage = null)
+        Action<string>? showMessage = null, OverlayPublisher? overlay = null, Action? showStreamingOverlay = null)
     {
         _db = db;
         _dice = dice;
         _confirm = confirm ?? (_ => false);
         _copyText = copyText;
         _chooseSaveFile = chooseSaveFile;
+        _overlay = overlay;
         DataFolder = dataFolder;
         _openFolder = openFolder;
         _showAbout = showAbout;
+        _showStreamingOverlay = showStreamingOverlay;
         _chooseCollectionFile = chooseCollectionFile ?? CollectionFileChooser.ChooseSave;
         _chooseImportFile = chooseImportFile ?? CollectionFileChooser.ChooseOpen;
         _confirmImport = confirmImport ?? _confirm;
         _showMessage = showMessage;
         AboutCommand = new RelayCommand(() => _showAbout?.Invoke(), () => _showAbout is not null);
+        StreamingOverlayCommand = new RelayCommand(() => _showStreamingOverlay?.Invoke(), () => _showStreamingOverlay is not null);
         OpenDataFolderCommand = new RelayCommand(() => Try("open the data folder", () => _openFolder!(DataFolder!)),
             () => DataFolder is not null && _openFolder is not null);
 
@@ -306,6 +314,10 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Shows About TableForge.</summary>
     public ICommand AboutCommand { get; }
     public bool HasAbout => _showAbout is not null;
+
+    /// <summary>Streaming Overlay…: the overlay's settings, Show Test Result and Clear Overlay.</summary>
+    public ICommand StreamingOverlayCommand { get; }
+    public bool HasStreamingOverlay => _showStreamingOverlay is not null;
     public ICommand NewFolderCommand { get; }
     public ICommand RenameFolderCommand { get; }
     public ICommand DeleteFolderCommand { get; }
@@ -674,7 +686,7 @@ public sealed class MainViewModel : ObservableObject
     {
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
-            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile);
+            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile, overlay: _overlay);
     }
 
     private void MarkUsed(long tableId)

@@ -25,7 +25,7 @@ public class PublicReleaseTests
         Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.0.0-rc26", AppInfo.Version);
+        Assert.Equal("1.0.0", AppInfo.Version);
     }
 
     [Fact]
@@ -115,21 +115,27 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.0.0-rc26.md");
-        Assert.StartsWith("# TableForge 1.0.0-rc26", notes);
+        var notes = Read("docs", "release-notes", "1.0.0.md");
+        Assert.Equal("# TableForge 1.0.0", notes.Split('\n')[0].TrimEnd('\r'));               // 1.0.0, not an rc
+        Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);       // the first stable release
+        Assert.DoesNotContain("rc27", notes);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
-        Assert.Contains("TableForge-1.0.0-rc26-Setup.exe", notes);
-        Assert.Contains("**Table Description**", notes);                                        // the RC26 change, stated precisely:
-        Assert.Contains("format version 1), so rc25 can import it", notes);                      // no descriptions: still the rc25 file format
-        Assert.Contains("format\n  version 2, which rc25 refuses", notes.ReplaceLineEndings("\n")); // descriptions: refused by rc25, never dropped
-        Assert.Contains("rc26 imports both", notes);
-        Assert.Contains("**Situational modifier entry**", notes);                                // a fix to an existing feature, not a new one
-        Assert.DoesNotContain("New: **Situational", notes);
-        Assert.Contains("**Existing exports are unchanged**", notes);
-        Assert.Contains("database schema version 10", notes);
-        Assert.Contains("`tableforge.pre-v10-from-v9.backup.db`", notes);
-        Assert.Contains("**rc25 and earlier cannot open the data**", notes);
+        Assert.Contains("TableForge-1.0.0-Setup.exe", notes);
+        Assert.Contains("**Streaming Overlay (OBS)**", notes);                                 // new since rc26, stated precisely:
+        Assert.Contains("`streaming-overlay.html`", notes);                                     // the recommended OBS setup is the local file
+        Assert.Contains("**Local file**", notes);
+        Assert.Contains("**Show Test Result**", notes);
+        Assert.Contains("**Clear Overlay**", notes);
+        Assert.Contains("**Open my dddice room**", notes);                                      // dddice's dice stay a separate source
+        Assert.Contains("TableForge never sees or stores that link", notes);
+        Assert.Contains("(`127.0.0.1`)", notes);                                                // local only
+        Assert.Contains("**41285**", notes);
+        Assert.Contains("**The data format does not change** (still database schema version 10)", notes);   // rc26 and 1.0.0 share the data
+        Assert.Contains("rc26 can still open data that 1.0.0 has used", notes);
+        Assert.Contains("rc26 simply ignores", notes);
+        Assert.Contains("**rc25 and earlier cannot open the data**", notes);                     // the RC26 upgrade status is kept
+        Assert.Contains("from the rc test releases: **Table Description**", notes);
         Assert.Contains("**Portable Collections**", notes);                                     // the RC25 status is kept
         Assert.Contains("**Delete Collection…**", notes);
         Assert.Contains("**Bold and italic result text**", notes);
@@ -140,7 +146,7 @@ public class PublicReleaseTests
         Assert.Contains("this is not full", notes);
 
         var checklist = Read("docs", "RELEASE_TESTING.md");
-        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Table description", "## Situational modifier entry", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
+        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Table description", "## Situational modifier entry", "## Streaming Overlay (OBS)", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
             Assert.Contains(heading, checklist);
     }
 }

@@ -1,0 +1,87 @@
+<Window x:Class="TableForge.StreamingOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Streaming Overlay" Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="13" Icon="Assets/TableForge.ico">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <StackPanel Margin="18">
+        <TextBlock Text="Show the latest TableForge result in OBS as its own Browser Source." TextWrapping="Wrap" Margin="0,0,0,10" />
+
+        <CheckBox x:Name="EnableBox" Content="Enable streaming overlay" IsChecked="{Binding IsEnabled}" FontWeight="SemiBold" Margin="0,0,0,6" />
+        <TextBlock x:Name="OverlayStatusText" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,12" AutomationProperties.AutomationId="OverlayStatus">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="#555" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                            <Setter Property="Foreground" Value="#A00000" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <TextBlock Text="OBS Browser Source, &quot;Local file&quot; (recommended):" FontWeight="SemiBold" />
+        <Grid Margin="0,2,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="LocalFileBox" Text="{Binding LocalFilePath, Mode=OneWay}" IsReadOnly="True" Padding="3"
+                     AutomationProperties.Name="Overlay local file path" />
+            <Button x:Name="CopyLocalFileButton" Grid.Column="1" Content="Copy" Padding="10,2" Margin="6,0,0,0" Command="{Binding CopyLocalFileCommand}" />
+        </Grid>
+
+        <TextBlock Text="Or a URL Browser Source (refresh it in OBS if OBS was started before TableForge):" TextWrapping="Wrap" />
+        <Grid Margin="0,2,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="BrowserUrlBox" Text="{Binding BrowserUrl, Mode=OneWay}" IsReadOnly="True" Padding="3"
+                     AutomationProperties.Name="Overlay URL" />
+            <Button x:Name="CopyUrlButton" Grid.Column="1" Content="Copy" Padding="10,2" Margin="6,0,0,0" Command="{Binding CopyUrlCommand}" />
+        </Grid>
+        <TextBlock x:Name="CopyMessageText" Text="{Binding CopyMessage}" Foreground="#555" Margin="0,0,0,8" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox x:Name="PortBox" Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}" Width="70" Padding="3"
+                     AutomationProperties.Name="Overlay port">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding ApplyPortCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button x:Name="ApplyPortButton" Content="Apply" Padding="10,2" Margin="6,0,0,0" Command="{Binding ApplyPortCommand}"
+                    ToolTip="Use this port (1024-65535). OBS then needs a one-time refresh." />
+        </StackPanel>
+        <TextBlock x:Name="PortErrorText" Text="{Binding PortError}" Foreground="#A00000" Margin="0,0,0,4"
+                   Visibility="{Binding HasPortError, Converter={StaticResource BoolToVis}}" />
+
+        <CheckBox x:Name="ShowTableNameBox" Content="Show table name" IsChecked="{Binding ShowTableName}" Margin="0,8,0,4" />
+        <CheckBox x:Name="ShowRollValueBox" Content="Show roll value" IsChecked="{Binding ShowRollValue}" Margin="0,0,0,10" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <Button x:Name="ShowTestButton" Content="Show Test Result" Padding="10,3" Command="{Binding ShowTestCommand}"
+                    ToolTip="Shows a test result on the overlay. It is not a roll and is never added to Recent rolls." />
+            <Button x:Name="ClearOverlayButton" Content="Clear Overlay" Padding="10,3" Margin="6,0,0,0" Command="{Binding ClearCommand}"
+                    ToolTip="Empties the overlay. Tables, Recent rolls and settings are not changed." />
+        </StackPanel>
+
+        <Border BorderBrush="#DDD" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="dddice 3D dice" FontWeight="SemiBold" />
+                <TextBlock x:Name="DddiceHelpText" Text="{Binding DddiceHelp}" TextWrapping="Wrap" Foreground="#555" Margin="0,2,0,6" />
+                <TextBlock x:Name="DddiceNoticeText" Text="{Binding DddiceNotice}" TextWrapping="Wrap" Foreground="#A00000" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Visibility="{Binding HasDddiceNotice, Converter={StaticResource BoolToVis}}" />
+                <Button x:Name="OpenDddiceRoomButton" Content="Open my dddice room" HorizontalAlignment="Left" Padding="10,3"
+                        Command="{Binding OpenDddiceRoomCommand}" ToolTip="Opens your dddice room in your web browser"
+                        Visibility="{Binding ShowDddiceRoom, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </Border>
+
+        <Button Content="Close" HorizontalAlignment="Right" Padding="16,3" IsCancel="True" Click="OnClose" />
+    </StackPanel>
+</Window>

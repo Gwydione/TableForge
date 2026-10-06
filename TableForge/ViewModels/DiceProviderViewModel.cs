@@ -188,6 +188,7 @@ public sealed class DiceProviderViewModel : ObservableObject, IDiceProvider
             if (cancel.IsCancellationRequested) return;
             State = DiceProviderState.Ready;
             Message = _connection is { IsAccountMode: true } ? $"dddice is ready (theme: {_connection.ThemeName})." : "dddice is ready (guest mode: no account needed).";
+            if (_connection is { RoomChanged: true }) Message += " " + DddiceMessages.RoomChanged;
         }
         catch (OperationCanceledException) { /* the person switched away */ }
         catch (Exception ex)

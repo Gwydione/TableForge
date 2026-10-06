@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0-rc26 (release candidate) · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.0.0 · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -19,6 +19,7 @@ TableForge can also:
 - make words in a result **bold** or *italic* on the Review screen, shown that way when it is rolled;
 - give a table an optional plain-text **description** ("Roll when entering a new region"), shown under its dice while rolling;
 - make **several rolls at once**, keeping every result;
+- show the latest result in **OBS** with the **Streaming Overlay** (dddice's 3D dice can be a separate OBS source);
 - **Copy Table Text** as clean plain text for other tools and VTTs;
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
 - **export to Foundry VTT** as JSON for the Roll Table Importer module;
@@ -40,7 +41,7 @@ TableForge can also:
   `TableForge-<version>-win-x64.zip` is also published for people who prefer not to install; it keeps its data in the same
   place.
 
-**SmartScreen:** early TableForge release candidates are not code-signed, so Windows may show "Windows protected your PC"
+**SmartScreen:** TableForge is not code-signed, so Windows may show "Windows protected your PC"
 when you run the installer. If you downloaded it from the [TableForge Releases page](https://github.com/Gwydione/TableForge/releases) and trust it, choose
 **More info**, then **Run anyway**. You can compare the download with the `SHA256SUMS.txt` published beside it
 (`Get-FileHash TableForge-<version>-Setup.exe` in PowerShell). Don't turn off SmartScreen or other Windows protection.
@@ -74,7 +75,9 @@ Everything TableForge keeps (your tables, settings, dice choice and any dddice c
 
 TableForge keeps its data on your computer and has **no telemetry or analytics**. The optional dddice dice make network
 requests to dddice; TableForge never asks for, collects or stores your dddice password, and a connected dddice account's
-access token is protected with Windows DPAPI for your Windows user. See [PRIVACY.txt](PRIVACY.txt) for the details.
+access token is protected with Windows DPAPI for your Windows user. The optional **Streaming Overlay** (off by default) shares
+only the current result with programs on this computer (address `127.0.0.1`); it is never reachable from the network. See
+[PRIVACY.txt](PRIVACY.txt) for the details.
 
 ## Known limitations
 
@@ -96,6 +99,8 @@ access token is protected with Windows DPAPI for your Windows user. See [PRIVACY
 - The parser is deliberately conservative: anything it is unsure about stays together and is flagged on the Review screen
   instead of being guessed. Side-by-side columns that each restart at the same number are not split.
 - dddice accounts can use only themes with every standard die; custom dice are not supported.
+- The **Streaming Overlay** shows one current result. dddice's 3D dice can be shown in OBS only with a connected dddice
+  account, and two copies of TableForge cannot use the same overlay port.
 
 ## Feedback and bug reports
 
@@ -151,6 +156,8 @@ Beside it TableForge keeps `dice-provider.txt` (one word, `builtin` or `dddice`:
 dddice, a `WebView2` folder (the browser profile that draws the dice; it holds no tables). If you connect a dddice account there is
 also `dddice-account.json`: the connection's token, encrypted with Windows (DPAPI, readable only by your Windows user), plus your
 account's display name, chosen theme and dddice room. Disconnect deletes it. Deleting it by hand just returns dddice to guest.
+Once you use the [Streaming Overlay](#streaming-overlay-obs) there are also `streaming-overlay.json` (its settings) and
+`streaming-overlay.html` (the page OBS loads).
 
 On first launch TableForge creates the folder and database itself. When a newer TableForge needs to update an existing
 database to its format, it first saves a copy beside it, `tableforge.pre-v8-from-v7.backup.db` (the format it updates to,
@@ -478,7 +485,58 @@ everything. If your chosen theme leaves your Dice Box or can no longer be used, 
 another. It never switches to the guest dice or another theme by itself; **Use Built-in Dice** is always there.
 **Disconnect** forgets the connection on this computer only (your dddice account is not changed) and dddice rolls as a guest again.
 
-Not included yet: custom dice, OBS output, other dice apps.
+Not included yet: custom dice, other dice apps. To show dddice's dice in OBS, see [Streaming Overlay](#streaming-overlay-obs).
+
+## Streaming Overlay (OBS)
+
+The Streaming Overlay shows the latest TableForge result (table name, roll value and result text) in OBS as its own Browser
+Source, on a transparent background; OBS decides where it goes and how big it is. It works the same with Built-in dice, dddice
+and rolls you type yourself, and it needs no dddice account.
+
+1. Choose **Streaming Overlay…** at the bottom of the TableForge window and tick **Enable streaming overlay**. The status line
+   says "Running on port 41285."
+2. Beside **OBS Browser Source, "Local file" (recommended)** choose **Copy**: it copies the path of `streaming-overlay.html`
+   in your data folder (normally `%LOCALAPPDATA%\TableForge\streaming-overlay.html`).
+3. In OBS add a **Browser** source, tick **Local file**, choose that file, and place it in your scene.
+4. **Show Test Result** shows "TableForge Overlay Test / 12 — Your streaming overlay is working." so you can place it without
+   rolling; **Clear Overlay** empties it. Neither is a roll, and neither appears in Recent rolls.
+
+Loaded from the local file, the overlay starts showing results by itself whenever TableForge is running, even if OBS was
+opened first. The dialog also gives a URL (`http://127.0.0.1:41285/`) for a URL Browser Source; it shows the same thing, but if
+OBS was started before TableForge you must refresh that source in OBS (Properties → **Refresh cache of current page**).
+
+What it shows:
+
+- The latest result replaces the one before and stays until another result replaces it or you choose **Clear Overlay**.
+  Opening other tables, following a link, editing, importing and exporting never change it; rolling the linked table does.
+- **Show table name** and **Show roll value** (both on by default) change the overlay straight away. The result text is
+  always shown, with its bold and italic; each result set is its own line.
+- The roll value is the final number: a 3 with a situational modifier of `+2` shows **5** (the arithmetic stays on the Roll
+  screen). With Clamp it shows the number actually rolled, while the result is the boundary row's.
+- A roll no row covers shows TableForge's "No entry covers N." in place of the previous result.
+- Rolling inline dice in the current result ("2d6 Skeletons") updates that result in place ("7 Skeletons"). An inline roll in
+  an older result (an earlier roll of several) does not change the overlay.
+- When TableForge closes, the overlay goes blank within a few seconds. A new TableForge session starts with it empty.
+
+**dddice's 3D dice in OBS.** dddice draws its own dice; TableForge does not capture or relay them. To show them too, add
+dddice's own stream as a **second, separate** Browser Source:
+
+1. Connect your dddice account (**Account…** under Dice) and choose a theme.
+2. In **Streaming Overlay…** choose **Open my dddice room**: it opens TableForge's room on dddice.com in your browser.
+3. In dddice open **Streaming tools** and copy the **3D Dice** link.
+4. In OBS add that link as its own Browser Source (a URL, not a local file). Keep it separate from the TableForge source.
+
+How the dice look, including their size, is set in dddice (the room's settings), not in TableForge. TableForge never sees,
+stores or needs that streaming link. If TableForge says "dddice room changed. Your OBS dice source may need to be updated.",
+dddice has given your account a new room: open it again with **Open my dddice room** and replace the dice source's link in
+OBS. Guest dddice dice cannot be shown in OBS this way.
+
+**Port and troubleshooting.** The overlay listens only on `127.0.0.1` (this computer), on port **41285** unless you change
+it, and only while it is enabled. If the status says the port is already in use, another program (or another copy of
+TableForge) has it: type another port from 1024 to 65535 and choose **Apply**. TableForge never picks a different port by
+itself. After changing the port, refresh the Browser Source in OBS once. To restyle the overlay, OBS's own **Custom CSS** can
+target its `tf-…` classes (for example `tf-table-name`, `tf-roll-value`, `tf-result-text`); TableForge has no appearance
+settings of its own.
 
 ## What Paste Table understands (copied-PDF text)
 
@@ -634,7 +692,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0-rc20 · built 2026-09-22 09:41 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.0.0 · built 2026-10-06 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 

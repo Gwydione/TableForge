@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using TableForge.Data;
 using TableForge.Dice;
+using TableForge.Streaming;
 using TableForge.ViewModels;
 
 namespace TableForge;
@@ -10,6 +11,10 @@ public partial class App : Application
 {
     private AppDatabase? _db;
     private WebViewDddiceRoller? _dddice;
+
+    // The Streaming Overlay's current result: in memory only, so every run starts with an empty overlay.
+    private readonly OverlayPublisher _overlay = new();
+    private StreamingOverlayController? _overlayController;
 
     // The dice choice is one word in a small file next to the database (no schema change for a single setting).
     private static string DataFolder => System.IO.Path.GetDirectoryName(AppDatabase.DefaultPath)!;
@@ -52,7 +57,16 @@ public partial class App : Application
                 {
                     Owner = window,
                     DataContext = new AboutViewModel(AppInfo.Version, AppContext.BaseDirectory, DataFolder, OpenWithWindows),
+                }.ShowDialog(),
+                overlay: _overlay,
+                showStreamingOverlay: () => new StreamingOverlayWindow
+                {
+                    Owner = window,
+                    DataContext = new StreamingOverlayViewModel(_overlayController!, connection, CopyText, OpenInBrowser),
                 }.ShowDialog());
+            // The Streaming Overlay listens (on 127.0.0.1 only) just while it is enabled; a port problem is shown in its dialog.
+            _overlayController = new StreamingOverlayController(_overlay, DataFolder);
+            _overlayController.Start();
             window.DataContext = main;
             window.Show();
             dice.RestorePreference();
@@ -140,6 +154,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _overlayController?.Dispose();
         _dddice?.Dispose();
         _db?.Dispose();
         base.OnExit(e);

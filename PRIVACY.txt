@@ -12,6 +12,10 @@ TableForge privacy
 - TableForge never asks for or stores your dddice password. If you connect a dddice account, you approve the connection
   on dddice.com in your own browser. TableForge then keeps dddice's access token in dddice-account.json, encrypted with
   Windows (DPAPI) so that only your Windows user account can read it; Disconnect deletes it.
+- The Streaming Overlay is optional and off by default. While it is on, TableForge lets programs on your own computer (such as
+  OBS) read the current result (table name, roll value and result text) at 127.0.0.1; it is never reachable from the network
+  and sends nothing anywhere. For dddice's dice in OBS, you copy dddice's own streaming link on dddice.com; TableForge never
+  sees or stores it.
 - Copy Table Text puts the table's text on the Windows clipboard, where other programs on your computer can read it, as
   with any copy.
 - Uninstalling TableForge removes the program but leaves your data folder, so your tables are still there if you

@@ -200,6 +200,7 @@ public static class DddiceMessages
     public const string Unavailable = "dddice is temporarily unavailable. Try again shortly.";
     public const string ActivationTimedOut = "Connection timed out. You can try again.";
     public const string ChooseTheme = "Choose a dddice theme in Account…";
+    public const string RoomChanged = "dddice room changed. Your OBS dice source may need to be updated.";
     public static string ThemeMissing(string name) => $"Your theme \"{name}\" is no longer in your dddice Dice Box. Choose another in Account…";
     public static string ThemeIncompatible(string name, string reason) => $"Your theme \"{name}\" can't be used by TableForge ({reason}). Choose another in Account…";
 }
