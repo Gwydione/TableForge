@@ -2,7 +2,7 @@
 
 **TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.0.0 · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.1.0 · Windows 10/11 (64-bit) · by RPG Frequencies
 
 Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
@@ -24,6 +24,8 @@ TableForge can also:
 - **Copy for Sojour**: just the rows, ready to paste into a Sojour Lookup Table;
 - **export to Foundry VTT** as JSON for the Roll Table Importer module;
 - **export to Owlbear Rodeo (Tables+)** as Tables+ import JSON (`d20`, `d66` and `2d6` checked in Tables+ so far);
+- **export to PUM Companion** as a `.pumb` bundle, one table or a whole Collection, after a review of what will be
+  exported, skipped or changed;
 - **export a whole Collection** to a `.tfcollection` file and give it to another TableForge user, who can **import** it as
   a new Collection without changing anything already in their library.
 
@@ -90,6 +92,9 @@ only the current result with programs on this computer (address `127.0.0.1`); it
 - **Owlbear Rodeo (Tables+) export** has been checked in Tables+ only for `d20`, `d66` and `2d6` tables; other cases
   (negative numbers, gaps and overlaps, `{2d6}`, `#reroll`, a real `1d66`, importing a saved file) are untested.
   `2d6+1`-style dice (several dice with a modifier) are refused for now.
+- **PUM Companion export** skips any table it can't reproduce exactly in PUM, and says why. Links become text lines,
+  inline dice are not rolled by PUM, and descriptions are not exported. Rows beyond the dice, which only PUM's own roll
+  overrides reach, have not been checked in PUM.
 - **Copy for Sojour** has been tested only by pasting with **Ctrl+V** into a Sojour Lookup Table; it copies one result
   set's rows, and the table's name and dice are set up in Sojour yourself.
 - dddice dice need an internet connection and the WebView2 Runtime.
@@ -349,6 +354,67 @@ exactly the same JSON:
   an import has not been checked. Links, ids, the table's description, roll state and Clamp are never exported.
 - **Clamp:** Tables+ JSON has no Clamp setting. If this table clamps and its dice can roll past its rows, a note says so
   after exporting; the export still happens.
+
+## PUM Companion export
+
+**Export to PUM Companion…** (under Export Collection / Delete Collection) saves the selected collection as one `.pumb`
+bundle for PUM Companion. On the Roll screen, **Export…** → **Save PUM Companion Bundle…** saves just the table shown,
+with every result set (the result-set chooser beside **Export…** is for the other formats). In PUM Companion, import the
+file with PUM's own import.
+
+**The review comes first.** Before anything is saved, a window shows:
+- how many tables will be exported and how many skipped;
+- each skipped table with its reason, and any warnings;
+- the full report, which **Copy Report** copies.
+
+**Save Bundle…** then asks where to save. Cancelling at either step saves nothing. The file is written completely or not
+at all: if saving fails, an existing file with that name is left as it was. A single table that can't be exported says
+why next to **Export…**, with no review.
+
+**What a roll shows is kept.** For every roll of a table's own dice, an exported table shows in PUM what it shows in
+TableForge. TableForge checks each table before exporting it, and skips any table it can't reproduce exactly. The report
+gives the reason and an example roll.
+
+**How tables are written for PUM:**
+- **No Match:** where no row covers a roll (a gap, or the low rolls of `d6-2`), the PUM table has a `(No result)` row,
+  and its last row catches any higher roll, since PUM otherwise shows its last row. **Clamp to Range** is kept: PUM
+  clamps the same way.
+- **Rolls below 1:** PUM looks up every roll below 1 as 1. A table whose dice can roll below 1 is exported only if that
+  changes nothing. Rows that only the situational modifier could reach below 1 are left out, with a warning.
+- **Several result sets** become one PUM table. Each result lists every set (`Weather: Rain` and `Wind: Calm` on two
+  lines), so one roll still gives all of them.
+- **Dice:** `1d6`, `2d6+1` and `1d20-2` are written as they are. A `d66` (tens and ones) becomes PUM's `1D66`, and a real
+  66-sided die stays `1d66`. `96-00` on a `d100` and open-ended rows such as `26+` work.
+- **Links** become a line under the result, `→ Table name`, with "(not included in this export)" when that table isn't in
+  the bundle, or "(unresolved link)". PUM doesn't open or roll the linked table.
+- **Text:** bold and italic become PUM's Markdown (`**bold**`, `*italic*`). Inline dice such as `1d6` stay as text.
+- **Text that PUM would run as a command** (`{{Table}}`, `;;2d6;;`, `::result::`) is never written: such a table is skipped.
+  Other PUM-like text, such as `%%`, is written as it is and stays plain text in PUM.
+- **Blank results:** a row with no text exports blank, with a warning (Remove Empty Rows on the Review screen removes
+  such rows). A table whose every result is blank is skipped.
+- **Overlapping rows** can't be shown in PUM, so such a table is skipped.
+- **Names and categories:**
+  - Characters PUM can't store are replaced (`/` becomes ` - `), and repeated names get ` (2)`, ` (3)`, and so on.
+  - Each table's PUM category is the collection's name, or `Collection - Folder` for a table in a folder.
+  - Exporting the same table again (same collection, folder and name) gives the same PUM table.
+- **Table descriptions** are not exported, as with the other exports.
+
+**Importing a bundle again:** PUM Companion offers to overwrite the tables it already has, and overwriting replaces them,
+including any changes you made to them in PUM. The review says so whenever there is a bundle to save.
+
+**Rolls beyond the dice:** PUM's own roll overrides, and TableForge's situational modifier, can reach values outside a
+table's dice. There PUM uses its first row for anything below 1 and its last row for anything above it. Where that
+differs from TableForge, the report notes it.
+
+**Checked in PUM Companion (2026-10-23):**
+- imports of TableForge-made bundles, of a single table and of whole Collections;
+- rolls with gaps, Clamp to Range and modifiers;
+- `d66`, a real `1d66`, `d100` with `00`, and open-ended rows;
+- several result sets, links, bold and italic, and empty rows;
+- special and repeated names, categories and folders;
+- importing the same bundle again.
+
+Rows beyond the dice, which only PUM's overrides reach, have not been checked there.
 
 ## Several rolls at once
 
@@ -692,7 +758,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.0.0 · built 2026-10-06 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.1.0 · built 2026-10-23 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 

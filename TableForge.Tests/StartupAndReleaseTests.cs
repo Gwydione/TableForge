@@ -341,11 +341,12 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_the_stable_release_1_0_0()
+    public void The_build_identifies_itself_as_the_stable_release_1_1_0()
     {
-        Assert.Equal("1.0.0", AppInfo.Version);
+        Assert.Equal("1.1.0", AppInfo.Version);
         Assert.DoesNotContain("-", AppInfo.Version);                                    // a stable release: no prerelease suffix
-        Assert.Contains("<Version>1.0.0</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Contains("<Version>1.1.0</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Contains("VersionInfoVersion=1.1.0", ReadRepoFile("installer", "TableForge.iss"));   // the installer's own file version
     }
 
     [Fact]
@@ -369,7 +370,7 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("Version 1.0.0 ·", readme);
+        Assert.Contains("Version 1.1.0 ·", readme);
         Assert.DoesNotContain("(release candidate)", readme);
     }
 }

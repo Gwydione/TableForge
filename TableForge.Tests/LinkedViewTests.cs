@@ -29,6 +29,10 @@ internal sealed class UiHarness : IDisposable
     public List<string> SuggestedFileNames { get; } = [];
     public List<string> SaveTitles { get; } = [];
 
+    /// <summary>Every PUM Companion export review shown, and whether the next one answers Save Bundle… (true) or Cancel.</summary>
+    public List<PumExportReviewViewModel> PumReviews { get; } = [];
+    public bool SavePumReview { get; set; } = true;
+
     /// <summary>The file Import Collection… "chooses" (null: the person cancels). Its confirmation is always accepted.</summary>
     public string? ImportPath { get; set; }
     public AppDatabase Db { get; }
@@ -52,7 +56,9 @@ internal sealed class UiHarness : IDisposable
         }
         Dice = new FixedDice(roll);
         Main = new MainViewModel(Db, Dice, _ => true, copyText: Copied.Add, chooseSaveFile: ChooseSave,
-            chooseCollectionFile: ChooseSave, chooseImportFile: () => ImportPath, confirmImport: _ => true);
+            chooseCollectionFile: ChooseSave, chooseImportFile: () => ImportPath, confirmImport: _ => true,
+            reviewPumExport: review => { PumReviews.Add(review); return SavePumReview; }, choosePumFile: ChooseSave,
+            now: () => new DateTime(2026, 10, 24, 12, 0, 0));
         Window = new MainWindow
         {
             DataContext = Main,

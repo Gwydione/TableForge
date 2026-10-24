@@ -3,6 +3,8 @@ using System.Windows.Input;
 using TableForge.Data;
 using TableForge.Dice;
 using TableForge.Domain;
+using TableForge.Export;
+using TableForge.Export.Pum;
 using TableForge.Import;
 using TableForge.Portable;
 using TableForge.Streaming;
@@ -74,6 +76,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly Func<string?> _chooseImportFile;
     private readonly Func<string, bool> _confirmImport;
     private readonly Action<string>? _showMessage;
+    private readonly Func<PumExportReviewViewModel, bool>? _reviewPumExport;
+    private readonly Func<SaveFileRequest, string?> _choosePumFile;
+    private readonly Func<DateTime> _now;
     private List<TableSummary> _allTables = [];
     private Collection? _selectedCollection;
     private TableSummary? _selectedTable;
@@ -99,10 +104,15 @@ public sealed class MainViewModel : ObservableObject
     /// <param name="showMessage">Shows a refused export or import with its details. The status bar always has the summary.</param>
     /// <param name="overlay">The Streaming Overlay, shared by every Roll screen this opens: only resolved results reach it.</param>
     /// <param name="showStreamingOverlay">Shows the Streaming Overlay dialog. Null hides the command.</param>
+    /// <param name="reviewPumExport">Shows the review before a PUM Companion bundle is saved; true means Save Bundle…. Null disables
+    /// Export to PUM Companion (here and on every Roll screen).</param>
+    /// <param name="choosePumFile">Asks where to save a PUM Companion bundle (.pumb). Null means the Windows Save dialog.</param>
+    /// <param name="now">The time stored in a PUM bundle's files. Null means the local time now.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
         string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<SaveFileRequest, string?>? chooseSaveFile = null,
         Func<SaveFileRequest, string?>? chooseCollectionFile = null, Func<string?>? chooseImportFile = null, Func<string, bool>? confirmImport = null,
-        Action<string>? showMessage = null, OverlayPublisher? overlay = null, Action? showStreamingOverlay = null)
+        Action<string>? showMessage = null, OverlayPublisher? overlay = null, Action? showStreamingOverlay = null,
+        Func<PumExportReviewViewModel, bool>? reviewPumExport = null, Func<SaveFileRequest, string?>? choosePumFile = null, Func<DateTime>? now = null)
     {
         _db = db;
         _dice = dice;
@@ -118,6 +128,9 @@ public sealed class MainViewModel : ObservableObject
         _chooseImportFile = chooseImportFile ?? CollectionFileChooser.ChooseOpen;
         _confirmImport = confirmImport ?? _confirm;
         _showMessage = showMessage;
+        _reviewPumExport = reviewPumExport;
+        _choosePumFile = choosePumFile ?? SaveFileChooser.ChoosePumBundle;
+        _now = now ?? (() => DateTime.Now);
         AboutCommand = new RelayCommand(() => _showAbout?.Invoke(), () => _showAbout is not null);
         StreamingOverlayCommand = new RelayCommand(() => _showStreamingOverlay?.Invoke(), () => _showStreamingOverlay is not null);
         OpenDataFolderCommand = new RelayCommand(() => Try("open the data folder", () => _openFolder!(DataFolder!)),
@@ -127,6 +140,8 @@ public sealed class MainViewModel : ObservableObject
         CreateCollectionCommand = new RelayCommand(() => Try("create the collection", CreateCollection), () => !string.IsNullOrWhiteSpace(NewCollectionName));
         ExportCollectionCommand = new RelayCommand(() => Try("export the collection", ExportCollection), () => SelectedCollection is not null);
         ImportCollectionCommand = new RelayCommand(() => Try("import the collection", ImportCollection));
+        ExportPumCommand = new RelayCommand(() => Try("export the collection to PUM Companion", ExportCollectionToPum),
+            () => SelectedCollection is not null && _reviewPumExport is not null);
         DeleteCollectionCommand = new RelayCommand(() => Try("delete the collection", DeleteCollection), () => SelectedCollection is not null);
         NewFolderCommand = new RelayCommand(() => Try("create the folder", CreateFolder), () => SelectedCollection is not null && !string.IsNullOrWhiteSpace(NewFolderName));
         RenameFolderCommand = new RelayCommand(() => Try("rename the folder", RenameFolder), () => IsRealFolderSelected && !string.IsNullOrWhiteSpace(RenameFolderName));
@@ -302,6 +317,9 @@ public sealed class MainViewModel : ObservableObject
     public ICommand CreateCollectionCommand { get; }
     public ICommand ExportCollectionCommand { get; }
     public ICommand ImportCollectionCommand { get; }
+
+    /// <summary>Export to PUM Companion…: the selected Collection as a .pumb bundle, after a review (see <see cref="ExportToPum"/>).</summary>
+    public ICommand ExportPumCommand { get; }
     public ICommand DeleteCollectionCommand { get; }
 
     /// <summary>The folder TableForge keeps its data in (%LOCALAPPDATA%\TableForge, or TABLEFORGE_DATA_DIR); null when not known.</summary>
@@ -414,6 +432,96 @@ public sealed class MainViewModel : ObservableObject
 
         ReloadCollections(created.Id); // like choosing a collection, this leaves whatever screen is open (and any unsaved draft) alone
         Status = $"Imported \"{created.Name}\" ({tables} {(tables == 1 ? "table" : "tables")}).";
+    }
+
+    // ---- Export to PUM Companion -----------------------------------------------------------------------------------------
+
+    /// <summary>Export to PUM Companion… for the selected Collection: the outcome goes to the status bar.</summary>
+    private void ExportCollectionToPum()
+    {
+        var collection = SelectedCollection!;
+        var request = PumExportSource.ForCollection(_db, collection);
+        if (request.Tables.Count == 0)
+        {
+            Status = $"\"{collection.Name}\" has no tables to export.";
+            return;
+        }
+        var outcome = ExportToPum(request, collection.Name, single: false);
+        if (outcome.Failed) Refuse(outcome.Message!, []);
+        else if (outcome.Message is not null) Status = outcome.Message;
+    }
+
+    /// <summary>Save PUM Companion Bundle… on a Roll screen: the table it shows. The message is for that screen's export line.</summary>
+    private string? ExportTableToPum(RollableTable table)
+    {
+        try
+        {
+            return ExportToPum(PumExportSource.ForTable(_db, table), table.Name, single: true).Message;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return $"The table could not be exported to PUM Companion: {ex.Message}";
+        }
+    }
+
+    private sealed record PumOutcome(string? Message, bool Failed = false);
+
+    /// <summary>
+    /// The one PUM Companion export flow, for one table or a whole Collection. The bundle is built in memory (only reading the
+    /// database), then reviewed; only Save Bundle… asks where to save it, and only a chosen file is written, in full or not at all.
+    /// Cancelling at either step changes nothing and says nothing. A single table that can't be exported says why without a review.
+    /// </summary>
+    private PumOutcome ExportToPum(PumExportRequest request, string name, bool single)
+    {
+        var result = PumExporter.Export(request, _now());
+        if (single && result.Bundle is null)
+            return new($"This table cannot be exported to PUM Companion: {result.Report.Tables[0].SkipReason}");
+
+        var review = new PumExportReviewViewModel(name, result.Report, _copyText ?? ClipboardText.Set);
+        if (!_reviewPumExport!(review) || result.Bundle is null) return new(null);
+
+        var path = _choosePumFile(new SaveFileRequest("Export to PUM Companion", PumExporter.SuggestedFileName(name)));
+        if (path is null) return new(null);
+        try
+        {
+            WriteWhole(path, result.Bundle);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException
+            or NotSupportedException or ArgumentException)
+        {
+            return new($"The PUM bundle could not be saved: {ex.Message}", Failed: true);
+        }
+
+        var file = System.IO.Path.GetFileName(path);
+        if (single) return new($"PUM bundle saved to {file}.");
+        var report = result.Report;
+        return new(report.SkippedCount == 0
+            ? $"Exported {report.ExportedCount} {(report.ExportedCount == 1 ? "table" : "tables")} from \"{name}\" to {file}."
+            : $"Exported {report.ExportedCount} of {report.Tables.Count} tables from \"{name}\" to {file} ({report.SkippedCount} skipped).");
+    }
+
+    /// <summary>
+    /// Writes the file in full or not at all: the bytes go to a new file beside it, which then replaces it. If anything fails, the
+    /// new file is removed and whatever was at the path before (if anything) is left exactly as it was.
+    /// </summary>
+    public static void WriteWhole(string path, byte[] bytes)
+    {
+        var full = System.IO.Path.GetFullPath(path);
+        var temp = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(full)!, $".{System.IO.Path.GetFileName(full)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = new System.IO.FileStream(temp, System.IO.FileMode.CreateNew, System.IO.FileAccess.Write, System.IO.FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            System.IO.File.Move(temp, full, overwrite: true);
+        }
+        catch
+        {
+            try { System.IO.File.Delete(temp); } catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
+            throw;
+        }
     }
 
     /// <summary>Deletes the selected Collection and everything in it, after confirmation, then selects the one beside it (if any).</summary>
@@ -686,7 +794,8 @@ public sealed class MainViewModel : ObservableObject
     {
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
-            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile, overlay: _overlay);
+            diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile, overlay: _overlay,
+            exportPum: _reviewPumExport is null ? null : ExportTableToPum);
     }
 
     private void MarkUsed(long tableId)

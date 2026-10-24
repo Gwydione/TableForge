@@ -335,9 +335,11 @@ public sealed class RollViewModel : ObservableObject
     /// cancels. Null means the Windows Save dialog.</param>
     /// <param name="overlay">The Streaming Overlay: every resolved result is published to it, and a successful inline roll updates
     /// it while that result is still the current one. Nothing else on this screen (links, exports, navigation) touches it.</param>
+    /// <param name="exportPum">Save PUM Companion Bundle…: exports the table this screen shows (review, choose a file, save) and gives
+    /// the message to show, or null when the person cancelled. Null disables the command.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
         Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null,
-        Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null)
+        Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null, Func<RollableTable, string?>? exportPum = null)
     {
         _dice = dice;
         _overlay = overlay;
@@ -357,6 +359,8 @@ public sealed class RollViewModel : ObservableObject
         SaveFoundryJsonCommand = new RelayCommand(SaveFoundryJson, () => Current.Table.ResultSets.Count > 0);
         CopyTablesPlusJsonCommand = new RelayCommand(CopyTablesPlusJson, () => Current.Table.ResultSets.Count > 0);
         SaveTablesPlusJsonCommand = new RelayCommand(SaveTablesPlusJson, () => Current.Table.ResultSets.Count > 0);
+        _exportPum = exportPum;
+        SavePumBundleCommand = new RelayCommand(SavePumBundle, () => _exportPum is not null && Current.Table.ResultSets.Count > 0);
     }
 
     // ---- Copy Table Text -----------------------------------------------------------------------------------------------
@@ -527,6 +531,22 @@ public sealed class RollViewModel : ObservableObject
         {
             CopyMessage = $"The {format.Label} JSON could not be saved: {ex.Message}";
         }
+    }
+
+    // ---- PUM Companion bundle ------------------------------------------------------------------------------------------
+
+    private readonly Func<RollableTable, string?>? _exportPum;
+
+    /// <summary>
+    /// Save PUM Companion Bundle…: the whole table shown (every result set, so the result-set choice doesn't apply), reviewed
+    /// before anything is saved. Read-only, like the other exports.
+    /// </summary>
+    public ICommand SavePumBundleCommand { get; }
+
+    private void SavePumBundle()
+    {
+        ExportWarning = "";
+        CopyMessage = _exportPum!(Current.Table) ?? "";   // cancelled: nothing to say
     }
 
     public ObservableCollection<RollStepViewModel> Steps { get; } = [];

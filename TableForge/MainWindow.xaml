@@ -109,6 +109,10 @@
                                 Command="{Binding DeleteCollectionCommand}"
                                 ToolTip="Delete the selected collection and every table in it" />
                     </UniformGrid>
+                    <!-- The selected collection as a .pumb bundle for PUM Companion, after a review. -->
+                    <Button x:Name="ExportPumButton" Content="Export to PUM Companion…" Padding="4,2" Margin="0,0,0,6"
+                            Command="{Binding ExportPumCommand}"
+                            ToolTip="Save the selected collection as a .pumb file to import into PUM Companion" />
                     <Grid Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

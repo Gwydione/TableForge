@@ -59,6 +59,7 @@ public partial class App : Application
                     DataContext = new AboutViewModel(AppInfo.Version, AppContext.BaseDirectory, DataFolder, OpenWithWindows),
                 }.ShowDialog(),
                 overlay: _overlay,
+                reviewPumExport: review => new PumExportReviewWindow { Owner = window, DataContext = review }.ShowDialog() == true,
                 showStreamingOverlay: () => new StreamingOverlayWindow
                 {
                     Owner = window,

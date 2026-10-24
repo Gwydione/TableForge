@@ -213,6 +213,38 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] Future compatibility only (TableForge refuses it today): does a hand-made Tables+ table with `2d6+1` dice import and
       roll 3–13 correctly?
 
+## PUM Companion export
+
+**Status (2026-10-23):**
+- **Checked in PUM Companion:** TableForge-made bundles (the Slice 1 acceptance bundle and the Slice 2 smoke collection)
+  imported and rolled as expected, and importing the same bundle again offered to overwrite.
+- **Not checked:** rows beyond the dice, reached only through PUM's own roll overrides.
+
+Needs PUM Companion. Use synthetic tables (the smoke collection `ZZTF_S2_Smoke.tfcollection` or similar). In PUM, delete
+the test tables with its own delete option.
+
+- [ ] **Main window:** **Export to PUM Companion…** sits under Export Collection / Delete Collection. It is greyed out with
+      no collection and enabled with one.
+- [ ] **Roll screen:** **Export…** still lists every earlier option, then a separator, then **Save PUM Companion Bundle…**.
+- [ ] **Review window:** the summary (*N tables will be exported. M will be skipped.*), the ⚠ lines (skipped tables
+      with their reasons, then warnings), the boxed overwrite warning, then the full report.
+- [ ] **Copy Report** pastes into Notepad as the whole report.
+- [ ] **Cancel** in the review saves nothing and opens no Save dialog. **Cancel** in the Save dialog saves nothing.
+- [ ] **Saving:** the Save dialog is titled *Export to PUM Companion* and suggests `<collection or table>.pumb`. Saving
+      over an existing file asks first, and leaves no `.tmp` file beside it.
+- [ ] **Status messages:** after a collection export the status bar says *Exported N of T tables from "…" to … (M
+      skipped).* After a single-table export the line next to Export… says *PUM bundle saved to ….*
+- [ ] **Unexportable single table:** a table whose every result is blank says why next to Export…, and opens no review.
+- [ ] **Followed link:** the export covers the table on screen.
+- [ ] **In PUM Companion:**
+  - the import reports the exported count;
+  - the categories are `Collection` and `Collection - Folder`;
+  - gaps roll `(No result)`;
+  - a table with two result sets shows both lines;
+  - a link shows as a `→ …` text line.
+- [ ] **Importing the same bundle again:** PUM offers to overwrite, and the tables are replaced, not duplicated.
+- [ ] **Other exports:** Foundry, Tables+, Sojour and Copy Table Text behave exactly as before.
+
 ## Uninstall and reinstall
 
 - [ ] Uninstall TableForge (Settings → Apps).
@@ -237,3 +269,5 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] From rc26 to 1.0.0: no data-format change, so no new backup copy appears; tables, descriptions and rolls are exactly
       as before, and **Streaming Overlay…** is there (off). After turning the overlay on, rc26 can still open the data and
       ignores `streaming-overlay.json` and `streaming-overlay.html`.
+- [ ] From 1.0.0 to 1.1.0: no data-format change, so no new backup copy appears. Tables, descriptions, settings and
+      rolls are exactly as before. **Export to PUM Companion…** is there, and 1.0.0 can still open the data afterwards.

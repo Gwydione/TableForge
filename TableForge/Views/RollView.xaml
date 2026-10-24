@@ -168,13 +168,14 @@
 
             <WrapPanel Margin="0,24,0,6">
                 <TextBlock Text="{Binding Title, StringFormat=Table: {0}}" FontWeight="SemiBold" Foreground="#555" VerticalAlignment="Center" Margin="0,0,16,0" />
-                <!-- Export…: one result set of this table, as plain text, Sojour rows, Foundry VTT JSON or Owlbear Rodeo Tables+ JSON. Read-only: rolls and results are untouched. -->
+                <!-- Export…: one result set of this table, as plain text, Sojour rows, Foundry VTT JSON or Owlbear Rodeo Tables+ JSON, or the whole
+                     table as a PUM Companion bundle. Read-only: rolls and results are untouched. -->
                 <ComboBox x:Name="CopyResultSetBox" ItemsSource="{Binding CopyResultSetNames}" SelectedIndex="{Binding CopyResultSetIndex}"
                           MinWidth="120" Margin="0,0,6,0" VerticalAlignment="Center"
                           AutomationProperties.Name="Result set to export" ToolTip="Which result set Export… copies or saves"
                           Visibility="{Binding ShowCopyResultSetChoice, Converter={StaticResource BoolToVis}}" />
                 <Button x:Name="ExportButton" Content="Export…" Padding="10,2" VerticalAlignment="Center" Click="OnExportClick"
-                        ToolTip="Copy this table as plain text, as rows for a Sojour Lookup Table, or as JSON for Foundry VTT's Roll Table Importer or Owlbear Rodeo (Tables+)">
+                        ToolTip="Copy this table as plain text, as rows for a Sojour Lookup Table, or as JSON for Foundry VTT's Roll Table Importer or Owlbear Rodeo (Tables+), or save it for PUM Companion">
                     <Button.ContextMenu>
                         <ContextMenu x:Name="ExportMenu">
                             <MenuItem Header="Copy Table Text" Command="{Binding CopyTableTextCommand}"
@@ -193,6 +194,9 @@
                                       ToolTip="JSON to import into Owlbear Rodeo (Tables+)" />
                             <MenuItem Header="Save Tables+ JSON…" Command="{Binding SaveTablesPlusJsonCommand}"
                                       ToolTip="The same JSON, saved as a .json file to import into Owlbear Rodeo (Tables+)" />
+                            <Separator />
+                            <MenuItem Header="Save PUM Companion Bundle…" Command="{Binding SavePumBundleCommand}"
+                                      ToolTip="A .pumb file to import into PUM Companion. Exports the whole table, every result set." />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

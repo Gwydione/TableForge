@@ -25,7 +25,7 @@ public class PublicReleaseTests
         Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.0.0", AppInfo.Version);
+        Assert.Equal("1.1.0", AppInfo.Version);
     }
 
     [Fact]
@@ -115,38 +115,39 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.0.0.md");
-        Assert.Equal("# TableForge 1.0.0", notes.Split('\n')[0].TrimEnd('\r'));               // 1.0.0, not an rc
-        Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);       // the first stable release
-        Assert.DoesNotContain("rc27", notes);
+        var notes = Read("docs", "release-notes", "1.1.0.md");
+        Assert.Equal("# TableForge 1.1.0", notes.Split('\n')[0].TrimEnd('\r'));               // 1.1.0, not an rc
+        Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
-        Assert.Contains("TableForge-1.0.0-Setup.exe", notes);
-        Assert.Contains("**Streaming Overlay (OBS)**", notes);                                 // new since rc26, stated precisely:
-        Assert.Contains("`streaming-overlay.html`", notes);                                     // the recommended OBS setup is the local file
-        Assert.Contains("**Local file**", notes);
-        Assert.Contains("**Show Test Result**", notes);
-        Assert.Contains("**Clear Overlay**", notes);
-        Assert.Contains("**Open my dddice room**", notes);                                      // dddice's dice stay a separate source
-        Assert.Contains("TableForge never sees or stores that link", notes);
-        Assert.Contains("(`127.0.0.1`)", notes);                                                // local only
-        Assert.Contains("**41285**", notes);
-        Assert.Contains("**The data format does not change** (still database schema version 10)", notes);   // rc26 and 1.0.0 share the data
-        Assert.Contains("rc26 can still open data that 1.0.0 has used", notes);
-        Assert.Contains("rc26 simply ignores", notes);
-        Assert.Contains("**rc25 and earlier cannot open the data**", notes);                     // the RC26 upgrade status is kept
-        Assert.Contains("from the rc test releases: **Table Description**", notes);
-        Assert.Contains("**Portable Collections**", notes);                                     // the RC25 status is kept
-        Assert.Contains("**Delete Collection…**", notes);
-        Assert.Contains("**Bold and italic result text**", notes);
-        Assert.Contains("**Open-ended ranges**", notes);                                        // the RC23 status is kept
-        Assert.Contains("**Questline import has not been verified.**", notes);                   // the RC22 status is kept
-        Assert.Contains("**Checked in Tables+:**", notes);                                      // the RC21 Tables+ status is kept:
-        Assert.Contains("Still untested there:", notes);                                         // what was checked live and what was not
+        Assert.Contains("TableForge-1.1.0-Setup.exe", notes);
+        Assert.Contains("TableForge-1.1.0-win-x64.zip", notes);
+        Assert.Contains("New: **PUM Companion export**", notes);                               // new in 1.1.0, stated precisely:
+        Assert.Contains("**Export to PUM Companion…**", notes);
+        Assert.Contains("**Save PUM Companion Bundle…**", notes);
+        Assert.Contains("**Copy Report**", notes);
+        Assert.Contains("written completely or not at all", notes);
+        Assert.Contains("PUM Companion offers to overwrite", notes);                             // what importing again does
+        Assert.Contains("A table whose every result is blank is skipped", notes);
+        Assert.Contains("**Checked in PUM Companion:**", notes);                                 // what was checked live and what was not
+        Assert.Contains("**Not checked there:**", notes);
+        Assert.Contains("table descriptions", notes);                                            // not exported, like the other exports
+        Assert.Contains("**Existing exports are unchanged**", notes);
+        Assert.Contains("**The data format does not change** (still database schema version 10", notes);    // 1.0.0 and 1.1.0 share the data
+        Assert.Contains("**1.0.0 can still open data that 1.1.0 has used**", notes);
+        Assert.Contains("**Questline import has not been verified.**", notes);                   // earlier statuses are kept
+        Assert.Contains("**Checked in Tables+:**", notes);
+        Assert.Contains("Still untested there:", notes);
         Assert.Contains("this is not full", notes);
+        Assert.StartsWith("# TableForge 1.0.0", Read("docs", "release-notes", "1.0.0.md"));       // earlier notes stay
+
+        var changelog = Read("CHANGELOG.md");
+        var newest = changelog.IndexOf("## 1.1.0", StringComparison.Ordinal);
+        Assert.InRange(newest, 0, changelog.IndexOf("## 1.0.0", StringComparison.Ordinal));        // newest first
+        Assert.Contains("docs/release-notes/1.1.0.md", changelog);
 
         var checklist = Read("docs", "RELEASE_TESTING.md");
-        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Table description", "## Situational modifier entry", "## Streaming Overlay (OBS)", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
+        foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Table description", "## Situational modifier entry", "## Streaming Overlay (OBS)", "## PUM Companion export", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
             Assert.Contains(heading, checklist);
     }
 }

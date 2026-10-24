@@ -1,0 +1,55 @@
+<Window x:Class="TableForge.PumExportReviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export to PUM Companion" Width="640" Height="560" MinWidth="420" MinHeight="360"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="13" Icon="Assets/TableForge.ico">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <SolidColorBrush x:Key="WarningText" Color="#7A5200" />
+    </Window.Resources>
+    <!-- Summary and what needs a look first, then the full report (what Copy Report copies), then the buttons. -->
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="PumHeading" Grid.Row="0" Text="{Binding Heading}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+        <TextBlock x:Name="PumSummary" Grid.Row="1" Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+        <ItemsControl x:Name="PumImportant" Grid.Row="2" ItemsSource="{Binding Important}" Margin="0,0,0,8"
+                      Visibility="{Binding HasImportant, Converter={StaticResource BoolToVis}}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding StringFormat=⚠ {0}}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Grid.Row="3" BorderBrush="#7A5200" BorderThickness="1" Background="#FFF8E6" Padding="8,6" Margin="0,0,0,10"
+                Visibility="{Binding CanSave, Converter={StaticResource BoolToVis}}">
+            <TextBlock x:Name="PumReimportWarning" Text="{Binding ReimportWarning}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" />
+        </Border>
+
+        <TextBlock Grid.Row="4" Text="Full report" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="PumReportText" Grid.Row="5" Text="{Binding ReportText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Margin="0,0,0,10"
+                 AutomationProperties.Name="Full export report" />
+
+        <DockPanel Grid.Row="6" LastChildFill="False">
+            <Button x:Name="CopyReportButton" DockPanel.Dock="Left" Content="Copy Report" Padding="10,3" Command="{Binding CopyReportCommand}"
+                    ToolTip="Copy the full report to the clipboard" />
+            <TextBlock x:Name="PumCopyMessage" DockPanel.Dock="Left" Text="{Binding CopyMessage}" Foreground="#2E6B3A" VerticalAlignment="Center" Margin="8,0,0,0"
+                       Visibility="{Binding HasCopyMessage, Converter={StaticResource BoolToVis}}" />
+            <Button x:Name="PumCancelButton" DockPanel.Dock="Right" Content="{Binding CancelLabel}" Padding="16,3" IsCancel="True" Click="OnCancel" />
+            <Button x:Name="SaveBundleButton" DockPanel.Dock="Right" Content="Save Bundle…" Padding="16,3" Margin="0,0,6,0" IsDefault="True"
+                    Visibility="{Binding CanSave, Converter={StaticResource BoolToVis}}" Click="OnSave"
+                    ToolTip="Choose where to save the .pumb file" />
+        </DockPanel>
+    </Grid>
+</Window>

@@ -18,5 +18,7 @@ TableForge privacy
   sees or stores it.
 - Copy Table Text puts the table's text on the Windows clipboard, where other programs on your computer can read it, as
   with any copy.
+- Exports (Foundry, Tables+, PUM Companion, Export Collection) only write the file you choose, on your computer. Nothing
+  is uploaded; you decide where the file goes from there.
 - Uninstalling TableForge removes the program but leaves your data folder, so your tables are still there if you
   reinstall. Delete that folder yourself to remove them.

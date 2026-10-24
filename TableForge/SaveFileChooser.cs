@@ -22,4 +22,19 @@ public static class SaveFileChooser
         };
         return dialog.ShowDialog(System.Windows.Application.Current?.MainWindow) == true ? dialog.FileName : null;
     }
+
+    /// <summary>The Windows Save dialog for a PUM Companion bundle (.pumb), titled and starting from the request. Null when cancelled.</summary>
+    public static string? ChoosePumBundle(SaveFileRequest request)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = request.Title,
+            FileName = request.SuggestedName,
+            DefaultExt = ".pumb",
+            Filter = "PUM Companion bundle (*.pumb)|*.pumb|All files (*.*)|*.*",
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+        return dialog.ShowDialog(System.Windows.Application.Current?.MainWindow) == true ? dialog.FileName : null;
+    }
 }
