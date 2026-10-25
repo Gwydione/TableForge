@@ -170,7 +170,7 @@ public static class PortableCollectionExporter
             w.WriteStartObject();
             w.WriteString("format", PortableFormat.FormatName);
             w.WriteNumber("formatVersion", PortableFormat.VersionFor(portable));
-            w.WriteString("generator", $"TableForge {AppInfo.Version}"); // information only; never read back
+            w.WriteString("generator", $"{AppInfo.Name} {AppInfo.Version}"); // information only; never read back
             w.WriteStartObject("collection");
             w.WriteString("name", portable.Name);
             w.WriteEndObject();

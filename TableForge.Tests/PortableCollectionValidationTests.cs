@@ -264,7 +264,7 @@ public class PortableCollectionValidationTests
     [InlineData("")]
     [InlineData("1234567")]
     public void A_written_range_TableForge_cannot_read_is_refused(string display) =>
-        Refused(d => Row(d, 0, 0)["display"] = display, PortableReadFailure.InvalidContent, "is not a range TableForge reads");
+        Refused(d => Row(d, 0, 0)["display"] = display, PortableReadFailure.InvalidContent, "is not a range Gidubba reads");
 
     [Fact]
     public void A_d100_written_range_is_read_with_the_tables_own_dice()

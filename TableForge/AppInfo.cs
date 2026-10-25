@@ -24,5 +24,8 @@ public static class AppInfo
         ? Version
         : $"{Version} · built {BuildTimeUtc.ToLocalTime():yyyy-MM-dd HH:mm} local";
 
-    public static string Title => "TableForge — RPG Rollable Tables";
+    /// <summary>The public name (formerly TableForge). Code, files and the data folder keep the TableForge name.</summary>
+    public const string Name = "Gidubba";
+
+    public static string Title => $"{Name} — RPG Rollable Tables";
 }

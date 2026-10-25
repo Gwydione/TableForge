@@ -381,7 +381,7 @@ public class StreamingOverlayDialogTests : IDisposable
     {
         var vm = Vm();
         vm.ShowTestCommand.Execute(null);
-        Assert.Equal("TableForge Overlay Test", _controller.Publisher.State.Result!.TableName);
+        Assert.Equal("Gidubba Overlay Test", _controller.Publisher.State.Result!.TableName);
         vm.ClearCommand.Execute(null);
         Assert.True(_controller.Publisher.State.IsEmpty);
     }

@@ -125,7 +125,7 @@ public sealed class StreamingOverlayController : IDisposable
         catch (OverlayPortUnavailableException)
         {
             SetStatus(OverlayStatus.PortUnavailable,
-                $"Port {Settings.Port} is already in use or unavailable (another program, or another copy of TableForge, may be using it). Choose a different port and Apply.");
+                $"Port {Settings.Port} is already in use or unavailable (another program, or another copy of Gidubba, may be using it). Choose a different port and Apply.");
         }
     }
 
@@ -163,7 +163,7 @@ public sealed class StreamingOverlayController : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _saveNote = $" (The settings could not be saved, so they last only until TableForge closes: {ex.Message})";
+            _saveNote = $" (The settings could not be saved, so they last only until Gidubba closes: {ex.Message})";
         }
         StatusText = _statusBase + _saveNote;
         Changed?.Invoke(this, EventArgs.Empty);

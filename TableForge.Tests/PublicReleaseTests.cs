@@ -19,35 +19,40 @@ public class PublicReleaseTests
     private static string Read(params string[] parts) => File.ReadAllText(PathOf(parts));
 
     [Fact]
-    public void The_exe_says_TableForge_by_RPG_Frequencies()
+    public void The_exe_says_Gidubba_by_RPG_Frequencies_but_keeps_its_TableForge_file_name()
     {
         var assembly = typeof(AppInfo).Assembly;
-        Assert.Equal("TableForge", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
+        Assert.Equal("Gidubba", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
+        Assert.Equal("Gidubba", assembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title);       // Windows' file description
+        Assert.Equal("Gidubba - RPG Rollable Tables", assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.1.0", AppInfo.Version);
+        Assert.Equal("1.2.0", AppInfo.Version);
+        Assert.Equal(("Gidubba", "Gidubba — RPG Rollable Tables"), (AppInfo.Name, AppInfo.Title));
+        Assert.Equal("TableForge", assembly.GetName().Name);                                         // TableForge.exe: installs, pins and shortcuts keep working
+        Assert.Contains("<AssemblyName>TableForge</AssemblyName>", Read("TableForge", "TableForge.csproj"));
     }
 
     [Fact]
-    public void The_icon_is_a_real_windows_icon_made_from_the_untouched_source_artwork()
+    public void The_icon_is_the_approved_Gidubba_icon_unchanged_and_used_everywhere()
     {
-        var ico = File.ReadAllBytes(PathOf("TableForge", "Assets", "TableForge.ico"));
+        var ico = File.ReadAllBytes(PathOf("TableForge", "Assets", "Gidubba.ico"));
+        Assert.Equal(File.ReadAllBytes(PathOf("branding", "gidubba_concept.ico")), ico);           // the approved file, byte for byte
         Assert.Equal((0, 1), (BitConverter.ToUInt16(ico, 0), BitConverter.ToUInt16(ico, 2)));   // ICO header, not a renamed PNG
         var count = BitConverter.ToUInt16(ico, 4);
         var sizes = Enumerable.Range(0, count).Select(i => ico[6 + 16 * i] == 0 ? 256 : ico[6 + 16 * i]).ToList();
         foreach (var size in new[] { 16, 24, 32, 48, 256 }) Assert.Contains(size, sizes);
-
-        var source = File.ReadAllBytes(PathOf("branding", "TableForge-icon-source.png"));
-        Assert.Equal([0x89, (byte)'P', (byte)'N', (byte)'G'], source[..4]);
-        Assert.Equal(6, source[25]);                                                             // RGBA: the transparent artwork
+        Assert.All(Enumerable.Range(0, count), i => Assert.Equal(32, BitConverter.ToUInt16(ico, 6 + 16 * i + 6)));   // 32-bit colour
 
         var project = Read("TableForge", "TableForge.csproj");
-        Assert.Contains(@"<ApplicationIcon>Assets\TableForge.ico</ApplicationIcon>", project);
-        Assert.Contains(@"<Resource Include=""Assets\TableForge.ico"" />", project);
-        Assert.Contains(@"Icon=""Assets/TableForge.ico""", Read("TableForge", "MainWindow.xaml"));
+        Assert.Contains(@"<ApplicationIcon>Assets\Gidubba.ico</ApplicationIcon>", project);       // the exe's icon: taskbar, Start Menu, Apps
+        Assert.Contains(@"<Resource Include=""Assets\Gidubba.ico"" />", project);
+        foreach (var window in new[] { "MainWindow.xaml", "AboutWindow.xaml", "PumExportReviewWindow.xaml", "StreamingOverlayWindow.xaml" })
+            Assert.Contains(@"Icon=""Assets/Gidubba.ico""", Read("TableForge", window));
+        Assert.False(File.Exists(PathOf("TableForge", "Assets", "TableForge.ico")));
         var iss = Read("installer", "TableForge.iss");
-        Assert.Contains(@"SetupIconFile=TableForge\Assets\TableForge.ico", iss);
-        Assert.Contains(@"IconFilename: ""{app}\TableForge.exe""", iss);
+        Assert.Contains(@"SetupIconFile=TableForge\Assets\Gidubba.ico", iss);
+        Assert.Contains(@"IconFilename: ""{app}\TableForge.exe""", iss);                           // the shortcut shows the exe's icon
     }
 
     [Fact]
@@ -55,6 +60,10 @@ public class PublicReleaseTests
     {
         var iss = Read("installer", "TableForge.iss");
         Assert.Contains("AppId={{89A2A71F-CF3F-4C91-BDCB-125354F776EB}", iss);                 // never changes
+        Assert.Contains("AppName=Gidubba", iss);                                                 // 1.2.0 changed the name, never the identity
+        Assert.Contains("AppVerName=Gidubba {#AppVersion}", iss);
+        Assert.Contains("UninstallDisplayName=Gidubba", iss);
+        Assert.Contains("VersionInfoProductName=Gidubba", iss);
         Assert.Contains("AppPublisher=RPG Frequencies", iss);
         Assert.Contains("AppPublisherURL=https://github.com/Gwydione/TableForge", iss);
         Assert.Contains("AppSupportURL=https://github.com/Gwydione/TableForge/issues", iss);
@@ -62,12 +71,12 @@ public class PublicReleaseTests
         Assert.Contains("VersionInfoCompany=RPG Frequencies", iss);
         Assert.Contains("VersionInfoCopyright=Copyright (c) 2026 RPG Frequencies", iss);
         Assert.Contains(@"OutputDir=publish\release", iss);
-        Assert.Contains("OutputBaseFilename=TableForge-{#AppVersion}-Setup", iss);
+        Assert.Contains("OutputBaseFilename=Gidubba-{#AppVersion}-Setup", iss);
         Assert.Contains("PrivilegesRequired=lowest", iss);
-        Assert.Contains(@"DefaultDirName={localappdata}\Programs\TableForge", iss);
+        Assert.Contains(@"DefaultDirName={localappdata}\Programs\TableForge", iss);                // existing installs stay where they are
         var sections = iss.Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith('[')).ToList();   // not comments
         Assert.DoesNotContain("[UninstallDelete]", sections);
-        Assert.DoesNotContain("[InstallDelete]", sections);
+        Assert.Contains("[InstallDelete]", sections);                                            // the old shortcut only: see PackagingTests
     }
 
     [Fact]
@@ -75,8 +84,9 @@ public class PublicReleaseTests
     {
         var script = Read("publish.ps1");
         Assert.Contains(@"""publish\release""", script);
-        Assert.Contains("TableForge-$csprojVersion-Setup.exe", script);
-        Assert.Contains("TableForge-$csprojVersion-win-x64.zip", script);
+        Assert.Contains("Gidubba-$csprojVersion-Setup.exe", script);
+        Assert.Contains("Gidubba-$csprojVersion-win-x64.zip", script);
+        Assert.Contains("Join-Path $publishDir \"TableForge.exe\"", script);                        // the exe keeps its name
         Assert.DoesNotContain("]::CreateFromDirectory(", script);                               // it writes "\" entry names on .NET Framework
         Assert.Contains(".Replace('\\', '/')", script);
         Assert.Contains("entries using '\\'", script);
@@ -97,13 +107,13 @@ public class PublicReleaseTests
     public void The_readme_answers_a_newcomers_questions_first()
     {
         var readme = Read("README.md").ReplaceLineEndings("\n");                               // a Windows checkout may have CRLF
-        var sections = new[] { "# TableForge", "## Install", "## First use", "## Your data and backups", "## Privacy",
-            "## Known limitations", "## Feedback and bug reports", "# Using TableForge in detail", "# For developers" };
+        var sections = new[] { "# Gidubba", "## Install", "## First use", "## Your data and backups", "## Privacy",
+            "## Known limitations", "## Feedback and bug reports", "# Using Gidubba in detail", "# For developers" };
         var positions = sections.Select(s => readme.IndexOf(s + "\n", StringComparison.Ordinal)).ToList();
         Assert.All(positions, p => Assert.True(p >= 0));
         Assert.Equal(positions.OrderBy(p => p), positions);                                     // in this order
 
-        foreach (var fact in new[] { "Paste → Review/Correct → Save → Find → Roll → Read", "TableForge-<version>-Setup.exe",
+        foreach (var fact in new[] { "**Formerly TableForge.**", "`TableForge.exe`", "Paste → Review/Correct → Save → Find → Roll → Read", "Gidubba-<version>-Setup.exe",
                      "not code-signed", "More info", @"%LOCALAPPDATA%\TableForge", "does not delete this folder",
                      "no telemetry", "PRIVACY.txt", "GitHub Issues", "Never post dddice tokens", "OCR", "Windows x64 only" })
             Assert.Contains(fact, readme);
@@ -115,13 +125,27 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.1.0.md");
-        Assert.Equal("# TableForge 1.1.0", notes.Split('\n')[0].TrimEnd('\r'));               // 1.1.0, not an rc
+        var notes = Read("docs", "release-notes", "1.2.0.md");
+        Assert.Equal("# Gidubba 1.2.0 (formerly TableForge)", notes.Split('\n')[0].TrimEnd('\r'));    // 1.2.0, not an rc
+        Assert.Contains("**TableForge has been renamed Gidubba**", notes);                     // the rename, said plainly to TableForge users:
+        Assert.Contains("You do not need to uninstall TableForge first.", notes);
+        Assert.Contains("**your existing tables, collections and settings are preserved**", notes);
+        Assert.Contains("not a new or separate one", notes);
         Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);
         foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
             Assert.Contains(heading, notes);
+        Assert.Contains("Gidubba-1.2.0-Setup.exe", notes);
+        Assert.Contains("Gidubba-1.2.0-win-x64.zip", notes);
+        Assert.Contains("**Formerly TableForge.**", notes);                                     // the rename, and what it keeps:
+        Assert.Contains("**one** entry, now named **Gidubba**", notes);
+        Assert.Contains("still called `TableForge.exe`", notes);
+        Assert.Contains("It stays in `%LOCALAPPDATA%\\TableForge`", notes);
+        Assert.Contains("**The data format does not change** (still database schema version 10", notes);
+        Assert.Contains("**TableForge 1.1.0 can still open data that Gidubba 1.2.0 has used**", notes);
+
+        notes = Read("docs", "release-notes", "1.1.0.md");                                     // earlier notes keep the TableForge name
+        Assert.Equal("# TableForge 1.1.0", notes.Split('\n')[0].TrimEnd('\r'));
         Assert.Contains("TableForge-1.1.0-Setup.exe", notes);
-        Assert.Contains("TableForge-1.1.0-win-x64.zip", notes);
         Assert.Contains("New: **PUM Companion export**", notes);                               // new in 1.1.0, stated precisely:
         Assert.Contains("**Export to PUM Companion…**", notes);
         Assert.Contains("**Save PUM Companion Bundle…**", notes);
@@ -142,9 +166,12 @@ public class PublicReleaseTests
         Assert.StartsWith("# TableForge 1.0.0", Read("docs", "release-notes", "1.0.0.md"));       // earlier notes stay
 
         var changelog = Read("CHANGELOG.md");
-        var newest = changelog.IndexOf("## 1.1.0", StringComparison.Ordinal);
-        Assert.InRange(newest, 0, changelog.IndexOf("## 1.0.0", StringComparison.Ordinal));        // newest first
+        var newest = changelog.IndexOf("## 1.2.0", StringComparison.Ordinal);
+        Assert.InRange(newest, 0, changelog.IndexOf("## 1.1.0", StringComparison.Ordinal));        // newest first
+        Assert.InRange(changelog.IndexOf("## 1.1.0", StringComparison.Ordinal), 0, changelog.IndexOf("## 1.0.0", StringComparison.Ordinal));
+        Assert.Contains("docs/release-notes/1.2.0.md", changelog);
         Assert.Contains("docs/release-notes/1.1.0.md", changelog);
+        Assert.Contains("same result in PUM as in TableForge", changelog);                         // the 1.1.0 entry is kept as released
 
         var checklist = Read("docs", "RELEASE_TESTING.md");
         foreach (var heading in new[] { "## Fresh install", "## Bold and italic result text", "## Table description", "## Situational modifier entry", "## Streaming Overlay (OBS)", "## PUM Companion export", "## Portable Collections", "## dddice", "## Foundry VTT export", "## Sojour", "## Owlbear Rodeo (Tables+)", "## Uninstall and reinstall", "## Upgrade" })
@@ -152,7 +179,7 @@ public class PublicReleaseTests
     }
 }
 
-/// <summary>About TableForge.</summary>
+/// <summary>About Gidubba.</summary>
 public class AboutTests
 {
     [Fact]
@@ -167,7 +194,7 @@ public class AboutTests
             var opened = new List<string>();
             var about = new AboutViewModel("1.0.0-rc18", folder, @"C:\Data\TableForge", opened.Add);
 
-            Assert.Equal(("TableForge", "Version 1.0.0-rc18", "© 2026 RPG Frequencies"), (about.Name, about.VersionLine, about.PublisherLine));
+            Assert.Equal(("Gidubba", "Version 1.0.0-rc18", "© 2026 RPG Frequencies"), (about.Name, about.VersionLine, about.PublisherLine));
             Assert.Contains("rollable digital tables", about.PurposeLine);
 
             about.OpenLicenseCommand.Execute(null);

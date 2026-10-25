@@ -107,7 +107,7 @@ public partial class App : Application
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            MessageBox.Show($"TableForge could not open {path}: {ex.Message}", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"Gidubba could not open {path}: {ex.Message}", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
@@ -117,7 +117,7 @@ public partial class App : Application
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            MessageBox.Show($"TableForge could not open your web browser. Go to {url} yourself.", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"Gidubba could not open your web browser. Go to {url} yourself.", AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
@@ -148,7 +148,7 @@ public partial class App : Application
     private static void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         MessageBox.Show(
-            $"Something unexpected went wrong:\n\n{e.Exception.Message}\n\nYour saved tables are safe. You can carry on; if it keeps happening, close and reopen TableForge.",
+            $"Something unexpected went wrong:\n\n{e.Exception.Message}\n\nYour saved tables are safe. You can carry on; if it keeps happening, close and reopen Gidubba.",
             AppInfo.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
         e.Handled = true;
     }

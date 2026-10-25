@@ -52,7 +52,7 @@ public static class OverlayPage
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>TableForge Streaming Overlay</title>
+<title>Gidubba Streaming Overlay</title>
 <style>
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
   .tf-overlay { box-sizing: border-box; padding: 16px 20px; color: #ffffff;

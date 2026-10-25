@@ -6,7 +6,7 @@ namespace TableForge;
 /// <summary>Asking where to save a Collection file, or which one to import. Screens take these as plain delegates, so tests hand them a path instead.</summary>
 public static class CollectionFileChooser
 {
-    private const string Filter = "TableForge Collection (*.tfcollection)|*.tfcollection|All files (*.*)|*.*";
+    private const string Filter = "Gidubba Collection (*.tfcollection)|*.tfcollection|All files (*.*)|*.*";
 
     /// <summary>The Windows Save dialog for a .tfcollection file, titled and starting from the request. Null when cancelled.</summary>
     public static string? ChooseSave(SaveFileRequest request)

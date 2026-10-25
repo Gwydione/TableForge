@@ -643,7 +643,7 @@ public class PumExportTests
         Assert.Contains("  Gappy", text);
         Assert.Contains("  Yes/No → \"Yes - No\"", text);
         Assert.Contains(text, l => l.StartsWith("    - 3 \"(No result)\" rows added"));
-        Assert.Contains(text, l => l.StartsWith("  Bad: A roll of -1 shows \"(No result)\" in TableForge but would show \"A\" in PUM"));
+        Assert.Contains(text, l => l.StartsWith("  Bad: A roll of -1 shows \"(No result)\" in Gidubba but would show \"A\" in PUM"));
         Assert.Contains("  - Table descriptions are not exported.", text);
     }
 

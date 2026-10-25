@@ -170,7 +170,7 @@ public sealed class MainViewModel : ObservableObject
     /// </summary>
     public string EmptyStateText =>
         Collections.Count == 0
-            ? "Welcome to TableForge.\n\nStart by naming a collection (for example a game or campaign) in the box at the top left, then press Enter. " +
+            ? "Welcome to Gidubba.\n\nStart by naming a collection (for example a game or campaign) in the box at the top left, then press Enter. " +
               "After that, choose “Paste Table…” and paste a rollable table copied from a PDF or book."
             : _allTables.Count == 0
                 ? "This collection has no tables yet.\n\nChoose “Paste Table…” and paste a rollable table copied from a PDF or book."

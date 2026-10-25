@@ -37,11 +37,11 @@ public sealed record PortableReadResult(PortableCollection? Collection, Portable
     {
         null => "",
         PortableReadFailure.Unreadable => "The file could not be read. Nothing was imported.",
-        PortableReadFailure.TooLarge => "This file is too large to be a TableForge Collection (the limit is 25 MB). Nothing was imported.",
-        PortableReadFailure.NewerFormat => "This Collection uses a newer file format than this version of TableForge supports. Nothing was changed.",
-        PortableReadFailure.InvalidContent => "This Collection contains something TableForge can't import safely. Nothing was imported.",
+        PortableReadFailure.TooLarge => "This file is too large to be a Gidubba Collection (the limit is 25 MB). Nothing was imported.",
+        PortableReadFailure.NewerFormat => "This Collection uses a newer file format than this version of Gidubba supports. Nothing was changed.",
+        PortableReadFailure.InvalidContent => "This Collection contains something Gidubba can't import safely. Nothing was imported.",
         PortableReadFailure.InvalidRelationship => "This Collection contains an invalid table relationship and can't be imported safely. Nothing was imported.",
-        _ => "This isn't a valid TableForge Collection file. Nothing was imported.",
+        _ => "This isn't a valid Gidubba Collection file. Nothing was imported.",
     };
 }
 
@@ -109,7 +109,7 @@ public static class PortableCollectionReader
                 return new(null, PortableReadFailure.NotACollectionFile, ["The file's formatVersion is missing or is not a whole number of 1 or more."]);
             if (version > PortableFormat.NewestVersion)
                 return new(null, PortableReadFailure.NewerFormat,
-                    [$"The file uses format version {version}; this version of TableForge reads versions 1 to {PortableFormat.NewestVersion}."]);
+                    [$"The file uses format version {version}; this version of Gidubba reads versions 1 to {PortableFormat.NewestVersion}."]);
 
             try
             {
@@ -199,7 +199,7 @@ public static class PortableCollectionReader
             if (RequiredString(element, "dice", where) is { } diceText)
             {
                 if (DiceExpression.TryParse(diceText, out var parsed)) dice = table.Dice = parsed;
-                else Content($"{where} has dice \"{diceText}\", which TableForge does not support.{DiceExpression.UnsupportedHint(diceText)}");
+                else Content($"{where} has dice \"{diceText}\", which Gidubba does not support.{DiceExpression.UnsupportedHint(diceText)}");
             }
 
             var clamp = false;
@@ -215,7 +215,7 @@ public static class PortableCollectionReader
             {
                 if (descriptionElement.ValueKind != JsonValueKind.String) Shape($"{where}: \"description\" must be text.");
                 else if (descriptionElement.GetString()! is var description && description.Length > TableDescription.MaxLength)
-                    Content($"{where} has a description of {description.Length:N0} characters; the most TableForge keeps is {TableDescription.MaxLength:N0}.");
+                    Content($"{where} has a description of {description.Length:N0} characters; the most Gidubba keeps is {TableDescription.MaxLength:N0}.");
                 else table.Description = description;
             }
 
@@ -281,7 +281,7 @@ public static class PortableCollectionReader
             {
                 if (!RangeText.TryParse(display, d, out var parsed, out var error))
                 {
-                    Content($"{where}: its written range \"{display}\" is not a range TableForge reads ({error})");
+                    Content($"{where}: its written range \"{display}\" is not a range Gidubba reads ({error})");
                     ok = false;
                 }
                 else if (parsed.Min != entry.Min || parsed.Max != entry.Max)

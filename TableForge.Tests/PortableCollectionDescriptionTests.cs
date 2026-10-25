@@ -210,7 +210,7 @@ public class PortableCollectionDescriptionTests
         Refused(doc, PortableReadFailure.InvalidContent, "2,001 characters");
 
         doc["tables"]![0]!["description"] = string.Concat(Enumerable.Repeat("🙂", 1001));           // 2,002 UTF-16 characters
-        Refused(doc, PortableReadFailure.InvalidContent, "the most TableForge keeps is 2,000");
+        Refused(doc, PortableReadFailure.InvalidContent, "the most Gidubba keeps is 2,000");
 
         doc["tables"]![0]!["description"] = new string('x', TableDescription.MaxLength);
         Assert.Equal(TableDescription.MaxLength, Read(Bytes(doc)).Tables[0].Table.Description.Length);

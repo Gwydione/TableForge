@@ -33,7 +33,7 @@ public sealed class AboutViewModel
         OpenProjectPageCommand = new RelayCommand(() => _open(ProjectUrl));
     }
 
-    public string Name => "TableForge";
+    public string Name => AppInfo.Name;
     public string Version { get; }
     public string VersionLine => $"Version {Version}";
     public string PublisherLine => $"© 2026 {Publisher}";

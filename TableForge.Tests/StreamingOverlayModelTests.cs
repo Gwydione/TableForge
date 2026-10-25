@@ -211,7 +211,7 @@ public class StreamingOverlayPublisherTests
         var p = new OverlayPublisher();
         var a = p.Publish(R("T", "1", "One 1d6"));
         p.ShowTest();
-        Assert.Equal(("TableForge Overlay Test", "12", "Your streaming overlay is working."),
+        Assert.Equal(("Gidubba Overlay Test", "12", "Your streaming overlay is working."),
             (p.State.Result!.TableName, p.State.Result.RollValue, Shown(p)));
         Assert.False(p.UpdateIfCurrent(a, R("T", "1", "One 4")));
         Assert.Equal("Your streaming overlay is working.", Shown(p));

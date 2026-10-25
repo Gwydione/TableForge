@@ -14,7 +14,7 @@ public static class PumExporter
     public static readonly IReadOnlyList<string> GeneralNotes =
     [
         "PUM looks up a roll below 1 as 1 and a roll above a table's last row as that last row, and shows that adjusted number as the roll. "
-            + "Ordinary rolls of each exported table's own dice show exactly what TableForge shows; any difference for rolls outside the dice's "
+            + "Ordinary rolls of each exported table's own dice show exactly what Gidubba shows; any difference for rolls outside the dice's "
             + "range (from a PUM override or the situational modifier) is noted against the table.",
         "Inline dice such as \"1d6\" are kept as text: PUM doesn't roll them.",
         "Links are written as a \"→ table\" line: PUM doesn't open or roll the linked table.",
@@ -32,7 +32,7 @@ public static class PumExporter
 
     /// <summary>A file name Windows accepts for the bundle, ending in .pumb.</summary>
     public static string SuggestedFileName(string name) =>
-        Path.ChangeExtension(FoundryTableExporter.SuggestedFileName(name, "TableForge tables"), ".pumb");
+        Path.ChangeExtension(FoundryTableExporter.SuggestedFileName(name, "Gidubba tables"), ".pumb");
 
     /// <param name="timestamp">The date and time stored for every file in the bundle (the bundle bytes depend only on the request and this).</param>
     public static PumExportResult Export(PumExportRequest request, DateTime timestamp)

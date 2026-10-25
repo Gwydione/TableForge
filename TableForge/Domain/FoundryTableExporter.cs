@@ -27,7 +27,7 @@ public static class FoundryTableExporter
     public const string D66Formula = "1d6 * 10 + 1d6";
 
     public const string ClampWarning =
-        "This table uses Clamp to Range in TableForge. Foundry does not clamp, so some rolls there may find no result.";
+        "This table uses Clamp to Range in Gidubba. Foundry does not clamp, so some rolls there may find no result.";
 
     /// <summary>Readable output: "king’s sword" and "Sword & Shield" stay as written instead of ’ and & (still valid JSON). Tables+ uses it too.</summary>
     internal static readonly JsonSerializerOptions Options = new()

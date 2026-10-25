@@ -170,7 +170,7 @@ public sealed class WebViewDddiceRoller : IDddiceRoomRoller, IDisposable
                 var account = _session?.IsAccount ?? false;
                 _pageReady?.TrySetException(new DddiceException(auth
                     ? account ? DddiceMessages.Expired : "dddice refused the guest login for its room."
-                    : "TableForge could not connect to dddice's room. Check the internet connection.", auth) { IsAccountProblem = auth && account });
+                    : "Gidubba could not connect to dddice's room. Check the internet connection.", auth) { IsAccountProblem = auth && account });
                 break;
             case "connectionState" when root.TryGetProperty("state", out var s) && s.GetString() is "unavailable" or "failed":
                 if (_tracker.IsRolling) _tracker.Fail("The connection to dddice was lost during the roll.");

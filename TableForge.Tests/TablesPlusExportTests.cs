@@ -260,7 +260,7 @@ public class TablesPlusTableExporterTests
     [Fact]
     public void Clamp_with_rolls_beyond_the_rows_warns_in_Tables_plus_words_but_still_exports()
     {
-        Assert.Equal("Tables+ JSON does not include TableForge’s Clamp to Range setting; rolls outside the exported ranges may have no matching entry.",
+        Assert.Equal("Tables+ JSON does not include Gidubba’s Clamp to Range setting; rolls outside the exported ranges may have no matching entry.",
             TablesPlusTableExporter.ClampWarning);
 
         var export = Export(Table("T", "d20+2", E(1, 20, "x")).Also(t => t.ClampResultsToRange = true));

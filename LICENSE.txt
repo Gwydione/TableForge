@@ -1,11 +1,11 @@
-TableForge
+Gidubba (formerly TableForge)
 Copyright (c) 2026 RPG Frequencies. All rights reserved.
 
-You may install and use TableForge for your own personal use.
-No other rights are granted: TableForge is not open source, and you may not copy, modify, redistribute or sell it,
+You may install and use Gidubba for your own personal use.
+No other rights are granted: Gidubba is not open source, and you may not copy, modify, redistribute or sell it,
 in whole or in part, without the copyright holder's written permission.
 
-TableForge includes third-party components that are licensed separately under their own terms; see
+Gidubba includes third-party components that are licensed separately under their own terms; see
 THIRD-PARTY-NOTICES.txt. Nothing in this file limits the rights those licenses give you.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE

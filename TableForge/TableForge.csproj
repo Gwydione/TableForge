@@ -7,17 +7,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 
-    <!-- TableForge 1.1.0: PUM Companion export. Version drives the file version, the product version and the number shown in the app. -->
-    <Version>1.1.0</Version>
+    <!-- Gidubba 1.2.0 (formerly TableForge): the rebrand. Version drives the file version, the product version and the number shown in the app. -->
+    <Version>1.2.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <Product>TableForge</Product>
+    <!-- The public name. Product and AssemblyTitle are what Windows shows (file properties, Task Manager); the exe stays
+         TableForge.exe, so existing installs, shortcuts and pins keep working. -->
+    <Product>Gidubba</Product>
+    <AssemblyTitle>Gidubba</AssemblyTitle>
     <Company>RPG Frequencies</Company>
     <Authors>RPG Frequencies</Authors>
     <Copyright>Copyright (c) 2026 RPG Frequencies</Copyright>
-    <Description>TableForge - RPG Rollable Tables</Description>
+    <Description>Gidubba - RPG Rollable Tables</Description>
     <AssemblyName>TableForge</AssemblyName>
-    <!-- Generated from branding\TableForge-icon-source.png by branding\make-icon.py; the artwork itself is never edited. -->
-    <ApplicationIcon>Assets\TableForge.ico</ApplicationIcon>
+    <!-- A byte-for-byte copy of the approved icon, branding\gidubba_concept.ico; it is never regenerated or edited. -->
+    <ApplicationIcon>Assets\Gidubba.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,7 +32,7 @@
     <!-- The page that hosts dddice-js inside the WebView2. Loaded from disk through a virtual host name, so it is a real https origin. -->
     <Content Include="Assets\dddice-host.html" CopyToOutputDirectory="PreserveNewest" />
     <!-- The window icon (the same file the exe carries). -->
-    <Resource Include="Assets\TableForge.ico" />
+    <Resource Include="Assets\Gidubba.ico" />
     <!-- Shipped beside the exe (and so in the installer and the zip); About opens them. -->
     <Content Include="..\LICENSE.txt" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />

@@ -16,7 +16,7 @@ public class UsabilityTests
         var main = new MainViewModel(db, new FixedDice(1));
 
         // 1. Nothing yet: how to make a collection, and what comes after.
-        Assert.StartsWith("Welcome to TableForge.", main.EmptyStateText);
+        Assert.StartsWith("Welcome to Gidubba.", main.EmptyStateText);
         Assert.Contains("naming a collection", main.EmptyStateText);
         Assert.Contains("press Enter", main.EmptyStateText);
         Assert.Contains("Paste Table…", main.EmptyStateText);

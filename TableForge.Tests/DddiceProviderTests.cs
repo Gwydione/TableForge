@@ -354,12 +354,12 @@ public class DiceProviderViewModelTests
     public async Task A_preparation_failure_is_reported_and_Use_Built_in_Dice_recovers_without_rolling_anything()
     {
         var (vm, roller, builtIn, saved) = Make();
-        roller.PrepareFailure = new DddiceException("TableForge could not reach dddice. Check the internet connection.");
+        roller.PrepareFailure = new DddiceException("Gidubba could not reach dddice. Check the internet connection.");
 
         vm.Select(DiceProviderKind.Dddice);
         await Wait.Until(() => vm.State == DiceProviderState.Failed, "failure");
 
-        Assert.Equal("TableForge could not reach dddice. Check the internet connection.", vm.Message);
+        Assert.Equal("Gidubba could not reach dddice. Check the internet connection.", vm.Message);
         Assert.True(vm.ShowFailure);
         Assert.False(vm.CanRoll);
 
@@ -479,7 +479,7 @@ public class DiceProviderViewModelTests
     public async Task A_saved_dddice_choice_that_cannot_start_leaves_TableForge_usable_with_Built_in_on_offer()
     {
         var (vm, roller, builtIn, _) = Make("dddice");
-        roller.PrepareFailure = new DddiceException("TableForge could not reach dddice. Check the internet connection.");
+        roller.PrepareFailure = new DddiceException("Gidubba could not reach dddice. Check the internet connection.");
 
         vm.RestorePreference();
         await Wait.Until(() => vm.State == DiceProviderState.Failed, "failure");

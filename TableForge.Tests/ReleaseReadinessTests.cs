@@ -97,7 +97,7 @@ public class MigrationBackupTests
         Assert.Equal(6, Version(path));                                     // untouched
         Assert.Equal(1, Count(path, "Tables"));
         var message = DatabaseOpenError.Describe(path, error);
-        Assert.StartsWith("TableForge needs to update your data for this version, but could not make a safety copy of it first, so nothing was changed.", message);
+        Assert.StartsWith("Gidubba needs to update your data for this version, but could not make a safety copy of it first, so nothing was changed.", message);
         Assert.Contains("Details:", message);
         Assert.DoesNotContain("Exception", message);
         Assert.False(File.Exists(DatabaseBackup.PathFor(path, 6, DatabaseMigrations.CurrentVersion) + ".tmp"));
@@ -117,7 +117,7 @@ public class MigrationBackupTests
         Assert.Equal(1, Count(error.BackupPath, "Tables"));
         Assert.Equal(6, Version(path));                                     // the failing step was rolled back
         var message = DatabaseOpenError.Describe(path, error);
-        Assert.StartsWith("TableForge could not update your data safely. Your original database backup has been preserved.", message);
+        Assert.StartsWith("Gidubba could not update your data safely. Your original database backup has been preserved.", message);
         Assert.Contains(error.BackupPath, message);
         Assert.Contains("Details: SQLite error", message);
         Assert.DoesNotContain("SqliteException", message);
@@ -181,7 +181,7 @@ public class MigrationBackupTests
     {
         var message = DatabaseOpenError.Describe(@"C:\x\tableforge.db", new SqliteException("disk I/O error", 10));
 
-        Assert.StartsWith("TableForge could not open its database.", message);
+        Assert.StartsWith("Gidubba could not open its database.", message);
         Assert.Contains("The database could not be read.", message);
         Assert.EndsWith("Details: SQLite error 10: disk I/O error", message);
         Assert.DoesNotContain("SqliteException", message);
@@ -260,7 +260,7 @@ public class PackagingTests
         Assert.Contains("[switch]$Installer", script);
         Assert.Contains("if ($Installer)", script);
         Assert.Contains("\"/DAppVersion=$csprojVersion\"", script);
-        Assert.Contains("TableForge-$csprojVersion-Setup.exe", script);
+        Assert.Contains("Gidubba-$csprojVersion-Setup.exe", script);
         Assert.Contains("winget install JRSoftware.InnoSetup", script);
     }
 
@@ -276,12 +276,17 @@ public class PackagingTests
         Assert.Contains(@"DefaultDirName={localappdata}\Programs\TableForge", lines);
         Assert.Contains("DisableDirPage=yes", lines);
         Assert.Contains("ArchitecturesAllowed=x64compatible", lines);
-        Assert.Contains("OutputBaseFilename=TableForge-{#AppVersion}-Setup", lines);
-        Assert.Contains(lines, l => l.StartsWith("Name: \"{autoprograms}\\TableForge\"; Filename: \"{app}\\TableForge.exe\""));
+        Assert.Contains("OutputBaseFilename=Gidubba-{#AppVersion}-Setup", lines);
+        Assert.Contains(lines, l => l.StartsWith("Name: \"{autoprograms}\\Gidubba\"; Filename: \"{app}\\TableForge.exe\""));
         Assert.Contains(lines, l => l.StartsWith("Source: \"publish\\win-x64\\*\"") && l.Contains("Excludes: \"*.pdb\""));
 
         Assert.DoesNotContain("[UninstallDelete]", lines);
-        Assert.DoesNotContain("[InstallDelete]", lines);
+        // [InstallDelete] holds exactly one entry: the pre-1.2.0 "TableForge" Start Menu shortcut, one named file, only when
+        // IsOldTableForgeShortcut confirms it points at this installation's TableForge.exe. Never a folder or a wildcard.
+        var start = lines.IndexOf("[InstallDelete]");
+        var entries = lines.Skip(start + 1).TakeWhile(l => !l.StartsWith('[')).ToList();
+        Assert.Equal(["Type: files; Name: \"{autoprograms}\\TableForge.lnk\"; Check: IsOldTableForgeShortcut"], entries);
+        Assert.Contains(lines, l => l.Contains("CompareText(Link.TargetPath, ExpandConstant('{app}\\TableForge.exe')) = 0"));
         Assert.DoesNotContain(lines, l => l.Contains(@"{localappdata}\TableForge", StringComparison.OrdinalIgnoreCase)); // the data folder
         Assert.DoesNotContain(lines, l => l.Contains("tableforge.db", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(lines, l => l.Contains(@"C:\Projects", StringComparison.OrdinalIgnoreCase));

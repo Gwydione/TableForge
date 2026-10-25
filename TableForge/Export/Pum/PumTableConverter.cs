@@ -67,7 +67,7 @@ public static class PumTableConverter
             for (var i = 1; i < entries.Count; i++)
             {
                 if (entries[i].Min <= entries[reach].Max)
-                    return Skip($"The rows {Label(entries[reach])} and {Label(entries[i])} overlap, so TableForge reports an ambiguous result there, which PUM can't show.");
+                    return Skip($"The rows {Label(entries[reach])} and {Label(entries[i])} overlap, so Gidubba reports an ambiguous result there, which PUM can't show.");
                 if (entries[i].Max > entries[reach].Max) reach = i;
             }
         }
@@ -118,7 +118,7 @@ public static class PumTableConverter
         // ---- The final authority ------------------------------------------------------------------------------------------
         var check = PumEquivalence.Check(table, rows, Render);
         if (check.Normal is { } normal)
-            return Skip($"A roll of {normal.Roll} shows \"{normal.TableForgeShows}\" in TableForge but would show \"{normal.PumShows}\" in PUM"
+            return Skip($"A roll of {normal.Roll} shows \"{normal.TableForgeShows}\" in Gidubba but would show \"{normal.PumShows}\" in PUM"
                 + (normal.Roll < 1 ? " (PUM treats every roll below 1 as 1)." : "."), normal);
 
         // ---- What the report says about it ----------------------------------------------------------------------------------
@@ -137,7 +137,7 @@ public static class PumTableConverter
         if (issues.Linked > 0)
             Add(PumMessageKind.Conversion, $"{Count(issues.Linked, "linked row")} end{(issues.Linked == 1 ? "s" : "")} with a \"→ table\" line. PUM won't open or roll the linked table.");
         if (clamped)
-            Add(PumMessageKind.Note, "Clamp to Range is kept: PUM shows the first or last row for rolls beyond them, as TableForge does.");
+            Add(PumMessageKind.Note, "Clamp to Range is kept: PUM shows the first or last row for rolls beyond them, as Gidubba does.");
 
         var reached = segments.SelectMany(s => s.Matched).OfType<TableEntry>().ToHashSet(ReferenceEqualityComparer.Instance);
         var unreached = setOf.Keys.Where(e => !reached.Contains(e)).Select(Label).ToList();
@@ -151,10 +151,10 @@ public static class PumTableConverter
 
         if (check.BelowDice is { } below)
             Add(PumMessageKind.Note, $"Below the dice's range (only a PUM override or the situational modifier gets there), a roll of {below.Roll} shows "
-                + $"\"{below.TableForgeShows}\" in TableForge but \"{below.PumShows}\" in PUM" + (below.Roll < 1 ? ", which treats rolls below 1 as 1." : "."));
+                + $"\"{below.TableForgeShows}\" in Gidubba but \"{below.PumShows}\" in PUM" + (below.Roll < 1 ? ", which treats rolls below 1 as 1." : "."));
         if (check.AboveDice is { } above)
             Add(PumMessageKind.Note, $"Above the dice's range (only a PUM override or the situational modifier gets there), a roll of {above.Roll} shows "
-                + $"\"{above.TableForgeShows}\" in TableForge but \"{above.PumShows}\" in PUM.");
+                + $"\"{above.TableForgeShows}\" in Gidubba but \"{above.PumShows}\" in PUM.");
 
         var pum = new PumTable(IdFor(category, pumName), pumName, category, Formula(dice), rows);
         return new(pum, new PumTableReport(source.Key, sourceName, pumName, null, null, check.BelowDice, check.AboveDice, messages));

@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:TableForge.ViewModels"
         xmlns:views="clr-namespace:TableForge.Views"
         xmlns:app="clr-namespace:TableForge"
-        Title="TableForge — RPG Rollable Tables" Icon="Assets/TableForge.ico"
+        Title="Gidubba — RPG Rollable Tables" Icon="Assets/Gidubba.ico"
         Width="1200" Height="820" MinWidth="1000" MinHeight="640"
         FontSize="14">
     <Window.Resources>
@@ -75,14 +75,14 @@
                 <TextBlock Text="{Binding Status}" Foreground="#444" MinHeight="18" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" />
                 <!-- The OBS result overlay: its settings, Show Test Result and Clear Overlay. -->
                 <Button x:Name="StreamingOverlayButton" Grid.Column="1" Content="Streaming Overlay…" Padding="8,0" Margin="12,0,0,0"
-                        Command="{Binding StreamingOverlayCommand}" ToolTip="Show TableForge results in OBS"
+                        Command="{Binding StreamingOverlayCommand}" ToolTip="Show Gidubba results in OBS"
                         Visibility="{Binding HasStreamingOverlay, Converter={StaticResource BoolToVis}}" />
                 <!-- Where the tables and settings live (to back them up by copying the folder while TableForge is closed). -->
                 <Button x:Name="OpenDataFolderButton" Grid.Column="2" Content="Open Data Folder" Padding="8,0" Margin="6,0,0,0"
                         Command="{Binding OpenDataFolderCommand}" ToolTip="{Binding DataFolder}"
                         Visibility="{Binding HasDataFolder, Converter={StaticResource BoolToVis}}" />
                 <Button x:Name="AboutButton" Grid.Column="3" Content="About" Padding="8,0" Margin="6,0,0,0"
-                        Command="{Binding AboutCommand}" ToolTip="About TableForge"
+                        Command="{Binding AboutCommand}" ToolTip="About Gidubba"
                         Visibility="{Binding HasAbout, Converter={StaticResource BoolToVis}}" />
                 <TextBlock Grid.Column="4" x:Name="VersionText" Text="{x:Static app:AppInfo.VersionAndBuild}" Foreground="#888" Margin="12,0,0,0" />
             </Grid>
@@ -104,7 +104,7 @@
                     <UniformGrid x:Name="CollectionActions" Rows="1" Columns="2" Margin="0,0,0,6">
                         <Button x:Name="ExportCollectionButton" Content="Export Collection…" Margin="0,0,3,0" Padding="4,2"
                                 Command="{Binding ExportCollectionCommand}"
-                                ToolTip="Save the selected collection as a file another TableForge can import" />
+                                ToolTip="Save the selected collection as a file another copy of Gidubba can import" />
                         <Button x:Name="DeleteCollectionButton" Content="Delete Collection…" Margin="3,0,0,0" Padding="4,2"
                                 Command="{Binding DeleteCollectionCommand}"
                                 ToolTip="Delete the selected collection and every table in it" />

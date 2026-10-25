@@ -58,7 +58,7 @@ public sealed class DddiceRest : IDisposable
         var code = Text(data?["code"]);
         var secret = Text(data?["secret"]);
         if (code is null || secret is null || !TryParseTime(Text(data?["expires_at"]), out var expires))
-            throw new DddiceException("dddice sent an activation code TableForge could not read.");
+            throw new DddiceException("dddice sent an activation code Gidubba could not read.");
         return new DddiceActivationCode(code, secret, expires);
     }
 
@@ -67,7 +67,7 @@ public sealed class DddiceRest : IDisposable
     {
         var auth = new AuthenticationHeaderValue("Secret", activation.Secret);
         if (DataOf(await SendAsync(HttpMethod.Get, $"activate/{Uri.EscapeDataString(activation.Code)}", null, auth, DddiceCaller.Activation, ct)) is not JsonObject data)
-            throw new DddiceException("dddice sent an activation answer TableForge could not read.");
+            throw new DddiceException("dddice sent an activation answer Gidubba could not read.");
         var token = Text(data["token"]);
         return new DddiceActivationPoll(string.IsNullOrWhiteSpace(token) ? null : token, token is null ? null : DisplayNameOf(data["user"]));
     }
@@ -110,13 +110,13 @@ public sealed class DddiceRest : IDisposable
     /// <summary>POST /room for a connected account.</summary>
     public async Task<string> CreateAccountRoomAsync(string token, CancellationToken ct) => await CreateRoomAsync(token, DddiceCaller.Account, ct);
 
-    public static DddiceException MalformedDiceBox() => new("TableForge could not read your dddice Dice Box.");
+    public static DddiceException MalformedDiceBox() => new("Gidubba could not read your dddice Dice Box.");
 
     // ---- plumbing ------------------------------------------------------------------------------------------------------
 
     private async Task<string> CreateRoomAsync(string token, DddiceCaller caller, CancellationToken ct)
     {
-        var json = await SendAsync(HttpMethod.Post, "room", new JsonObject { ["name"] = "TableForge", ["is_public"] = false }, Bearer(token), caller, ct);
+        var json = await SendAsync(HttpMethod.Post, "room", new JsonObject { ["name"] = "Gidubba", ["is_public"] = false }, Bearer(token), caller, ct);
         return Text(DataOf(json) is JsonObject data ? data["slug"] : null) ?? throw new DddiceException("dddice did not create a room.");
     }
 
@@ -136,8 +136,8 @@ public sealed class DddiceRest : IDisposable
         }
         catch (DddiceException) { throw; }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new DddiceException("dddice did not answer in time.", inner: null) { IsTemporary = true }; }
-        catch (HttpRequestException ex) { throw new DddiceException("TableForge could not reach dddice. Check the internet connection.", inner: ex) { IsTemporary = true }; }
-        catch (System.Text.Json.JsonException ex) { throw new DddiceException("dddice sent an answer TableForge could not read.", inner: ex); }
+        catch (HttpRequestException ex) { throw new DddiceException("Gidubba could not reach dddice. Check the internet connection.", inner: ex) { IsTemporary = true }; }
+        catch (System.Text.Json.JsonException ex) { throw new DddiceException("dddice sent an answer Gidubba could not read.", inner: ex); }
     }
 
     /// <summary>Who is asking decides the wording: guest messages are exactly as they always were; account ones never mention guests.</summary>
@@ -202,5 +202,5 @@ public static class DddiceMessages
     public const string ChooseTheme = "Choose a dddice theme in Account…";
     public const string RoomChanged = "dddice room changed. Your OBS dice source may need to be updated.";
     public static string ThemeMissing(string name) => $"Your theme \"{name}\" is no longer in your dddice Dice Box. Choose another in Account…";
-    public static string ThemeIncompatible(string name, string reason) => $"Your theme \"{name}\" can't be used by TableForge ({reason}). Choose another in Account…";
+    public static string ThemeIncompatible(string name, string reason) => $"Your theme \"{name}\" can't be used by Gidubba ({reason}). Choose another in Account…";
 }

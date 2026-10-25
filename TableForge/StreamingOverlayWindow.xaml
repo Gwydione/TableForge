@@ -2,12 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Streaming Overlay" Width="560" SizeToContent="Height" ResizeMode="NoResize"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="13" Icon="Assets/TableForge.ico">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="13" Icon="Assets/Gidubba.ico">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
     <StackPanel Margin="18">
-        <TextBlock Text="Show the latest TableForge result in OBS as its own Browser Source." TextWrapping="Wrap" Margin="0,0,0,10" />
+        <TextBlock Text="Show the latest Gidubba result in OBS as its own Browser Source." TextWrapping="Wrap" Margin="0,0,0,10" />
 
         <CheckBox x:Name="EnableBox" Content="Enable streaming overlay" IsChecked="{Binding IsEnabled}" FontWeight="SemiBold" Margin="0,0,0,6" />
         <TextBlock x:Name="OverlayStatusText" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,12" AutomationProperties.AutomationId="OverlayStatus">
@@ -34,7 +34,7 @@
             <Button x:Name="CopyLocalFileButton" Grid.Column="1" Content="Copy" Padding="10,2" Margin="6,0,0,0" Command="{Binding CopyLocalFileCommand}" />
         </Grid>
 
-        <TextBlock Text="Or a URL Browser Source (refresh it in OBS if OBS was started before TableForge):" TextWrapping="Wrap" />
+        <TextBlock Text="Or a URL Browser Source (refresh it in OBS if OBS was started before Gidubba):" TextWrapping="Wrap" />
         <Grid Margin="0,2,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />

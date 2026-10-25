@@ -1,6 +1,19 @@
 # Changelog
 
-Each released version of TableForge, newest first. The full notes for each one are in `docs/release-notes/`.
+Each released version of Gidubba (formerly TableForge), newest first. The full notes for each one are in
+`docs/release-notes/`. Versions before 1.2.0 were released as TableForge, and their entries keep that name.
+
+## 1.2.0
+
+- **TableForge is now Gidubba**, by RPG Frequencies, with a new icon (a clay tablet and reed stylus). Only the name and
+  icon change: windows, About, messages, the installer, the Start Menu shortcut and the documents now say Gidubba.
+- **Upgrading keeps everything.** The installer replaces TableForge 1.1.0 in place (one Apps entry, renamed). The old
+  TableForge Start Menu shortcut is replaced by a Gidubba one. The program stays `TableForge.exe` in the same folder, and
+  the data stays in `%LOCALAPPDATA%\TableForge`.
+- New dddice rooms are named "Gidubba"; an existing connected room keeps its name.
+- No change to rolling, exports or the data format (database schema 10, `.tfcollection` unchanged, so 1.1.0 and 1.2.0
+  read each other's files).
+- Notes: `docs/release-notes/1.2.0.md`
 
 ## 1.1.0
 

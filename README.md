@@ -1,15 +1,20 @@
-# TableForge
+# Gidubba
 
-**TableForge turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
+**Gidubba turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.1.0 · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.2.0 · Windows 10/11 (64-bit) · by RPG Frequencies
 
-Paste a table copied from a PDF or book, let TableForge interpret it, correct anything it got wrong, save it, and roll it
+**Formerly TableForge.** Gidubba is the new name for TableForge, from version 1.2.0. Only the name and icon changed:
+installing Gidubba over TableForge upgrades it in place and keeps all your tables and settings. Some technical names
+stay as they were, so existing installations keep working: the program file is still `TableForge.exe`, your data is
+still in `%LOCALAPPDATA%\TableForge`, and Collection files still end in `.tfcollection`.
+
+Paste a table copied from a PDF or book, let Gidubba interpret it, correct anything it got wrong, save it, and roll it
 whenever you need it at the table:
 
 **Paste → Review/Correct → Save → Find → Roll → Read**
 
-TableForge can also:
+Gidubba can also:
 
 - clean up difficult PDF-copied table text (wrapped lines, broken hyphenation, stray characters, several columns);
 - organize tables into **Collections** and **Folders**, with search and recent tables;
@@ -26,48 +31,50 @@ TableForge can also:
 - **export to Owlbear Rodeo (Tables+)** as Tables+ import JSON (`d20`, `d66` and `2d6` checked in Tables+ so far);
 - **export to PUM Companion** as a `.pumb` bundle, one table or a whole Collection, after a review of what will be
   exported, skipped or changed;
-- **export a whole Collection** to a `.tfcollection` file and give it to another TableForge user, who can **import** it as
+- **export a whole Collection** to a `.tfcollection` file and give it to another Gidubba user, who can **import** it as
   a new Collection without changing anything already in their library.
 
 ## Install
 
-1. Download `TableForge-<version>-Setup.exe` from **[GitHub Releases](https://github.com/Gwydione/TableForge/releases)**.
+1. Download `Gidubba-<version>-Setup.exe` from **[GitHub Releases](https://github.com/Gwydione/TableForge/releases)**.
 2. Run the installer. It installs for your Windows user only and needs no administrator rights.
-3. Start **TableForge** from the Start Menu.
+3. Start **Gidubba** from the Start Menu. (If TableForge was installed, the installer replaces it in place and its
+   Start Menu shortcut becomes **Gidubba**.)
 
 - **Windows x64 only** for now (64-bit Windows 10 or 11).
 - **.NET is included**; nothing else needs installing.
 - The **Microsoft Edge WebView2 Runtime** is needed only for the optional dddice visual dice. It comes with Windows 11 and
   current Windows 10. Built-in dice always work, with or without WebView2 and dddice.
 - To upgrade, run a newer installer: it replaces the program and keeps your tables. A portable
-  `TableForge-<version>-win-x64.zip` is also published for people who prefer not to install; it keeps its data in the same
+  `Gidubba-<version>-win-x64.zip` is also published for people who prefer not to install; it keeps its data in the same
   place.
 
-**SmartScreen:** TableForge is not code-signed, so Windows may show "Windows protected your PC"
-when you run the installer. If you downloaded it from the [TableForge Releases page](https://github.com/Gwydione/TableForge/releases) and trust it, choose
+**SmartScreen:** Gidubba is not code-signed, so Windows may show "Windows protected your PC"
+when you run the installer. If you downloaded it from the [Gidubba Releases page](https://github.com/Gwydione/TableForge/releases) and trust it, choose
 **More info**, then **Run anyway**. You can compare the download with the `SHA256SUMS.txt` published beside it
-(`Get-FileHash TableForge-<version>-Setup.exe` in PowerShell). Don't turn off SmartScreen or other Windows protection.
+(`Get-FileHash Gidubba-<version>-Setup.exe` in PowerShell). Don't turn off SmartScreen or other Windows protection.
 
 ## First use
 
 1. Type a name for a **Collection** (a game or campaign) at the top left and press **Enter**.
 2. Choose **Paste Table…** and paste a random table copied from a PDF or book.
-3. Choose **Interpret**, then review and correct the rows (notes point out anything TableForge was unsure about).
+3. Choose **Interpret**, then review and correct the rows (notes point out anything Gidubba was unsure about).
 4. **Save Table**.
 5. **Roll**.
 
 ## Your data and backups
 
-Everything TableForge keeps (your tables, settings, dice choice and any dddice connection) is in one folder:
+Everything Gidubba keeps (your tables, settings, dice choice and any dddice connection) is in one folder, which keeps
+its TableForge name so that upgrading finds your data:
 
 ```
 %LOCALAPPDATA%\TableForge
 ```
 
-- **Open Data Folder**, at the bottom of the TableForge window, opens it.
-- **Uninstalling TableForge does not delete this folder.** Reinstalling finds your tables again automatically.
-- **To back up**, close TableForge and copy the whole folder somewhere safe. To restore, put it back.
-- When a future version needs to update your data's format, TableForge first saves an automatic safety copy of your
+- **Open Data Folder**, at the bottom of the Gidubba window, opens it.
+- **Uninstalling Gidubba does not delete this folder.** Reinstalling finds your tables again automatically.
+- **To back up**, close Gidubba and copy the whole folder somewhere safe. To restore, put it back.
+- When a future version needs to update your data's format, Gidubba first saves an automatic safety copy of your
   database beside it (and changes nothing if it cannot).
 - **Export Collection…** (see [Sharing a Collection](#sharing-a-collection-tfcollection)) saves one collection's tables
   to a file. It is a way to share a collection, not a full backup: it does not include your other collections, recent
@@ -75,17 +82,17 @@ Everything TableForge keeps (your tables, settings, dice choice and any dddice c
 
 ## Privacy
 
-TableForge keeps its data on your computer and has **no telemetry or analytics**. The optional dddice dice make network
-requests to dddice; TableForge never asks for, collects or stores your dddice password, and a connected dddice account's
+Gidubba keeps its data on your computer and has **no telemetry or analytics**. The optional dddice dice make network
+requests to dddice; Gidubba never asks for, collects or stores your dddice password, and a connected dddice account's
 access token is protected with Windows DPAPI for your Windows user. The optional **Streaming Overlay** (off by default) shares
 only the current result with programs on this computer (address `127.0.0.1`); it is never reachable from the network. See
 [PRIVACY.txt](PRIVACY.txt) for the details.
 
 ## Known limitations
 
-- Text is taken from what you copy: image-only or scanned PDFs need OCR first, which TableForge does not do.
+- Text is taken from what you copy: image-only or scanned PDFs need OCR first, which Gidubba does not do.
 - Unusual PDF layouts may need some manual cleanup on the Review screen.
-- TableForge does not find tables in a whole PDF by itself; you copy the table you want.
+- Gidubba does not find tables in a whole PDF by itself; you copy the table you want.
 - **Copy Table Text** produces generic tab-separated text, not a format for any particular VTT.
 - **Foundry VTT export** is for the Roll Table Importer module; it exports one result set at a time, with no links, and
   Foundry does not reproduce Clamp.
@@ -100,18 +107,18 @@ only the current result with programs on this computer (address `127.0.0.1`); it
 - dddice dice need an internet connection and the WebView2 Runtime.
 - Connecting a dddice account takes a few steps in your web browser.
 - Windows x64 only for now.
-- Only one copy of TableForge should be open at a time, and closing the window discards unsaved Review edits without asking.
+- Only one copy of Gidubba should be open at a time, and closing the window discards unsaved Review edits without asking.
 - The parser is deliberately conservative: anything it is unsure about stays together and is flagged on the Review screen
   instead of being guessed. Side-by-side columns that each restart at the same number are not split.
 - dddice accounts can use only themes with every standard die; custom dice are not supported.
 - The **Streaming Overlay** shows one current result. dddice's 3D dice can be shown in OBS only with a connected dddice
-  account, and two copies of TableForge cannot use the same overlay port.
+  account, and two copies of Gidubba cannot use the same overlay port.
 
 ## Feedback and bug reports
 
 Please report problems and ideas on **[GitHub Issues](https://github.com/Gwydione/TableForge/issues)**. It helps to include:
 
-- your TableForge version (bottom right of the window, or **About**);
+- your Gidubba version (bottom right of the window, or **About**);
 - your Windows version;
 - what you were trying to do, and what happened instead;
 - for table-reading problems, the table text you pasted (or a screenshot of it);
@@ -121,12 +128,12 @@ Please report problems and ideas on **[GitHub Issues](https://github.com/Gwydion
 
 ## License
 
-TableForge is copyright (c) 2026 RPG Frequencies, all rights reserved; see [LICENSE.txt](LICENSE.txt). Third-party
+Gidubba is copyright (c) 2026 RPG Frequencies, all rights reserved; see [LICENSE.txt](LICENSE.txt). Third-party
 components are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 ---
 
-# Using TableForge in detail
+# Using Gidubba in detail
 
 ## Everyday use
 
@@ -155,24 +162,24 @@ One SQLite database file:
 
 (typically `C:\Users\<you>\AppData\Local\TableForge\tableforge.db`). It holds your collections, tables, recent tables and
 recent rolls. The location is fixed in V1. **Open Data Folder**, at the bottom of the main window, opens this folder. To back
-up your data, close TableForge and copy the whole `TableForge` folder somewhere safe; to start fresh, delete it.
+up your data, close Gidubba and copy the whole `TableForge` folder somewhere safe; to start fresh, delete it.
 
-Beside it TableForge keeps `dice-provider.txt` (one word, `builtin` or `dddice`: your dice choice) and, only if you ever choose
+Beside it Gidubba keeps `dice-provider.txt` (one word, `builtin` or `dddice`: your dice choice) and, only if you ever choose
 dddice, a `WebView2` folder (the browser profile that draws the dice; it holds no tables). If you connect a dddice account there is
 also `dddice-account.json`: the connection's token, encrypted with Windows (DPAPI, readable only by your Windows user), plus your
 account's display name, chosen theme and dddice room. Disconnect deletes it. Deleting it by hand just returns dddice to guest.
 Once you use the [Streaming Overlay](#streaming-overlay-obs) there are also `streaming-overlay.json` (its settings) and
 `streaming-overlay.html` (the page OBS loads).
 
-On first launch TableForge creates the folder and database itself. When a newer TableForge needs to update an existing
+On first launch Gidubba creates the folder and database itself. When a newer Gidubba needs to update an existing
 database to its format, it first saves a copy beside it, `tableforge.pre-v8-from-v7.backup.db` (the format it updates to,
-and the one it came from), and updates nothing if that copy cannot be made. If an update then fails, TableForge says so and
-where the copy is (to go back, close TableForge and copy the backup over `tableforge.db`). The newest three copies are kept.
-Nothing is copied on an ordinary start. A database from a newer TableForge is never opened or changed: TableForge asks you
+and the one it came from), and updates nothing if that copy cannot be made. If an update then fails, Gidubba says so and
+where the copy is (to go back, close Gidubba and copy the backup over `tableforge.db`). The newest three copies are kept.
+Nothing is copied on an ordinary start. A database from a newer Gidubba is never opened or changed: Gidubba asks you
 to install the newer version.
 
 The legal and privacy notes are `LICENSE.txt`, `THIRD-PARTY-NOTICES.txt` and `PRIVACY.txt` (also installed with the program).
-TableForge collects no telemetry.
+Gidubba collects no telemetry.
 
 ## Dice expressions
 
@@ -181,7 +188,7 @@ A table's dice are an ordinary `NdM` with **one optional fixed modifier**: `d20`
 variables. Anything else is refused with a message rather than partly understood.
 
 The legal results include the modifier: `2d6+1` produces 3–13 and `d20-2` produces -1–18, and a table is checked against that
-final range. When you type a roll by hand, enter the **final** result (dice already added to the modifier, e.g. 9); TableForge
+final range. When you type a roll by hand, enter the **final** result (dice already added to the modifier, e.g. 9); Gidubba
 never adds the modifier again. Rows for negative results are written like `-1-0`, and open-ended rows like `26+`,
 `20 or more` or `1 or less` (not for `d66`). A table may have rows its dice alone never reach (`-10-0` or `26+` on a `d20`,
 for modified rolls): when a result set covers every number its dice can roll, the Review screen shows those rows as
@@ -203,7 +210,7 @@ information rather than a warning, and a roll typed by hand may be any number th
   Numbers such as 17, 20, 27, 40 or 60 cannot occur, so a complete d66 table (`11-16`, `21-26`, … `61-66`) has no gaps, and a row
   for an impossible number (or a range such as `15-22` that runs through 17–20) is flagged on the Review screen.
 
-The dice you write decide which one it is; TableForge never guesses from the rows. A heading such as `D66 RANDOM ENCOUNTER` or
+The dice you write decide which one it is; Gidubba never guesses from the rows. A heading such as `D66 RANDOM ENCOUNTER` or
 `NAME GENERATOR (D66)` is a d66 table, `2D6 RANDOM ENCOUNTER` is a 2d6 table. `d66` takes **no modifier** (`d66+1` is refused).
 Only a bare `d66` is this convention: an explicit count (`1d66`, `2d66`) still means a die with 66 sides, as it did in earlier
 release candidates. Typing a roll by hand for a d66 table means the final number (`35`), and impossible numbers are refused.
@@ -214,7 +221,7 @@ The roll shows as "Rolled 35 (d66)", and with dddice a d66 is simply two ordinar
 A table can have an optional **Description**: a few lines of plain text saying when or how to use it, such as "Roll when
 entering a new region or when the weather changes." or "Apply +1 if the NPC is already friendly." Type it in the
 **Description** box on the Review screen (below the name, dice and folder; up to 2,000 characters, line breaks allowed). A
-newly pasted table starts with none: TableForge never takes one from the pasted text. When saved, line breaks are kept and
+newly pasted table starts with none: Gidubba never takes one from the pasted text. When saved, line breaks are kept and
 spaces or blank lines at the very start and end are removed.
 
 While rolling, the description appears under the table's dice. A table with no description shows nothing there. A
@@ -228,7 +235,7 @@ tables, dice, result sets, rows and their ranges (including `96-00`, negative an
 and italic text, Clamp settings, table descriptions and the links between its tables. It is plain, readable UTF-8 text
 (JSON). It does not include recent tables, recent rolls, dice settings or anything from your other collections.
 
-**Older TableForge versions:** a collection whose tables have no descriptions is saved in the same file format as
+**Older versions (including TableForge):** a collection whose tables have no descriptions is saved in the same file format as
 1.0.0-rc25 (format version 1), so rc25 can import it. A collection with any table description is saved as format version
 2, which rc25 refuses ("uses a newer file format… Nothing was changed") instead of importing it without the descriptions.
 This version imports both.
@@ -239,9 +246,9 @@ collection you already have. If a collection with the same name exists, the new 
 `Name (3)`, and so on. Links between its tables point at the imported copies.
 
 The whole file is checked before anything is saved, and the import is all or nothing: a file that is damaged, from a
-newer TableForge, or that contains something TableForge cannot hold is refused with the reason, and nothing is changed.
+newer Gidubba, or that contains something Gidubba cannot hold is refused with the reason, and nothing is changed.
 A file contains table data only, never anything that runs. A collection whose rows link to a table in a *different*
-collection cannot be exported (TableForge itself never creates such links).
+collection cannot be exported (Gidubba itself never creates such links).
 
 **Delete Collection…** deletes the selected collection with all its folders and tables, after asking you to confirm.
 This cannot be undone. Recent rolls from its tables stay readable in Recent rolls. Use it, for example, to remove an
@@ -281,7 +288,7 @@ range and result, exactly as they appear in Copy Table Text but with no name, di
 3<TAB>Irus, God of the Sun
 ```
 
-1. In TableForge, choose **Export…** → **Copy for Sojour**.
+1. In Gidubba, choose **Export…** → **Copy for Sojour**.
 2. In Sojour, create or open a Lookup Table.
 3. Select the first cell.
 4. Paste with **Ctrl+V**. Each row fills two cells: range and result.
@@ -339,7 +346,7 @@ exactly the same JSON:
 
 - **Checked in Tables+ so far (2026-09-27):** TableForge-exported `d20`, `d66` (`T66`, in the sample tested) and `2d6`
   tables imported and rolled correctly. A separate hand-written `1d4+20` Tables+ table always rolled 21–24, so Tables+
-  applies a positive modifier on one die; a TableForge export with a modifier was not itself tested.
+  applies a positive modifier on one die; a Gidubba export with a modifier was not itself tested.
 - **Not yet checked in Tables+:** negative modifiers and negative ranges, gaps and overlaps, `{2d6}` and `#reroll` in
   results, a real `1d66`, `d100`, and importing a file saved with **Save Tables+ JSON…**. This is not a claim of full
   Tables+ compatibility; please report what you find (the checklist is in `docs/RELEASE_TESTING.md`).
@@ -372,7 +379,7 @@ at all: if saving fails, an existing file with that name is left as it was. A si
 why next to **Export…**, with no review.
 
 **What a roll shows is kept.** For every roll of a table's own dice, an exported table shows in PUM what it shows in
-TableForge. TableForge checks each table before exporting it, and skips any table it can't reproduce exactly. The report
+Gidubba. Gidubba checks each table before exporting it, and skips any table it can't reproduce exactly. The report
 gives the reason and an example roll.
 
 **How tables are written for PUM:**
@@ -402,12 +409,12 @@ gives the reason and an example roll.
 **Importing a bundle again:** PUM Companion offers to overwrite the tables it already has, and overwriting replaces them,
 including any changes you made to them in PUM. The review says so whenever there is a bundle to save.
 
-**Rolls beyond the dice:** PUM's own roll overrides, and TableForge's situational modifier, can reach values outside a
+**Rolls beyond the dice:** PUM's own roll overrides, and Gidubba's situational modifier, can reach values outside a
 table's dice. There PUM uses its first row for anything below 1 and its last row for anything above it. Where that
-differs from TableForge, the report notes it.
+differs from Gidubba, the report notes it.
 
 **Checked in PUM Companion (2026-10-23):**
-- imports of TableForge-made bundles, of a single table and of whole Collections;
+- imports of TableForge 1.1.0-made bundles (the export is unchanged in Gidubba), of a single table and of whole Collections;
 - rolls with gaps, Clamp to Range and modifiers;
 - `d66`, a real `1d66`, `d100` with `00`, and open-ended rows;
 - several result sets, links, bold and italic, and empty rows;
@@ -426,10 +433,10 @@ dice buttons; nothing is combined, counted or interpreted, and table text such a
 - Each roll is a normal roll: the table's own modifier (`2d6+1`) and Clamp apply to every one, and each is its own entry in
   **Recent rolls**.
 - The **Modifier** box is used by the first roll that succeeds, then resets to 0 as usual; it is not added to every roll.
-- If a roll fails or is cancelled, the ones already made stay (and stay recorded); the rest are not rolled, and TableForge says
+- If a roll fails or is cancelled, the ones already made stay (and stay recorded); the rest are not rolled, and Gidubba says
   where it stopped.
 - A roll you type yourself is always one result. The choice goes back to 1 when you follow a link or open another table, and is
-  not remembered after TableForge closes. It is locked while dice are rolling.
+  not remembered after Gidubba closes. It is locked while dice are rolling.
 
 ## Situational modifier
 
@@ -439,13 +446,13 @@ Beside **Roll** is a small **Modifier** box (`0` by default). Type one whole num
 time; nothing about it is saved with the table, and the table's own dice (`2d6+1`) are never changed by it.
 
 - The sum is used exactly as calculated, even outside the table: a d6 that rolls 1 with `-1` is **0**, which usually
-  shows "No entry covers 0." TableForge never rerolls or picks the nearest row, and clamps only a table you have
+  shows "No entry covers 0." Gidubba never rerolls or picks the nearest row, and clamps only a table you have
   explicitly set to (see **Clamp to table range** below). That roll still uses the modifier up.
 - Anything that is not one whole number in range (`+`, `2.5`, `1d4`, `+1001`) turns Roll off and says why; it is never
   read as 0. **Enter** in the box rolls. Moving into the box (**Tab**, **Shift+Tab** or a click) selects its value, and so
   does the reset to 0 after a roll, so what you type next replaces the 0.
 - If the dice cannot finish (a dddice roll is cancelled or fails), the modifier stays for the retry. dddice still shows
-  the real die (11); TableForge adds the modifier once the dice settle. The box is locked while dice are in the air.
+  the real die (11); Gidubba adds the modifier once the dice settle. The box is locked while dice are in the air.
 - A roll you type yourself is already final, so it ignores the modifier and leaves it waiting. Inline dice rolls ignore
   it too.
 - Opening a different table, or following a link, starts the box at 0 again.
@@ -473,7 +480,7 @@ clamps: every roll past it already lands on that row.
 
 ## Inline dice in results
 
-When a result's own text contains a dice expression TableForge already knows how to roll — `You gain +1d4 Armor`,
+When a result's own text contains a dice expression Gidubba already knows how to roll — `You gain +1d4 Armor`,
 `Encounter 2d6 Skeletons`, `Gain 2d6+1 supplies`, `Consult entry d66` — a **Roll** button for that expression appears
 beneath it once the result is showing. Pressing it rolls through whichever dice provider is currently selected (Built-in
 or dddice, with the same visible dice and the same wait for dddice to settle) and shows the result **resolved in
@@ -486,7 +493,7 @@ Resolved: You gain +3 Armor
 ```
 
 Only the dice expression itself is replaced, by its final number (dice plus the expression's own modifier: `2d6+1` → `9`);
-everything around it — a leading `+`, commas, full stops, the words — is kept exactly as written. TableForge does not
+everything around it — a leading `+`, commas, full stops, the words — is kept exactly as written. Gidubba does not
 fix grammar (`Encounter 1 Skeletons` is shown as is). **Roll Again** replaces the number; it does not keep a history.
 The original text is never rewritten, in the table or anywhere else.
 
@@ -494,7 +501,7 @@ A result with more than one supported expression (`Gain 1d6 food and 1d4 water`)
 expression (`Roll d6`, `Roll d4`, then `Roll d6 Again` / `Roll d4 Again`); an expression not rolled yet stays as written
 in the resolved line (`Resolved: Gain 4 food and 1d4 water`). The same expression repeated in one result (`Gain 1d6 gold
 and lose 1d6 reputation`) gets only one button, and its result fills every occurrence (`Gain 4 gold and lose 4
-reputation`). Text such as `UD6` or `4d6kh3` that only looks like dice notation is left alone: TableForge never guesses
+reputation`). Text such as `UD6` or `4d6kh3` that only looks like dice notation is left alone: Gidubba never guesses
 at a second, more permissive dice grammar, only the same one a table's own dice already use.
 
 These rolls are auxiliary: they never appear in Recent Rolls, ignore the Modifier box (and leave it as it is), and never
@@ -508,27 +515,27 @@ The **Dice** choice near the top of the left pane (just under **Paste Table…**
 
 - **Built-in** (the default): rolls instantly, works offline, needs nothing.
 - **dddice** (3D dice, needs internet): press Roll, watch the dice tumble in a panel above the table, and the table result
-  appears when they settle. No dddice account is needed: TableForge uses dddice's anonymous *guest* access (free
+  appears when they settle. No dddice account is needed: Gidubba uses dddice's anonymous *guest* access (free
   `dddice-bees` dice). Choosing dddice shows "Preparing dddice…" and enables Roll once the dice are ready (a few seconds).
-  A guest identity is created once per TableForge session and is never saved.
+  A guest identity is created once per Gidubba session and is never saved.
 
-dddice rolls only the base dice (`2d6+1` shows a 2d6); TableForge adds the modifier itself, so the result is the same kind of
+dddice rolls only the base dice (`2d6+1` shows a 2d6); Gidubba adds the modifier itself, so the result is the same kind of
 number Built-in produces. It shows d4, d6, d8, d10, d12, d20 and d100 (a tens die plus a ones die), in any count. A table with
 other dice (a d3, d7…) says so and can be rolled with Built-in. Typing a roll yourself never contacts dddice.
 
 If dddice cannot start or a roll fails (no internet, dddice down or rate-limiting new guests, script or connection failure, a roll
-that does not finish in 30 seconds), TableForge says why and offers **Use Built-in Dice** (and **Try again**). It never rerolls
+that does not finish in 30 seconds), Gidubba says why and offers **Use Built-in Dice** (and **Try again**). It never rerolls
 with Built-in by itself, and Recent Rolls only ever records results the dice really produced. If dddice was your choice last
-time and cannot start, TableForge opens normally and offers Built-in. Keep the TableForge window open (not minimised) while
+time and cannot start, Gidubba opens normally and offers Built-in. Keep the Gidubba window open (not minimised) while
 the dice roll.
 
 **What dddice sees:** the kind of dice rolled (for example d20, or d10 with a tens die), the anonymous guest identity, a room
-named "TableForge", the rolls made in it, and normal web traffic (its script and dice models from dddice's CDN, and a
-WebSocket). TableForge never sends table names, table text, results or collection names. Nothing dddice-related is contacted or
+named "Gidubba" (a room made by TableForge keeps the name "TableForge"), the rolls made in it, and normal web traffic (its script and dice models from dddice's CDN, and a
+WebSocket). Gidubba never sends table names, table text, results or collection names. Nothing dddice-related is contacted or
 created unless you choose dddice.
 
 **Requirements for dddice:** internet, and the free *Microsoft Edge WebView2 Runtime* (Evergreen). It is preinstalled on Windows 11
-and on current Windows 10 with Microsoft Edge; if it is missing TableForge says so and Built-in still works. The publish folder adds only
+and on current Windows 10 with Microsoft Edge; if it is missing Gidubba says so and Built-in still works. The publish folder adds only
 `Microsoft.Web.WebView2.*.dll`, `WebView2Loader.dll` and `Assets\dddice-host.html` (about 2 MB in all); no runtime is bundled.
 
 ### Connecting a dddice account (optional)
@@ -537,17 +544,17 @@ Guest dice need no account and stay the default. To roll with a theme from your 
 under the Dice choice (the sidebar then shows `dddice: <your name>` and `Theme: <theme>` instead of `dddice: Guest`):
 
 1. **Connect** shows a short code. Press **Open dddice** (it opens `dddice.com/activate` in your own browser), sign in there if
-   asked, and enter the code. **Copy** copies just the code. TableForge never asks for, sees or stores your dddice password.
-2. TableForge notices the approval by itself (it checks every 5 seconds; **Cancel** stops, and the code expires after about
+   asked, and enter the code. **Copy** copies just the code. Gidubba never asks for, sees or stores your dddice password.
+2. Gidubba notices the approval by itself (it checks every 5 seconds; **Cancel** stops, and the code expires after about
    5 minutes: "Connection timed out. You can try again."). Nothing is saved until you approve.
-3. Your Dice Box is listed. A theme can be chosen only if it has every standard die TableForge rolls: d4, d6, d8, d10, the
+3. Your Dice Box is listed. A theme can be chosen only if it has every standard die Gidubba rolls: d4, d6, d8, d10, the
    percentile d10x, d12 and d20, all with ordinary numbered faces. Other themes stay listed, greyed out with the reason
    ("Missing d12, d20", "No d10x (percentile)", "Non-standard d6 faces"). **Refresh** reloads the list.
 
 The connection and theme are remembered across restarts, and one dddice room is created for the account and reused. The account
-is checked with dddice only when dddice is actually used. If dddice refuses it, TableForge says "dddice connection expired.
+is checked with dddice only when dddice is actually used. If dddice refuses it, Gidubba says "dddice connection expired.
 Reconnect in Account…" and keeps it until you reconnect or disconnect; if dddice is busy or unreachable it says so and keeps
-everything. If your chosen theme leaves your Dice Box or can no longer be used, TableForge says so and asks you to choose
+everything. If your chosen theme leaves your Dice Box or can no longer be used, Gidubba says so and asks you to choose
 another. It never switches to the guest dice or another theme by itself; **Use Built-in Dice** is always there.
 **Disconnect** forgets the connection on this computer only (your dddice account is not changed) and dddice rolls as a guest again.
 
@@ -555,21 +562,21 @@ Not included yet: custom dice, other dice apps. To show dddice's dice in OBS, se
 
 ## Streaming Overlay (OBS)
 
-The Streaming Overlay shows the latest TableForge result (table name, roll value and result text) in OBS as its own Browser
+The Streaming Overlay shows the latest Gidubba result (table name, roll value and result text) in OBS as its own Browser
 Source, on a transparent background; OBS decides where it goes and how big it is. It works the same with Built-in dice, dddice
 and rolls you type yourself, and it needs no dddice account.
 
-1. Choose **Streaming Overlay…** at the bottom of the TableForge window and tick **Enable streaming overlay**. The status line
+1. Choose **Streaming Overlay…** at the bottom of the Gidubba window and tick **Enable streaming overlay**. The status line
    says "Running on port 41285."
 2. Beside **OBS Browser Source, "Local file" (recommended)** choose **Copy**: it copies the path of `streaming-overlay.html`
    in your data folder (normally `%LOCALAPPDATA%\TableForge\streaming-overlay.html`).
 3. In OBS add a **Browser** source, tick **Local file**, choose that file, and place it in your scene.
-4. **Show Test Result** shows "TableForge Overlay Test / 12 — Your streaming overlay is working." so you can place it without
+4. **Show Test Result** shows "Gidubba Overlay Test / 12 — Your streaming overlay is working." so you can place it without
    rolling; **Clear Overlay** empties it. Neither is a roll, and neither appears in Recent rolls.
 
-Loaded from the local file, the overlay starts showing results by itself whenever TableForge is running, even if OBS was
+Loaded from the local file, the overlay starts showing results by itself whenever Gidubba is running, even if OBS was
 opened first. The dialog also gives a URL (`http://127.0.0.1:41285/`) for a URL Browser Source; it shows the same thing, but if
-OBS was started before TableForge you must refresh that source in OBS (Properties → **Refresh cache of current page**).
+OBS was started before Gidubba you must refresh that source in OBS (Properties → **Refresh cache of current page**).
 
 What it shows:
 
@@ -579,29 +586,29 @@ What it shows:
   always shown, with its bold and italic; each result set is its own line.
 - The roll value is the final number: a 3 with a situational modifier of `+2` shows **5** (the arithmetic stays on the Roll
   screen). With Clamp it shows the number actually rolled, while the result is the boundary row's.
-- A roll no row covers shows TableForge's "No entry covers N." in place of the previous result.
+- A roll no row covers shows Gidubba's "No entry covers N." in place of the previous result.
 - Rolling inline dice in the current result ("2d6 Skeletons") updates that result in place ("7 Skeletons"). An inline roll in
   an older result (an earlier roll of several) does not change the overlay.
-- When TableForge closes, the overlay goes blank within a few seconds. A new TableForge session starts with it empty.
+- When Gidubba closes, the overlay goes blank within a few seconds. A new Gidubba session starts with it empty.
 
-**dddice's 3D dice in OBS.** dddice draws its own dice; TableForge does not capture or relay them. To show them too, add
+**dddice's 3D dice in OBS.** dddice draws its own dice; Gidubba does not capture or relay them. To show them too, add
 dddice's own stream as a **second, separate** Browser Source:
 
 1. Connect your dddice account (**Account…** under Dice) and choose a theme.
-2. In **Streaming Overlay…** choose **Open my dddice room**: it opens TableForge's room on dddice.com in your browser.
+2. In **Streaming Overlay…** choose **Open my dddice room**: it opens Gidubba's room on dddice.com in your browser.
 3. In dddice open **Streaming tools** and copy the **3D Dice** link.
-4. In OBS add that link as its own Browser Source (a URL, not a local file). Keep it separate from the TableForge source.
+4. In OBS add that link as its own Browser Source (a URL, not a local file). Keep it separate from the Gidubba source.
 
-How the dice look, including their size, is set in dddice (the room's settings), not in TableForge. TableForge never sees,
-stores or needs that streaming link. If TableForge says "dddice room changed. Your OBS dice source may need to be updated.",
+How the dice look, including their size, is set in dddice (the room's settings), not in Gidubba. Gidubba never sees,
+stores or needs that streaming link. If Gidubba says "dddice room changed. Your OBS dice source may need to be updated.",
 dddice has given your account a new room: open it again with **Open my dddice room** and replace the dice source's link in
 OBS. Guest dddice dice cannot be shown in OBS this way.
 
 **Port and troubleshooting.** The overlay listens only on `127.0.0.1` (this computer), on port **41285** unless you change
 it, and only while it is enabled. If the status says the port is already in use, another program (or another copy of
-TableForge) has it: type another port from 1024 to 65535 and choose **Apply**. TableForge never picks a different port by
+Gidubba) has it: type another port from 1024 to 65535 and choose **Apply**. Gidubba never picks a different port by
 itself. After changing the port, refresh the Browser Source in OBS once. To restyle the overlay, OBS's own **Custom CSS** can
-target its `tf-…` classes (for example `tf-table-name`, `tf-roll-value`, `tf-result-text`); TableForge has no appearance
+target its `tf-…` classes (for example `tf-table-name`, `tf-roll-value`, `tf-result-text`); Gidubba has no appearance
 settings of its own.
 
 ## What Paste Table understands (copied-PDF text)
@@ -668,7 +675,7 @@ so correcting it takes a click (or **Ctrl+J**) instead of retyping:
   general undo/redo history, so this is the smallest safe net rather than a full command stack.
 
 A Unicode replacement character (`�`) left by a broken PDF font mapping is flagged on its row automatically, as a
-warning to review by hand; TableForge never guesses what the missing character was or silently changes it.
+warning to review by hand; Gidubba never guesses what the missing character was or silently changes it.
 
 ## Cleaning up imperfect PDF copies (Paste Table screen)
 
@@ -696,7 +703,7 @@ repaired before Interpret runs, not only after:
   (wrapping back to the first once it reaches the end).
 
 All three edits go through the paste box's own text editing, so **Ctrl+Z** undoes them exactly as it would undo typing.
-A warning above the box reports how many `�` characters are still in the text; as on Review, TableForge never guesses
+A warning above the box reports how many `�` characters are still in the text; as on Review, Gidubba never guesses
 what they should be or changes them for you.
 
 
@@ -745,8 +752,8 @@ single-file, no trimming, no ReadyToRun. There is no auto-update in V1.
 
 does everything above and then builds the public release artifacts in `publish\release\`: the installer
 (`installer\TableForge.iss`, Inno Setup 6; install it once with `winget install JRSoftware.InnoSetup`),
-`TableForge-<version>-Setup.exe`, the same files as a portable `TableForge-<version>-win-x64.zip`, and `SHA256SUMS.txt`. The script's `AppId` must never
-change: it is how a newer installer recognises and replaces an installed TableForge. The installer is the one way TableForge
+`Gidubba-<version>-Setup.exe`, the same files as a portable `Gidubba-<version>-win-x64.zip`, and `SHA256SUMS.txt`. The script's `AppId` must never
+change: it is how a newer installer recognises and replaces an installed Gidubba (or TableForge). The installer is the one way Gidubba
 is meant to be installed; the zip is for people who prefer to run it from a folder (it uses the same data folder).
 
 Equivalent manual command, if you need it (`publish.ps1` just wraps this with the test gate and a clean folder):
@@ -758,7 +765,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.1.0 · built 2026-10-23 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.2.0 · built 2026-10-23 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
@@ -772,7 +779,7 @@ accepted change, the running exe is stale — run `.\publish.ps1` again.
 
 ## Developer tools
 
-**Separate data folder.** Set the environment variable `TABLEFORGE_DATA_DIR` to a folder to make TableForge keep *all* of its data
+**Separate data folder.** Set the environment variable `TABLEFORGE_DATA_DIR` to a folder to make Gidubba keep *all* of its data
 (database, dice choice, WebView2 profile) there instead of in `%LOCALAPPDATA%\TableForge`. It is meant for testing a build without
 touching your real tables; leave it unset normally.
 

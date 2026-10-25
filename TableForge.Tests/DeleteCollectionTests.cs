@@ -285,7 +285,7 @@ public class DeleteCollectionTests
         Assert.Null(w.Main.SelectedCollection);
         Assert.Empty(w.Main.Tables);
         Assert.Empty(w.Main.RecentTables);
-        Assert.StartsWith("Welcome to TableForge.", w.Main.EmptyStateText);
+        Assert.StartsWith("Welcome to Gidubba.", w.Main.EmptyStateText);
         Assert.Equal("Deleted the collection \"Mythic GME\". Create a collection to begin.", w.Main.Status);
         Assert.False(w.Main.DeleteCollectionCommand.CanExecute(null));
         Assert.False(w.Main.ExportCollectionCommand.CanExecute(null));

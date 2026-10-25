@@ -31,7 +31,7 @@ public static class TablesPlusTableExporter
     public const string D66Dice = "T66";
 
     public const string ClampWarning =
-        "Tables+ JSON does not include TableForge’s Clamp to Range setting; rolls outside the exported ranges may have no matching entry.";
+        "Tables+ JSON does not include Gidubba’s Clamp to Range setting; rolls outside the exported ranges may have no matching entry.";
 
     public const string ModifiedDiceError =
         "Tables+ export does not support a fixed modifier on more than one die (such as 2d6+1) yet.";

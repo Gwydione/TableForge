@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Runs the full test suite and, only if it passes, produces a fresh self-contained win-x64 publish of TableForge.
+    Runs the full test suite and, only if it passes, produces a fresh self-contained win-x64 publish of Gidubba (formerly TableForge; the exe is still TableForge.exe).
 
 .DESCRIPTION
     This is the one supported way to produce a release build. It exists because publish\win-x64 has repeatedly
@@ -17,8 +17,8 @@
          (e.g. the publish silently used a different/cached build) is caught immediately rather than discovered
          later by a user running a stale exe. It also refuses to finish if any debug symbols (.pdb) were published.
       5. With -Installer only: builds the public release artifacts in publish\release\ -
-         TableForge-<version>-Setup.exe (installer\TableForge.iss, Inno Setup 6; per-user install, see the script),
-         TableForge-<version>-win-x64.zip (the same published files, for people who prefer no installer) and
+         Gidubba-<version>-Setup.exe (installer\TableForge.iss, Inno Setup 6; per-user install, see the script),
+         Gidubba-<version>-win-x64.zip (the same published files, for people who prefer no installer) and
          SHA256SUMS.txt (one "<sha256>  <file>" line per artifact).
 
 .PARAMETER SkipTests
@@ -86,7 +86,7 @@ if (Test-Path $publishDir) {
 
 # ---- 3. production publish -------------------------------------------------------------------------
 
-Step "Publishing TableForge (self-contained win-x64)"
+Step "Publishing Gidubba (self-contained win-x64)"
 dotnet publish "$root\TableForge\TableForge.csproj" -p:PublishProfile=win-x64-folder
 if ($LASTEXITCODE -ne 0) {
     Fail "dotnet publish failed."
@@ -146,7 +146,7 @@ if ($Installer) {
         Fail "The Inno Setup compiler failed."
     }
 
-    $setup = Join-Path $releaseDir "TableForge-$csprojVersion-Setup.exe"
+    $setup = Join-Path $releaseDir "Gidubba-$csprojVersion-Setup.exe"
     if (-not (Test-Path $setup)) {
         Fail "The installer was not produced at $setup."
     }
@@ -154,7 +154,7 @@ if ($Installer) {
     Step "Building the portable zip"
     Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = Join-Path $releaseDir "TableForge-$csprojVersion-win-x64.zip"
+    $zip = Join-Path $releaseDir "Gidubba-$csprojVersion-win-x64.zip"
     # The published files at the zip's root: "Extract All" puts them in a folder named after the zip. Each file is added
     # by hand so every entry name uses "/" as the zip format requires (Windows PowerShell's CreateFromDirectory writes "\",
     # which other unzip tools turn into odd file names).

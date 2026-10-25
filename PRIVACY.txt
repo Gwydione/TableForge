@@ -1,24 +1,25 @@
-TableForge privacy
+Gidubba (formerly TableForge) privacy
 
-- Your data stays on your computer. TableForge keeps your collections, tables, roll history and settings in its data
+- Your data stays on your computer. Gidubba keeps your collections, tables, roll history and settings in its data
   folder (%LOCALAPPDATA%\TableForge; "Open Data Folder" at the bottom of the window shows it). There is no cloud sync
-  and no TableForge account.
-- No telemetry. TableForge does not collect analytics, usage statistics or crash reports, and does not contact any
-  TableForge server.
-- dddice is optional. Only if you choose dddice dice does TableForge connect to the dddice service (dddice.com) and load
+  and no Gidubba account.
+- No telemetry. Gidubba does not collect analytics, usage statistics or crash reports, and does not contact any
+  Gidubba server.
+- dddice is optional. Only if you choose dddice dice does Gidubba connect to the dddice service (dddice.com) and load
   its dice script and models from dddice's servers. It sends only what the dice need: the kind of dice rolled, a guest
-  or account login, a room named "TableForge" and the rolls made in it. Table names, table text and results are never sent.
+  or account login, a room named "Gidubba" (a room made before 1.2.0 keeps the name "TableForge") and the rolls made
+  in it. Table names, table text and results are never sent.
   dddice's own privacy policy applies to its service.
-- TableForge never asks for or stores your dddice password. If you connect a dddice account, you approve the connection
-  on dddice.com in your own browser. TableForge then keeps dddice's access token in dddice-account.json, encrypted with
+- Gidubba never asks for or stores your dddice password. If you connect a dddice account, you approve the connection
+  on dddice.com in your own browser. Gidubba then keeps dddice's access token in dddice-account.json, encrypted with
   Windows (DPAPI) so that only your Windows user account can read it; Disconnect deletes it.
-- The Streaming Overlay is optional and off by default. While it is on, TableForge lets programs on your own computer (such as
+- The Streaming Overlay is optional and off by default. While it is on, Gidubba lets programs on your own computer (such as
   OBS) read the current result (table name, roll value and result text) at 127.0.0.1; it is never reachable from the network
-  and sends nothing anywhere. For dddice's dice in OBS, you copy dddice's own streaming link on dddice.com; TableForge never
+  and sends nothing anywhere. For dddice's dice in OBS, you copy dddice's own streaming link on dddice.com; Gidubba never
   sees or stores it.
 - Copy Table Text puts the table's text on the Windows clipboard, where other programs on your computer can read it, as
   with any copy.
 - Exports (Foundry, Tables+, PUM Companion, Export Collection) only write the file you choose, on your computer. Nothing
   is uploaded; you decide where the file goes from there.
-- Uninstalling TableForge removes the program but leaves your data folder, so your tables are still there if you
+- Uninstalling Gidubba removes the program but leaves your data folder, so your tables are still there if you
   reinstall. Delete that folder yourself to remove them.

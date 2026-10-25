@@ -118,11 +118,11 @@ public sealed class DddiceAccountViewModel : ObservableObject
             try
             {
                 _connection.SelectTheme(value.Theme);
-                Message = $"TableForge's dddice rolls now use {value.Name}.";
+                Message = $"Gidubba's dddice rolls now use {value.Name}.";
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
             {
-                Message = $"TableForge could not save the theme: {ex.Message}";
+                Message = $"Gidubba could not save the theme: {ex.Message}";
             }
         }
     }
@@ -172,7 +172,7 @@ public sealed class DddiceAccountViewModel : ObservableObject
         {
             ActivationCode = "";
             State = RestingState();
-            Message = ex is DddiceException ? ex.Message : $"TableForge could not save the dddice connection: {ex.Message}";
+            Message = ex is DddiceException ? ex.Message : $"Gidubba could not save the dddice connection: {ex.Message}";
         }
         finally { End(cancel); }
     }
@@ -205,7 +205,7 @@ public sealed class DddiceAccountViewModel : ObservableObject
             _showingLoadedSelection = false;
 
             Message = account.ThemeId is null
-                ? Themes.Any(t => t.IsEnabled) ? "Choose a theme for TableForge's dddice rolls." : "None of the themes in your Dice Box has every die TableForge needs."
+                ? Themes.Any(t => t.IsEnabled) ? "Choose a theme for Gidubba's dddice rolls." : "None of the themes in your Dice Box has every die Gidubba needs."
                 : saved is null ? DddiceMessages.ThemeMissing(account.ThemeName ?? account.ThemeId)
                 : !saved.IsEnabled ? DddiceMessages.ThemeIncompatible(saved.Name, saved.Reason)
                 : "";
@@ -240,7 +240,7 @@ public sealed class DddiceAccountViewModel : ObservableObject
         try { _connection.Disconnect(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Message = $"TableForge could not remove the saved dddice connection: {ex.Message}";
+            Message = $"Gidubba could not remove the saved dddice connection: {ex.Message}";
             return;
         }
         _showingLoadedSelection = true;

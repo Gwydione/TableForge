@@ -15,7 +15,7 @@
         <!-- Not connected, or the connection expired. -->
         <StackPanel Visibility="{Binding ShowConnect, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
             <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,8"
-                       Text="Connect your dddice account to roll with a theme from your Digital Dice Box. You approve the connection on dddice.com; TableForge never asks for your dddice password." />
+                       Text="Connect your dddice account to roll with a theme from your Digital Dice Box. You approve the connection on dddice.com; Gidubba never asks for your dddice password." />
             <Button x:Name="ConnectButton" Content="{Binding ConnectLabel}" Command="{Binding ConnectCommand}" HorizontalAlignment="Left" Padding="14,4" />
         </StackPanel>
 

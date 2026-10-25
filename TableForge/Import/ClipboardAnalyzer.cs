@@ -44,7 +44,7 @@ public sealed record ClipboardAnalysis(
     public string ToReport(string? owner = null)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("TableForge clipboard diagnostic");
+        sb.AppendLine("Gidubba clipboard diagnostic");
         sb.AppendLine(new string('=', 31));
         sb.AppendLine($"Clipboard owner: {owner ?? "(unknown)"}");
         sb.AppendLine();
@@ -69,7 +69,7 @@ public sealed record ClipboardAnalysis(
         if (Html?.Markdown is { Length: > 0 } md)
         {
             sb.AppendLine();
-            sb.AppendLine("HTML read as TableForge-style emphasis (**bold**, *italic*):");
+            sb.AppendLine("HTML read as Gidubba-style emphasis (**bold**, *italic*):");
             foreach (var line in md.Split('\n').Take(40)) sb.AppendLine("  | " + line);
         }
         return sb.ToString();

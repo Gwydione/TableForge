@@ -20,7 +20,7 @@ public class FirstRunViewTests
             // ---- what a new user sees ----------------------------------------------------------
             var empty = ui.One<TextBlock>(t => t.Name == "EmptyStateBlock");
             Assert.True(empty.IsVisible);
-            Assert.StartsWith("Welcome to TableForge.", empty.Text);
+            Assert.StartsWith("Welcome to Gidubba.", empty.Text);
             var nameBox = ui.One<TextBox>(t => t.Name == "NewCollectionBox");
             Assert.Same(nameBox, ui.Focused);                      // the cursor is already where the first thing to do is
             Assert.False(ui.One<Button>(b => b.Content as string == "Paste Table…").IsEnabled);

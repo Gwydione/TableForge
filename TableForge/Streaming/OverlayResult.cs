@@ -22,7 +22,7 @@ public sealed record OverlayResult(string TableName, string RollValue, IReadOnly
 {
     /// <summary>The Show Test Result content: proves the OBS source works without making a real roll.</summary>
     public static OverlayResult Test { get; } =
-        new("TableForge Overlay Test", "12", [new OverlayLine("", [new OverlaySegment("Your streaming overlay is working.")])]);
+        new("Gidubba Overlay Test", "12", [new OverlayLine("", [new OverlaySegment("Your streaming overlay is working.")])]);
 }
 
 /// <summary>

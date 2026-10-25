@@ -1,24 +1,24 @@
-# TableForge release testing checklist
+# Gidubba release testing checklist
 
-For testing a packaged release (`TableForge-<version>-Setup.exe`) on a Windows 10/11 x64 machine, ideally one
-that has never had TableForge on it. Tick each item; note anything unexpected with the TableForge version (About, or the
+For testing a packaged release (`Gidubba-<version>-Setup.exe`) on a Windows 10/11 x64 machine, ideally one
+that has never had Gidubba (or TableForge) on it. Tick each item; note anything unexpected with the Gidubba version (About, or the
 bottom right of the window) and your Windows version.
 
 Your data lives in `%LOCALAPPDATA%\TableForge`. Nothing here should ever delete it unless a step says so.
 
 ## Fresh install
 
-- [ ] The download matches `SHA256SUMS.txt` (`Get-FileHash .\TableForge-<version>-Setup.exe`).
+- [ ] The download matches `SHA256SUMS.txt` (`Get-FileHash .\Gidubba-<version>-Setup.exe`).
 - [ ] The installer runs (SmartScreen may warn: More info → Run anyway) and asks for **no administrator permission**.
-- [ ] **TableForge** is in the Start Menu, with the TableForge icon, and starts from there.
-- [ ] First start shows the welcome text; the window, taskbar and About show the TableForge icon.
+- [ ] **Gidubba** is in the Start Menu, with the Gidubba icon, and starts from there.
+- [ ] First start shows the welcome text; the window, taskbar and About show the Gidubba icon.
 - [ ] Create a Collection.
 - [ ] Paste a table (copied from a PDF or web page), Interpret, correct a row, Save Table.
 - [ ] Roll it with **Built-in** dice.
 - [ ] Copy Table Text, paste into Notepad: name, dice, blank line, one row per line.
 - [ ] Roll screen → **Export…** → **Copy Table Text (Spaces)** (directly below Copy Table Text), paste into Notepad: the
       same text, with one space instead of the tab between each range and its result.
-- [ ] Close and restart TableForge: the collection and table are still there.
+- [ ] Close and restart Gidubba: the collection and table are still there.
 - [ ] About shows the right version and RPG Frequencies; License, Privacy and Open Data Folder open.
 
 ## Extended and open-ended ranges
@@ -69,7 +69,7 @@ D6 Boons
 - [ ] Roll `3`, then **Roll d4**: `Resolved:` shows the number bold and italic, with *next dawn* italic.
 - [ ] Recent rolls, **Copy Table Text**, **Copy Table Text (Spaces)**, **Copy for Sojour**, **Copy Foundry JSON** and
       **Copy Tables+ JSON** (paste each into Notepad): plain text only, with no `*`, `<b>` or other marks.
-- [ ] Edit the table again: the formatting is still there. Close and restart TableForge: still there.
+- [ ] Edit the table again: the formatting is still there. Close and restart Gidubba: still there.
 - [ ] Paste a two-column table such as `D3 Difficulty` / `1 Easy +10` / `2 Normal +0` / `3 Hard -10`, Interpret, and type
       several characters into one of the aligned cells, then into a range (add a space after `2`): the cursor stays
       where you are typing the whole time.
@@ -89,7 +89,7 @@ Use a table that links to another table (or make one: a row whose text names ano
       dice and **Roll** stays usable.
 - [ ] **Export…** → **Copy Table Text**, **Copy Table Text (Spaces)**, **Copy for Sojour**, **Copy Foundry JSON** and
       **Copy Tables+ JSON** (paste each into Notepad): none contains the description.
-- [ ] Close and restart TableForge: the descriptions are still there.
+- [ ] Close and restart Gidubba: the descriptions are still there.
 
 ## Situational modifier entry
 
@@ -115,7 +115,7 @@ table descriptions.
       right folder and table counts and "Existing Collections will not be changed." Choose **Cancel**: nothing is added.
 - [ ] Import it again and choose **OK**: `<name> (2)` is added and selected. Its tables roll exactly like the
       originals, the bold and italic text is still there, and following a link opens the table in `<name> (2)`.
-- [ ] Import it once more: `<name> (3)`. Close and restart TableForge: both copies are still there.
+- [ ] Import it once more: `<name> (3)`. Close and restart Gidubba: both copies are still there.
 - [ ] Copy the file, open the copy in Notepad and change `"formatVersion": 1` to `3`. Importing it is refused ("newer
       file format … Nothing was changed.") and the collection list is unchanged.
 - [ ] Give one table in the collection a description and export again: the file says `"formatVersion": 2`, and only that
@@ -141,7 +141,7 @@ Needs OBS Studio. The dddice items also need a connected dddice account.
       41285."
 - [ ] **Copy** beside the Local file path, then in OBS add a **Browser** source with **Local file** ticked and that file:
       the source is transparent and empty.
-- [ ] **Show Test Result**: "TableForge Overlay Test" and "12 — Your streaming overlay is working." appear. **Clear Overlay**
+- [ ] **Show Test Result**: "Gidubba Overlay Test" and "12 — Your streaming overlay is working." appear. **Clear Overlay**
       empties it. Recent rolls is unchanged.
 - [ ] Roll a table: its name, roll value and result appear. Untick **Show roll value**, then **Show table name**: each
       disappears straight away and the result stays.
@@ -150,17 +150,17 @@ Needs OBS Studio. The dddice items also need a connected dddice account.
 - [ ] With a situational modifier of `+2`: the overlay shows the final number only. A Clamp table rolled past its range
       shows the number rolled. A roll no row covers shows "No entry covers N." in place of the previous result.
 - [ ] A result with inline dice (`1d4`): roll the inline dice and the overlay updates the same result in place.
-- [ ] Close TableForge: the overlay goes blank within a few seconds. Start TableForge again: it works without touching OBS.
-- [ ] Close OBS and TableForge, start OBS first, then TableForge: the Local file source starts working by itself.
-- [ ] With another program on port 41285 (or a second TableForge with the overlay on), the dialog says the port is in use.
+- [ ] Close Gidubba: the overlay goes blank within a few seconds. Start Gidubba again: it works without touching OBS.
+- [ ] Close OBS and Gidubba, start OBS first, then Gidubba: the Local file source starts working by itself.
+- [ ] With another program on port 41285 (or a second Gidubba with the overlay on), the dialog says the port is in use.
       Type another port, **Apply**: it runs there; refresh the OBS source once and it shows results again.
 - [ ] dddice: **Open my dddice room** opens the room on dddice.com; its **Streaming tools** → **3D Dice** link, added as a
-      second Browser Source, shows the dice of TableForge's rolls, then the TableForge result appears when they settle.
+      second Browser Source, shows the dice of Gidubba's rolls, then the Gidubba result appears when they settle.
 
 ## Foundry VTT export
 
 In Foundry VTT v13 or v14 with the **Roll Table Importer** module enabled (Roll Tables → Import Tables). For each table,
-export from TableForge (Roll screen → **Export…**) and import into Foundry, then roll it there a few times.
+export from Gidubba (Roll screen → **Export…**) and import into Foundry, then roll it there a few times.
 
 - [ ] A `d20` table, pasted with **Copy Foundry JSON**.
 - [ ] The same table imported from a file saved with **Save Foundry JSON…**.
@@ -174,25 +174,25 @@ export from TableForge (Roll screen → **Export…**) and import into Foundry, 
 - [ ] Result text on two lines.
 - [ ] A table with a gap (rows 1–4 and 7–10): rolls of 5–6 find nothing, as expected.
 - [ ] A table with overlapping rows, if Foundry's behavior is sensible.
-- [ ] Note anything Foundry shows differently from TableForge (especially `&`, `<`, `>` and line breaks).
+- [ ] Note anything Foundry shows differently from Gidubba (especially `&`, `<`, `>` and line breaks).
 
 ## Sojour
 
-In Sojour, create or open a Lookup Table, select its first cell, then paste with **Ctrl+V** after each TableForge
+In Sojour, create or open a Lookup Table, select its first cell, then paste with **Ctrl+V** after each Gidubba
 **Export…** → **Copy for Sojour** (Roll screen).
 
 - [ ] A `d6` table: each row fills two cells (range, result) and nothing else is pasted above the first row.
 - [ ] A `d100` table with a `96–00` row: the range shows as `96-00`.
 - [ ] A table with several result sets: only the chosen one is pasted.
 - [ ] Result text with commas, curly quotes, em dashes and other Unicode.
-- [ ] Result text on two lines in TableForge: it pastes as one row, with a space where the line break was.
+- [ ] Result text on two lines in Gidubba: it pastes as one row, with a space where the line break was.
 - [ ] Result text with inline dice (`2d6 Skeletons`): pasted as written.
 
 ## Owlbear Rodeo (Tables+)
 
 **Status (2026-09-27):** TableForge-exported `d20`, `d66` (`T66`, in the sample tested) and unmodified `2d6` JSON imported
 and rolled correctly in Tables+. A separate, hand-written `1d4+20` Tables+ table consistently rolled 21–24, so Tables+
-applies a positive single-die modifier (not an end-to-end TableForge export test). Everything else below is still untested;
+applies a positive single-die modifier (not an end-to-end Gidubba export test). Everything else below is still untested;
 keep re-checking the tested items in each release. Needs Owlbear Rodeo and the Tables+ extension. Import each
 file from `docs/external-tests/tables-plus/` (or export the same kind of table with **Export…** → **Copy Tables+ JSON** or
 **Save Tables+ JSON…**), then roll each imported table several times. For every item, note whether the import worked,
@@ -204,13 +204,13 @@ what Tables+ shows, and any roll that lands on the wrong row or on nothing.
 - [ ] `d66-T66.json`: `T66` rolls only 11–16, 21–26 … 61–66 (never 17, 20 or 37) and each lands on its row.
 - [ ] `2d6.json`: imports as `bell-curve` `2d6`, results 2–12.
 - [ ] `d20-plus-2.json`: `1d20+2` is accepted and rolls 3–22 land on the right rows (Tables+ applied `1d4+20` in a
-      hand-written test; this TableForge export itself is untested).
+      hand-written test; this Gidubba export itself is untested).
 - [ ] `d4-minus-2-signed.json`: whether `1d4-2` and the negative range (-1 to 0) are accepted, and how they roll.
 - [ ] `gaps-overlaps.json`: whether rows with a gap (5–6) and an overlap (3–4) import, and what rolls in them do.
 - [ ] `text-inline-2d6.json`: whether `{2d6} goblins` shows as written or rolls the dice.
 - [ ] `text-reroll.json`: whether `#reroll` shows as written or makes Tables+ roll again.
 - [ ] Copy vs Save: pasting and importing a file give the same table.
-- [ ] Future compatibility only (TableForge refuses it today): does a hand-made Tables+ table with `2d6+1` dice import and
+- [ ] Future compatibility only (Gidubba refuses it today): does a hand-made Tables+ table with `2d6+1` dice import and
       roll 3–13 correctly?
 
 ## PUM Companion export
@@ -247,7 +247,7 @@ the test tables with its own delete option.
 
 ## Uninstall and reinstall
 
-- [ ] Uninstall TableForge (Settings → Apps).
+- [ ] Uninstall Gidubba (Settings → Apps).
 - [ ] The program and its Start Menu entry are gone.
 - [ ] `%LOCALAPPDATA%\TableForge` is **still there**, with `tableforge.db` in it.
 - [ ] Reinstall: the earlier collection and table come back by themselves.
@@ -256,7 +256,7 @@ the test tables with its own delete option.
 
 - [ ] Install an **older** packaged release.
 - [ ] Create a collection and a table, roll it (and connect dddice if you use it).
-- [ ] Close TableForge, then run the **newer** installer over it.
+- [ ] Close Gidubba, then run the **newer** installer over it.
 - [ ] The newer version starts (About shows it), and everything from before is still there.
 - [ ] If the newer version changed the data format, a `tableforge.pre-v*-from-v*.backup.db` copy appears in the data folder.
 - [ ] From rc23 to rc24: tables look and roll exactly as before, `tableforge.pre-v9-from-v8.backup.db` appears, and rc23
@@ -271,3 +271,9 @@ the test tables with its own delete option.
       ignores `streaming-overlay.json` and `streaming-overlay.html`.
 - [ ] From 1.0.0 to 1.1.0: no data-format change, so no new backup copy appears. Tables, descriptions, settings and
       rolls are exactly as before. **Export to PUM Companion…** is there, and 1.0.0 can still open the data afterwards.
+- [ ] From TableForge 1.1.0 to Gidubba 1.2.0 (the rename): no data-format change, so no new backup copy appears, and every
+      file in the data folder is unchanged. Settings → Apps lists **one** entry, now **Gidubba** 1.2.0 by RPG Frequencies;
+      the Start Menu has **one** shortcut, **Gidubba**, with the Gidubba icon (the old **TableForge** shortcut is gone).
+      The program is still in `%LOCALAPPDATA%\Programs\TableForge` as `TableForge.exe`. A connected dddice account is
+      still connected, the dice choice and overlay settings are kept, and an OBS Local file source keeps working.
+      1.1.0 can still open the data afterwards, and `.tfcollection` files go both ways between 1.1.0 and 1.2.0.

@@ -1,23 +1,23 @@
-TableForge third-party notices
+Gidubba (formerly TableForge) third-party notices
 
-TableForge ships with the components below. Each is licensed by its owner under the license named here; those licenses,
-not TableForge's own LICENSE.txt, govern your use of each component.
+Gidubba ships with the components below. Each is licensed by its owner under the license named here; those licenses,
+not Gidubba's own LICENSE.txt, govern your use of each component.
 
   Component                                   Version     License             Copyright
   -----------------------------------------   ---------   -----------------   -------------------------------------------
   .NET runtime and Windows Desktop (WPF)      10.0        MIT                 .NET Foundation and Contributors
-    (included because TableForge is self-contained, so no separate .NET install is needed)
+    (included because Gidubba is self-contained, so no separate .NET install is needed)
   Microsoft.Data.Sqlite / .Core               10.0.12     MIT                 Microsoft Corporation
   SQLitePCLRaw (core, provider, bundle, lib)  2.1.12      Apache-2.0          SourceGear, LLC
   SQLite (e_sqlite3.dll, via SQLitePCLRaw)    -           Public domain       (SQLite is in the public domain)
   Microsoft.Web.WebView2 SDK                  1.0.4191.47 BSD-style (below)   Microsoft Corporation
     (Microsoft.Web.WebView2.Core/.Wpf/.WinForms.dll and WebView2Loader.dll)
 
-Not shipped with TableForge:
+Not shipped with Gidubba:
   - The Microsoft Edge WebView2 Runtime is not included; the copy already installed with Windows is used (it is needed
     only for dddice dice).
   - The dddice script and dice models are loaded from dddice's servers while dddice dice are in use; they are not
-    distributed with TableForge. dddice's own terms apply to the dddice service.
+    distributed with Gidubba. dddice's own terms apply to the dddice service.
 
 The .NET runtime's own third-party notices are published at
 https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT

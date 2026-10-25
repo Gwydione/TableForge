@@ -23,6 +23,9 @@ internal sealed class FakeDddiceHttp : HttpMessageHandler
 
     public List<(string Method, string Path, string? Auth)> Requests { get; } = [];
 
+    /// <summary>Each request's JSON body (null for none), in the same order as <see cref="Requests"/>.</summary>
+    public List<string?> Bodies { get; } = [];
+
     public FakeDddiceHttp On(string method, string path, params (int Status, string Body)[] responses)
     {
         var queue = new Queue<Func<HttpResponseMessage>>();
@@ -44,7 +47,8 @@ internal sealed class FakeDddiceHttp : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var path = request.RequestUri!.PathAndQuery.Replace("/api/1.0/", "");
-        lock (Requests) Requests.Add((request.Method.Method, path, request.Headers.Authorization?.ToString()));
+        var body = request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
+        lock (Requests) { Requests.Add((request.Method.Method, path, request.Headers.Authorization?.ToString())); Bodies.Add(body); }
         if (!_routes.TryGetValue($"{request.Method.Method} {path}", out var queue))
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("{}") });
         var respond = queue.Count > 1 ? queue.Dequeue() : queue.Peek();
@@ -301,7 +305,7 @@ public class DddiceRestAccountTests
         using var rest = new DddiceRest(http);
 
         var ex = await Assert.ThrowsAnyAsync<DddiceException>(() => rest.LoadDiceBoxAsync("acct-token", default));
-        Assert.Equal("TableForge could not read your dddice Dice Box.", ex.Message);
+        Assert.Equal("Gidubba could not read your dddice Dice Box.", ex.Message);
         Assert.Single(http.Requests);
     }
 
@@ -336,7 +340,7 @@ public class DddiceRestAccountTests
 
         var ex = await Assert.ThrowsAnyAsync<DddiceException>(() => rest.LoadDiceBoxAsync("acct-token", default));
         Assert.True(ex.IsTemporary);
-        Assert.Equal("TableForge could not reach dddice. Check the internet connection.", ex.Message);
+        Assert.Equal("Gidubba could not reach dddice. Check the internet connection.", ex.Message);
     }
 
     [Theory]
@@ -548,6 +552,25 @@ public class DddiceAccountStoreTests : IDisposable
     }
 
     [Fact]
+    public void An_account_saved_by_TableForge_1_1_0_still_loads_after_the_rename_to_Gidubba()
+    {
+        // Exactly what 1.1.0 wrote: the token protected with the fixed entropy, which the rename must never change.
+        var entropy = Encoding.UTF8.GetBytes("TableForge dddice account token v1");
+        var protectedToken = System.Security.Cryptography.ProtectedData.Protect(Encoding.UTF8.GetBytes(Token), entropy,
+            System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        Directory.CreateDirectory(_folder);
+        File.WriteAllText(Store().FilePath, new JsonObject
+        {
+            ["format"] = 1, ["protectedToken"] = Convert.ToBase64String(protectedToken),
+            ["displayName"] = "Allen", ["roomSlug"] = "room-1", ["themeId"] = "my-blue", ["themeName"] = "My Blue Dice",
+        }.ToJsonString());
+
+        var loaded = Store().Load();
+        Assert.Equal(DddiceAccountFileState.Loaded, loaded.State);
+        Assert.Equal(new DddiceAccount(Token, "Allen", "room-1", "my-blue", "My Blue Dice"), loaded.Account);
+    }
+
+    [Fact]
     public void It_lives_in_the_same_data_folder_as_everything_else_so_TABLEFORGE_DATA_DIR_isolates_it()
     {
         var folder = AppDatabase.ResolveDataFolder(_folder);
@@ -578,6 +601,18 @@ public class DddiceSessionTests
         Assert.Equal(new DddiceSession("guest-token", "guest-room", "dddice-bees", false), first);
         Assert.Equal(first, again);
         Assert.Equal((1, 1), (http.Count("POST", "user"), http.Count("POST", "room")));
+    }
+
+    [Fact]
+    public async Task A_new_room_is_a_private_room_named_Gidubba()
+    {
+        var http = new FakeDddiceHttp().On("POST", "room", (201, """{"data":{"slug":"guest-room"}}"""));
+        using var rest = new DddiceRest(http);
+
+        Assert.Equal("guest-room", await rest.CreateRoomAsync("guest-token", default));
+        var body = JsonNode.Parse(http.Bodies[http.Requests.FindIndex(r => r.Method == "POST" && r.Path == "room")]!)!;
+        Assert.Equal("Gidubba", (string?)body["name"]);
+        Assert.False((bool)body["is_public"]!);
     }
 
     [Fact]
@@ -705,7 +740,7 @@ public class DddiceSessionTests
 
         var ex = await Assert.ThrowsAnyAsync<DddiceException>(() => new DddiceSessionSource(rest, new DddiceConnection(store)).GetAsync(default));
 
-        Assert.Equal("Your theme \"Letter\" can't be used by TableForge (No d10x (percentile); Non-standard d4, d6, d8, d10, d12, d20 faces). Choose another in Account…", ex.Message);
+        Assert.Equal("Your theme \"Letter\" can't be used by Gidubba (No d10x (percentile); Non-standard d4, d6, d8, d10, d12, d20 faces). Choose another in Account…", ex.Message);
     }
 
     [Fact]
@@ -852,7 +887,7 @@ public class DiceProviderAccountTests
     [Fact]
     public async Task A_guest_failure_looks_exactly_as_before()
     {
-        var roller = new FakeDddiceRoller { PrepareFailure = new DddiceException("TableForge could not reach dddice. Check the internet connection.") };
+        var roller = new FakeDddiceRoller { PrepareFailure = new DddiceException("Gidubba could not reach dddice. Check the internet connection.") };
         var vm = new DiceProviderViewModel(new FixedDice(4), new DddiceDiceProvider(roller), connection: new DddiceConnection(new MemoryAccountStore()));
 
         vm.Select(DiceProviderKind.Dddice);
@@ -932,7 +967,7 @@ public class DddiceAccountViewModelTests
         Assert.Equal(["Bees", "My Blue Dice", "Letter"], vm.Themes.Select(t => t.Name).ToArray());
         Assert.Equal([true, true, false], vm.Themes.Select(t => t.IsEnabled).ToArray());
         Assert.Equal("No d10x (percentile); Non-standard d4, d6, d8, d10, d12, d20 faces", vm.Themes[2].Reason);
-        Assert.Equal("Choose a theme for TableForge's dddice rolls.", vm.Message);
+        Assert.Equal("Choose a theme for Gidubba's dddice rolls.", vm.Message);
         Assert.Contains(rig.Http.Requests, r => r.Path == "dice-box" && r.Auth == "Bearer acct-token");
     }
 
@@ -948,7 +983,7 @@ public class DddiceAccountViewModelTests
 
         rig.Vm.SelectedTheme = rig.Vm.Themes[1];
         Assert.Equal(("my-blue", "My Blue Dice"), (rig.Store.Saved!.ThemeId, rig.Store.Saved.ThemeName));
-        Assert.Equal("TableForge's dddice rolls now use My Blue Dice.", rig.Vm.Message);
+        Assert.Equal("Gidubba's dddice rolls now use My Blue Dice.", rig.Vm.Message);
     }
 
     [Fact]
@@ -1029,7 +1064,7 @@ public class DddiceAccountViewModelTests
 
         var broken = ConnectedRig(Saved, (200, DiceBoxJson.Page(null, DiceBoxJson.Theme("my-blue", "My Blue Dice", """["d4","d6","d8","d10","d10x","d12"]"""))));
         await broken.Vm.OpenedAsync();
-        Assert.Equal("Your theme \"My Blue Dice\" can't be used by TableForge (Missing d20). Choose another in Account…", broken.Vm.Message);
+        Assert.Equal("Your theme \"My Blue Dice\" can't be used by Gidubba (Missing d20). Choose another in Account…", broken.Vm.Message);
     }
 
     [Fact]
@@ -1050,7 +1085,7 @@ public class DddiceAccountViewModelTests
         Assert.Equal((DddiceAccountState.Connected, DddiceMessages.Busy, 2), (rig.Vm.State, rig.Vm.Message, rig.Vm.Themes.Count));
 
         await rig.Vm.RefreshAsync();
-        Assert.Equal("TableForge could not read your dddice Dice Box.", rig.Vm.Message);
+        Assert.Equal("Gidubba could not read your dddice Dice Box.", rig.Vm.Message);
 
         await rig.Vm.RefreshAsync();
         Assert.Equal((DddiceAccountState.Expired, "Connection expired. Reconnect.", "Reconnect"), (rig.Vm.State, rig.Vm.Message, rig.Vm.ConnectLabel));

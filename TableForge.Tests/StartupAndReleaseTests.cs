@@ -222,7 +222,7 @@ public class StartupTests
 
         Assert.Equal(junk, File.ReadAllBytes(path));                  // not overwritten, not "repaired"
         var message = DatabaseOpenError.Describe(path, error);
-        Assert.Contains("not a TableForge database", message);
+        Assert.Contains("not a Gidubba database", message);
         Assert.Contains(path, message);
     }
 
@@ -237,8 +237,8 @@ public class StartupTests
         var error = Assert.Throws<DatabaseTooNewException>(() => new AppDatabase(path));
 
         var message = DatabaseOpenError.Describe(path, error);
-        Assert.StartsWith("This TableForge data file was created by a newer version of TableForge. Please install the newer version to open it safely.", message);
-        Assert.Contains($"Details: Data format version {DatabaseMigrations.CurrentVersion + 3}; this version of TableForge reads up to version {DatabaseMigrations.CurrentVersion}.", message);
+        Assert.StartsWith("This Gidubba data file was created by a newer version of Gidubba. Please install the newer version to open it safely.", message);
+        Assert.Contains($"Details: Data format version {DatabaseMigrations.CurrentVersion + 3}; this version of Gidubba reads up to version {DatabaseMigrations.CurrentVersion}.", message);
         Assert.Empty(DatabaseBackup.Existing(path));                   // nothing is copied for a file that is never changed
         using var again = Raw(path);
         again.Open();
@@ -341,12 +341,28 @@ public class ReleaseTests
     }
 
     [Fact]
-    public void The_build_identifies_itself_as_the_stable_release_1_1_0()
+    public void The_build_identifies_itself_as_the_stable_release_1_2_0()
     {
-        Assert.Equal("1.1.0", AppInfo.Version);
+        Assert.Equal("1.2.0", AppInfo.Version);
         Assert.DoesNotContain("-", AppInfo.Version);                                    // a stable release: no prerelease suffix
-        Assert.Contains("<Version>1.1.0</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
-        Assert.Contains("VersionInfoVersion=1.1.0", ReadRepoFile("installer", "TableForge.iss"));   // the installer's own file version
+        Assert.Contains("<Version>1.2.0</Version>", ReadRepoFile("TableForge", "TableForge.csproj"));
+        Assert.Contains("VersionInfoVersion=1.2.0", ReadRepoFile("installer", "TableForge.iss"));   // the installer's own file version
+    }
+
+    [Fact]
+    public void The_rename_to_Gidubba_keeps_every_name_that_installs_data_and_files_depend_on()
+    {
+        Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TableForge"), AppDatabase.ResolveDataFolder(null));
+        Assert.Equal("tableforge.db", Path.GetFileName(AppDatabase.DefaultPath));
+        Assert.Equal("TABLEFORGE_DATA_DIR", AppDatabase.DataFolderVariable);
+        Assert.Equal(("TableForgeCollection", ".tfcollection"), (TableForge.Portable.PortableFormat.FormatName, TableForge.Portable.PortableFormat.Extension));
+        Assert.Equal(("TableForge table", "TableForge"), (TableForge.Export.Pum.PumNames.FallbackName, TableForge.Export.Pum.PumNames.FallbackCategory));   // part of PUM table ids
+        Assert.Contains("\"tf\" + System.Convert.ToHexString(SHA256.HashData(", ReadRepoFile("TableForge", "Export", "Pum", "PumTableConverter.cs"));
+        Assert.Contains("Encoding.UTF8.GetBytes(\"TableForge dddice account token v1\")", ReadRepoFile("TableForge", "Dice", "DddiceAccountStore.cs"));   // saved dddice logins
+        Assert.Contains("private const string Host = \"tableforge-app.local\";", ReadRepoFile("TableForge", "Dice", "WebViewDddiceRoller.cs"));       // the dice page's origin
+        foreach (var name in new[] { "dice-provider.txt", "dddice-account.json", "streaming-overlay.json", "streaming-overlay.html" })
+            Assert.Contains($"\"{name}\"", string.Join("\n", Directory.GetFiles(Path.Combine(RepoRoot(), "TableForge"), "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")).Select(File.ReadAllText)));
     }
 
     [Fact]
@@ -370,7 +386,7 @@ public class ReleaseTests
         Assert.Contains("dotnet publish TableForge\\TableForge.csproj -p:PublishProfile=win-x64-folder", readme);
         Assert.Contains("publish\\win-x64", readme);
         Assert.Contains("%LOCALAPPDATA%\\TableForge\\tableforge.db", readme);
-        Assert.Contains("Version 1.1.0 ·", readme);
+        Assert.Contains("Version 1.2.0 ·", readme);
         Assert.DoesNotContain("(release candidate)", readme);
     }
 }
