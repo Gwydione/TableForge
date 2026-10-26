@@ -4,8 +4,37 @@ using TableForge.Domain;
 
 namespace TableForge.Export.Pum;
 
-/// <summary>A link's destination as one table's conversion sees it: its name, and whether it is in the same bundle.</summary>
-public sealed record PumLinkTarget(string Name, bool Included);
+/// <summary>
+/// A link's destination as one table's conversion sees it: its name, whether it is in the same bundle, and, with native nested
+/// tables on, whether PUM rolls it (<see cref="PumNesting.Native"/>) or why the link stays a "→ table" line.
+/// </summary>
+/// <param name="OtherCollection">With <see cref="PumNesting.NameInOtherCollection"/>: the Collection that also has the name.</param>
+public sealed record PumLinkTarget(string Name, bool Included, PumNesting Nesting = PumNesting.Off, string? OtherCollection = null);
+
+/// <summary>What happens to a link to a table in the bundle when native nested tables are on (F11).</summary>
+public enum PumNesting
+{
+    /// <summary>The option is off: a "→ table" line, as always.</summary>
+    Off,
+
+    /// <summary>"→ Name: {{Name}}": PUM rolls the linked table there, once.</summary>
+    Native,
+
+    /// <summary>The linking table is a manual-selection table: in PUM it can only be rolled, so its links stay text.</summary>
+    SourceIsManualSelection,
+
+    /// <summary>The linked table is a manual-selection table: the player chooses its row, so PUM mustn't roll it.</summary>
+    TargetIsManualSelection,
+
+    /// <summary>Following the link leads back to this table (a self-link or a loop), which PUM would keep rolling.</summary>
+    Loop,
+
+    /// <summary>One of the user's other Collections has a table with the same PUM name: in PUM they would be one table.</summary>
+    NameInOtherCollection,
+
+    /// <summary>The name holds something PUM reads inside a nested roll ("%%" is an override, for one).</summary>
+    NameUnsafe,
+}
 
 /// <summary>
 /// One TableForge table as one PUM weighted table, or the reason it can't be one. The rows are built from where TableForge's
@@ -80,12 +109,13 @@ public static class PumTableConverter
             var markdown = PumText.Markdown(entry.Text, entry.Styles, out var stylesTouch).Trim();
             if (stylesTouch) issues.Touching.Add(Label(entry));
             if (PumText.HasLiteralEmphasis(entry.Text)) issues.Emphasis.Add(Label(entry));
-            var link = LinkLine(entry, linkTarget, issues, Label);
-            var text = link is null ? markdown : markdown.Length == 0 ? link : $"{markdown}\n{link}";
+            var link = LinkLine(entry, linkTarget, issues, Label, out var nested);
+            var text = Join(markdown, link);
             if (text.Length == 0) issues.Empty.Add(Label(entry));
             if (PumText.Commands(text) is [var command, ..])
                 return Skip($"The row {Label(entry)} contains \"{command.Sequence}\", and {command.Effect}. The exporter never writes PUM commands.");
-            texts[entry] = text;
+            // Only the exporter's own nested roll, and only after the check: the source text itself still never holds a PUM command.
+            texts[entry] = nested is null ? text : Join(markdown, $"→ {nested}: {{{{{nested}}}}}");
         }
         if (texts.Values.All(t => t.Length == 0))
             return Skip("Every result is blank, so the table would only show empty results in PUM.");
@@ -134,8 +164,16 @@ public static class PumTableConverter
                 + (!clamped && segments[^1].Matched.All(m => m is null)
                     ? $". The last one (key {rows[^1].Key}) also catches any higher roll, for which PUM would otherwise show the last row."
                     : "."));
-        if (issues.Linked > 0)
-            Add(PumMessageKind.Conversion, $"{Count(issues.Linked, "linked row")} end{(issues.Linked == 1 ? "s" : "")} with a \"→ table\" line. PUM won't open or roll the linked table.");
+        if (issues.Native.Count > 0)
+            Add(PumMessageKind.Conversion, $"{Count(issues.Native.Count, "linked row")} roll{(issues.Native.Count == 1 ? "s" : "")} the linked table in PUM, once: "
+                + $"{List(issues.Native)}.");
+        var textLinks = issues.Linked - issues.Native.Count;
+        if (textLinks > 0)
+            Add(PumMessageKind.Conversion, $"{Count(textLinks, "linked row")} end{(textLinks == 1 ? "s" : "")} with a \"→ table\" line. PUM won't open or roll the linked table.");
+        if (issues.FromManualSelection > 0)
+            Add(PumMessageKind.Note, $"It is a manual-selection table, so its {Count(issues.FromManualSelection, "link")} to tables in this export "
+                + $"stay{(issues.FromManualSelection == 1 ? "s" : "")} text: PUM can only roll it, not let you choose its row.");
+        messages.AddRange(issues.KeptAsText);
         if (clamped)
             Add(PumMessageKind.Note, "Clamp to Range is kept: PUM shows the first or last row for rolls beyond them, as Gidubba does.");
 
@@ -157,7 +195,10 @@ public static class PumTableConverter
                 + $"\"{above.TableForgeShows}\" in Gidubba but \"{above.PumShows}\" in PUM.");
 
         var pum = new PumTable(IdFor(category, pumName), pumName, category, Formula(dice), rows);
-        return new(pum, new PumTableReport(source.Key, sourceName, pumName, null, null, check.BelowDice, check.AboveDice, messages));
+        return new(pum, new PumTableReport(source.Key, sourceName, pumName, null, null, check.BelowDice, check.AboveDice, messages)
+        {
+            Links = issues.Linked, NativeLinks = issues.Native.Count,
+        });
     }
 
     private sealed record Segment(long Start, long End, TableEntry?[] Matched);
@@ -214,8 +255,13 @@ public static class PumTableConverter
         }
     }
 
-    private static string? LinkLine(TableEntry entry, Func<long, PumLinkTarget?> linkTarget, Issues issues, Func<TableEntry, string> label)
+    private static string Join(string markdown, string? link) => link is null ? markdown : markdown.Length == 0 ? link : $"{markdown}\n{link}";
+
+    /// <param name="nested">The table PUM rolls in place of the returned line, when the link is <see cref="PumNesting.Native"/>.</param>
+    private static string? LinkLine(TableEntry entry, Func<long, PumLinkTarget?> linkTarget, Issues issues, Func<TableEntry, string> label,
+        out string? nested)
     {
+        nested = null;
         if (entry.LinkedTableId is { } id)
         {
             issues.Linked++;
@@ -224,7 +270,11 @@ public static class PumTableConverter
                 issues.LinkWarnings.Add($"The row {label(entry)} links to a table that couldn't be found.");
                 return "→ (missing table)";
             }
-            if (target.Included) return $"→ {target.Name}";
+            if (target.Included)
+            {
+                nested = Nesting(entry, target, issues, label);
+                return $"→ {target.Name}";
+            }
             issues.LinkWarnings.Add($"The row {label(entry)} links to \"{target.Name}\", which isn't in this export.");
             return $"→ {target.Name} (not included in this export)";
         }
@@ -235,6 +285,38 @@ public static class PumTableConverter
         issues.LinkWarnings.Add(name.Length > 0 ? $"The row {label(entry)} has an unresolved link to \"{name}\"." : $"The row {label(entry)} has an unresolved link.");
         return name.Length > 0 ? $"→ {name} (unresolved link)" : "→ (unresolved link)";
     }
+
+    /// <summary>Notes what happens to a link to a table in the bundle; returns the name PUM rolls, or null when the link stays text.</summary>
+    private static string? Nesting(TableEntry entry, PumLinkTarget target, Issues issues, Func<TableEntry, string> label)
+    {
+        var row = $"The row {label(entry)} links to \"{target.Name}\"";
+        switch (target.Nesting)
+        {
+            case PumNesting.Native:
+                issues.Native.Add(label(entry));
+                return target.Name;
+            case PumNesting.SourceIsManualSelection:
+                issues.FromManualSelection++;
+                break;
+            case PumNesting.TargetIsManualSelection:
+                issues.KeptAsText.Add(new(PumMessageKind.Note, $"{row}, a manual-selection table, so it stays text: you choose that table's row."));
+                break;
+            case PumNesting.Loop:
+                issues.KeptAsText.Add(new(PumMessageKind.Note, $"{row}, which leads back here, so it stays text: PUM would keep rolling round the loop."));
+                break;
+            case PumNesting.NameInOtherCollection:
+                issues.KeptAsText.Add(new(PumMessageKind.Warning, $"{row}, but \"{target.OtherCollection}\" also has a table with that name, so it stays "
+                    + "text: PUM finds tables by name alone (in every category, ignoring case), so in PUM they would be one table."));
+                break;
+            case PumNesting.NameUnsafe:
+                issues.KeptAsText.Add(new(PumMessageKind.Note, $"{row}, whose name PUM would misread inside a nested roll, so it stays text."));
+                break;
+        }
+        return null;
+    }
+
+    private static string List(List<string> labels) =>
+        labels.Count <= 5 ? string.Join(", ", labels) : $"{string.Join(", ", labels.Take(5))} and {labels.Count - 5} more";
 
     private static string Heading(ResultSet set) => set.Name.Trim() is { Length: > 0 } name ? $"{name}: " : "";
 
@@ -259,5 +341,8 @@ public static class PumTableConverter
         public List<string> Touching { get; } = [];
         public List<string> LinkWarnings { get; } = [];
         public int Linked { get; set; }
+        public List<string> Native { get; } = [];
+        public int FromManualSelection { get; set; }
+        public List<PumMessage> KeptAsText { get; } = [];
     }
 }

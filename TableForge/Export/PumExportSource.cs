@@ -11,14 +11,21 @@ namespace TableForge.Export;
 /// </summary>
 public static class PumExportSource
 {
-    /// <summary>Every table in the Collection, in the order TableForge lists them.</summary>
+    /// <summary>
+    /// Every table in the Collection, in the order TableForge lists them, with the PUM names every other Collection's tables would
+    /// export with (for native nested tables: PUM can't tell two tables with the same name apart).
+    /// </summary>
     public static PumExportRequest ForCollection(AppDatabase db, Collection collection)
     {
         var folders = db.GetFolders(collection.Id).ToDictionary(f => f.Id, f => f.Name);
         var tables = db.GetTableSummaries(collection.Id)
             .Select(s => db.LoadTable(s.Id) ?? throw new InvalidOperationException($"The table \"{s.Name}\" could not be read."))
             .ToList();
-        return Request(db, collection.Name, tables, folders);
+        var elsewhere = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var other in db.GetCollections().Where(c => c.Id != collection.Id))
+            foreach (var name in PumNames.MakeUnique(db.GetTableSummaries(other.Id).Select(s => PumNames.Normalize(s.Name)).ToList()))
+                elsewhere.TryAdd(name, other.Name);
+        return Request(db, collection.Name, tables, folders) with { OtherCollectionTableNames = elsewhere };
     }
 
     /// <summary>

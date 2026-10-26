@@ -479,12 +479,17 @@ public sealed class MainViewModel : ObservableObject
     /// </summary>
     private PumOutcome ExportToPum(PumExportRequest request, string name, bool single)
     {
-        var result = PumExporter.Export(request, _now());
+        var now = _now();
+        var result = PumExporter.Export(request, now);
         if (single && result.Bundle is null)
             return new($"This table cannot be exported to PUM Companion: {result.Report.Tables[0].SkipReason}");
 
-        var review = new PumExportReviewViewModel(name, result.Report, _copyText ?? ClipboardText.Set);
-        if (!_reviewPumExport!(review) || result.Bundle is null) return new(null);
+        // A Collection export offers native nested tables; the review builds the export again whenever it's turned on or off.
+        var review = new PumExportReviewViewModel(name, result.Report, _copyText ?? ClipboardText.Set,
+            single ? null : on => PumExporter.Export(request with { NativeNestedTables = on }, now));
+        var reviewed = _reviewPumExport!(review);
+        result = review.Result ?? result;
+        if (!reviewed || result.Bundle is null) return new(null);
 
         var path = _choosePumFile(new SaveFileRequest("Export to PUM Companion", PumExporter.SuggestedFileName(name)));
         if (path is null) return new(null);

@@ -153,6 +153,47 @@ public class PumExportViewTests
     }
 
     [Fact]
+    public void The_roll_linked_tables_checkbox_starts_off_and_turning_it_on_shows_the_link_counts_and_the_name_warning()
+    {
+        Sta.Run(() =>
+        {
+            using var ui = new UiHarness(1);   // listens for binding errors
+            var request = new PumExportRequest("Dungeon",
+            [
+                new(1, new RollableTable { Name = "Encounters", Dice = DiceExpression.Parse("d6"), ResultSets = [new ResultSet { Entries = [E(1, 6, "Wolves").Also(e => e.LinkedTableId = 2)] }] }),
+                new(2, new RollableTable { Name = "Wolves", Dice = DiceExpression.Parse("d6"), ResultSets = [new ResultSet { Entries = [E(1, 6, "A pack")] }] }),
+            ]);
+            var review = new PumExportReviewViewModel("Dungeon", PumExporter.Export(request, DateTime.UnixEpoch).Report, _ => { },
+                on => PumExporter.Export(request with { NativeNestedTables = on }, DateTime.UnixEpoch));
+
+            ShowAndPress(review, "PumCancelButton", window =>
+            {
+                var box = ViewTests.FindAll<CheckBox>(window).Single(b => b.Name == "RollLinkedTablesBox");
+                Assert.True(box.IsVisible);
+                Assert.Equal("Roll linked tables automatically in PUM ({{…}})", box.Content);
+                Assert.False(box.IsChecked);
+                TextBlock Text(string name) => ViewTests.FindAll<TextBlock>(window).Single(t => t.Name == name);
+                Assert.False(Text("PumNameClashWarning").IsVisible);
+                Assert.False(Text("PumLinkSummary").IsVisible);
+
+                ((IToggleProvider)new CheckBoxAutomationPeer(box).GetPattern(PatternInterface.Toggle)).Toggle();
+                window.UpdateLayout();
+
+                Assert.True(review.RollLinkedTables);
+                Assert.True(Text("PumNameClashWarning").IsVisible);
+                Assert.Equal(PumExporter.NameClashWarning, Text("PumNameClashWarning").Text);
+                Assert.Equal("The 1 link will roll its table in PUM.", Text("PumLinkSummary").Text);
+                Assert.Contains("→ Wolves: {{Wolves}}", ViewTests.FindAll<TextBox>(window).Single(b => b.Name == "PumReportText").Text);
+            });
+
+            // One table: no checkbox.
+            var single = new PumExportReviewViewModel("Encounters", PumExporter.Export(request with { Tables = [request.Tables[0]] }, DateTime.UnixEpoch).Report, _ => { });
+            ShowAndPress(single, "PumCancelButton", window =>
+                Assert.False(ViewTests.FindAll<CheckBox>(window).Single(b => b.Name == "RollLinkedTablesBox").IsVisible));
+        });
+    }
+
+    [Fact]
     public void With_nothing_to_save_the_review_window_offers_only_Close()
     {
         Sta.Run(() =>

@@ -37,6 +37,7 @@ public class PumExportFlowTests
 
         public List<PumExportReviewViewModel> Reviews { get; } = [];
         public bool SaveReview { get; set; } = true;
+        public Action<PumExportReviewViewModel>? DuringReview { get; set; }
         public List<SaveFileRequest> SaveRequests { get; } = [];
         public string? SavePath { get; set; }
         public List<string> Messages { get; } = [];
@@ -73,7 +74,7 @@ public class PumExportFlowTests
 
         public MainViewModel Start(bool withReview = true) => Main = new MainViewModel(Db, new FixedDice(3), _ => true,
             copyText: Copied.Add, showMessage: Messages.Add, now: () => Stamp,
-            reviewPumExport: withReview ? review => { Reviews.Add(review); return SaveReview; } : null,
+            reviewPumExport: withReview ? review => { Reviews.Add(review); DuringReview?.Invoke(review); return SaveReview; } : null,
             choosePumFile: request => { SaveRequests.Add(request); return SavePath; });
 
         public RollViewModel Open(string name)
@@ -246,6 +247,114 @@ public class PumExportFlowTests
         w.Start(withReview: false);
         Assert.False(w.Main.ExportPumCommand.CanExecute(null));
         Assert.False(w.Open("Weather").SavePumBundleCommand.CanExecute(null));
+    }
+
+    // ---- Native nested tables ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Rolling_linked_tables_is_offered_off_and_turning_it_on_saves_the_nested_bundle_while_only_reading()
+    {
+        using var w = new World();
+        w.Start();
+        var before = w.Snapshot();
+        w.SavePath = Path.Combine(w.Folder, "out.pumb");
+        var off = PumExporter.Export(PumExportSource.ForCollection(w.Db, w.Collection), Stamp);
+        w.DuringReview = review =>
+        {
+            Assert.True(review.CanRollLinkedTables);
+            Assert.False(review.RollLinkedTables);
+            Assert.False(review.ShowNameClashWarning);
+            Assert.Equal("", review.LinkSummary);
+            review.RollLinkedTables = true;
+        };
+
+        w.Main.ExportPumCommand.Execute(null);
+
+        var review = Assert.Single(w.Reviews);
+        Assert.Equal("1 of 2 links will roll their table in PUM. 1 stays text (see the report).", review.LinkSummary);
+        Assert.True(review.ShowNameClashWarning);
+        Assert.Equal(PumExporter.NameClashWarning, review.NameClashWarning);
+        Assert.Equal(review.Result!.Report.ToText(), review.ReportText);
+        Assert.Equal("2 tables will be exported. 1 table will be skipped.", review.Summary);
+
+        var saved = File.ReadAllBytes(w.SavePath);
+        Assert.Equal(review.Result.Bundle, saved);
+        Assert.NotEqual(off.Bundle, saved);
+        var tables = Tables(saved);
+        Assert.Equal("Wolves\n→ Weather: {{Weather}}", Row(tables["Encounters"], "3"));
+        Assert.Equal("Bandits\n→ Elsewhere (not included in this export)", Row(tables["Encounters"], "5"));
+        Assert.Equal("Exported 2 of 3 tables from \"Dungeon\" to out.pumb (1 skipped).", w.Main.Status);
+        Assert.Equal(before, w.Snapshot());
+    }
+
+    [Fact]
+    public void Turning_it_off_again_saves_exactly_the_bundle_there_was_before()
+    {
+        using var w = new World();
+        w.Start();
+        w.SavePath = Path.Combine(w.Folder, "out.pumb");
+        var off = PumExporter.Export(PumExportSource.ForCollection(w.Db, w.Collection), Stamp);
+        w.DuringReview = review =>
+        {
+            review.RollLinkedTables = true;
+            review.RollLinkedTables = false;
+            Assert.Equal("", review.LinkSummary);
+            Assert.False(review.ShowNameClashWarning);
+            Assert.Equal(off.Report.ToText(), review.ReportText);
+        };
+
+        w.Main.ExportPumCommand.Execute(null);
+
+        Assert.Equal(off.Bundle, File.ReadAllBytes(w.SavePath));
+    }
+
+    [Fact]
+    public void A_link_to_a_name_another_collection_uses_stays_text_and_the_review_warns_about_it()
+    {
+        using var w = new World();
+        var other = w.Db.GetCollections().Single(c => c.Name == "Other");
+        w.Db.SaveTable(new RollableTable { CollectionId = other.Id, Name = "WEATHER", Dice = DiceExpression.Parse("d2"), ResultSets = [new ResultSet { Entries = [E(1, 2, "Hail")] }] });
+        w.Start();
+        w.SavePath = Path.Combine(w.Folder, "out.pumb");
+        w.DuringReview = review => review.RollLinkedTables = true;
+
+        w.Main.ExportPumCommand.Execute(null);
+
+        var review = Assert.Single(w.Reviews);
+        Assert.Equal("None of the 2 links can roll in PUM: they stay text (see the report).", review.LinkSummary);
+        Assert.Contains("Warning: Encounters: The row \"1–3\" links to \"Weather\", but \"Other\" also has a table with that name, so it stays text: "
+            + "PUM finds tables by name alone (in every category, ignoring case), so in PUM they would be one table.", review.Important);
+        Assert.Equal("Wolves\n→ Weather", Row(Tables(File.ReadAllBytes(w.SavePath))["Encounters"], "3"));
+    }
+
+    [Fact]
+    public void A_single_table_export_offers_no_nested_tables()
+    {
+        using var w = new World();
+        w.Start();
+        w.SaveReview = false;
+        w.Open("Encounters").SavePumBundleCommand.Execute(null);
+
+        var review = Assert.Single(w.Reviews);
+        Assert.False(review.CanRollLinkedTables);
+        review.RollLinkedTables = true;
+        Assert.False(review.RollLinkedTables);
+        Assert.Null(review.Result);
+    }
+
+    [Fact]
+    public void The_request_names_every_other_collections_tables_as_they_would_be_exported()
+    {
+        using var w = new World();
+        var other = w.Db.GetCollections().Single(c => c.Name == "Other");
+        foreach (var name in new[] { "Loot", "loot", "Wind/Rain" })
+            w.Db.SaveTable(new RollableTable { CollectionId = other.Id, Name = name, Dice = DiceExpression.Parse("d2"), ResultSets = [new ResultSet { Entries = [E(1, 2, "x")] }] });
+
+        var names = PumExportSource.ForCollection(w.Db, w.Collection).OtherCollectionTableNames!;
+        Assert.Equal(["Elsewhere", "Loot", "Wind - Rain", "loot (2)"], names.Keys.Order(StringComparer.Ordinal));
+        Assert.All(names.Values, c => Assert.Equal("Other", c));
+        Assert.True(names.ContainsKey("LOOT (2)"));   // PUM ignores case, and so does the check
+        Assert.False(names.ContainsKey("Weather"));   // this Collection's own tables are not "elsewhere"
     }
 
     // ---- Single table -------------------------------------------------------------------------------------------------

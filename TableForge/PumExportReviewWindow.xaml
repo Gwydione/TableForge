@@ -15,6 +15,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -22,7 +23,19 @@
         <TextBlock x:Name="PumHeading" Grid.Row="0" Text="{Binding Heading}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
         <TextBlock x:Name="PumSummary" Grid.Row="1" Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
 
-        <ItemsControl x:Name="PumImportant" Grid.Row="2" ItemsSource="{Binding Important}" Margin="0,0,0,8"
+        <!-- Native nested tables (Collection exports only): off each time; changing it rebuilds the export shown here. -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,8" Visibility="{Binding CanRollLinkedTables, Converter={StaticResource BoolToVis}}">
+            <CheckBox x:Name="RollLinkedTablesBox" Content="Roll linked tables automatically in PUM ({{…}})" IsChecked="{Binding RollLinkedTables}"
+                      ToolTip="Write links to tables in this bundle as PUM nested rolls, so PUM rolls the linked table there. Links that must stay text are listed in the report." />
+            <TextBlock x:Name="PumLinkSummary" Text="{Binding LinkSummary}" TextWrapping="Wrap" Margin="20,2,0,0"
+                       Visibility="{Binding HasLinkSummary, Converter={StaticResource BoolToVis}}" />
+            <Border BorderBrush="#7A5200" BorderThickness="1" Background="#FFF8E6" Padding="8,6" Margin="0,6,0,0"
+                    Visibility="{Binding ShowNameClashWarning, Converter={StaticResource BoolToVis}}">
+                <TextBlock x:Name="PumNameClashWarning" Text="{Binding NameClashWarning}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+
+        <ItemsControl x:Name="PumImportant" Grid.Row="3" ItemsSource="{Binding Important}" Margin="0,0,0,8"
                       Visibility="{Binding HasImportant, Converter={StaticResource BoolToVis}}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
@@ -31,17 +44,17 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <Border Grid.Row="3" BorderBrush="#7A5200" BorderThickness="1" Background="#FFF8E6" Padding="8,6" Margin="0,0,0,10"
+        <Border Grid.Row="4" BorderBrush="#7A5200" BorderThickness="1" Background="#FFF8E6" Padding="8,6" Margin="0,0,0,10"
                 Visibility="{Binding CanSave, Converter={StaticResource BoolToVis}}">
             <TextBlock x:Name="PumReimportWarning" Text="{Binding ReimportWarning}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap" />
         </Border>
 
-        <TextBlock Grid.Row="4" Text="Full report" FontWeight="SemiBold" Margin="0,0,0,4" />
-        <TextBox x:Name="PumReportText" Grid.Row="5" Text="{Binding ReportText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+        <TextBlock Grid.Row="5" Text="Full report" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="PumReportText" Grid.Row="6" Text="{Binding ReportText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Margin="0,0,0,10"
                  AutomationProperties.Name="Full export report" />
 
-        <DockPanel Grid.Row="6" LastChildFill="False">
+        <DockPanel Grid.Row="7" LastChildFill="False">
             <Button x:Name="CopyReportButton" DockPanel.Dock="Left" Content="Copy Report" Padding="10,3" Command="{Binding CopyReportCommand}"
                     ToolTip="Copy the full report to the clipboard" />
             <TextBlock x:Name="PumCopyMessage" DockPanel.Dock="Left" Text="{Binding CopyMessage}" Foreground="#2E6B3A" VerticalAlignment="Center" Margin="8,0,0,0"

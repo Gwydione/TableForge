@@ -279,6 +279,24 @@ the test tables with its own delete option.
 - [ ] **Importing the same bundle again:** PUM offers to overwrite, and the tables are replaced, not duplicated.
 - [ ] **Other exports:** Foundry, Tables+, Sojour and Copy Table Text behave exactly as before.
 
+### Roll linked tables automatically in PUM (native nested tables)
+
+Checked in PUM on Windows and iPad with the F11 fixtures (2026-10-26): `{{Name}}` resolves ignoring case, with em dashes and
+` (2)`, through five levels; PUM keeps one table per name in every category, and a same-named import replaces its rows.
+Use a copy of real data with the five Fourth Kingdom selectors marked Manual-selection, or synthetic tables.
+
+- [ ] **Off by default:** the Collection review shows **Roll linked tables automatically in PUM ({{…}})**, unticked, every
+      time. Saved without ticking it, the bundle is byte-identical to the previous version's export.
+- [ ] **Single table:** Save PUM Companion Bundle… on a Roll screen shows no such checkbox.
+- [ ] **Ticking it:** the report changes at once; a line says how many links will roll (*55 of 131 links will roll their
+      table in PUM. 76 stay text…* for Under the Fourth Kingdom), and the boxed name warning appears. Unticking restores both.
+- [ ] **Text links explained in the report:** manual-selection tables (both ends), loops (Pale Arroyo POI row 5), and
+      a name another Collection also uses (Of Blood and Clay → Event Check → Hazards, a ⚠ warning in the review too).
+- [ ] **In PUM (Windows and iPad):**
+  - Pale Arroyo POI row 3 shows *→ Exceptional Treasure Table:* followed by a rolled treasure;
+  - Undead Horde — Pool 1 row 8 rolls Mundane Treasure once and keeps its whole instruction;
+  - the selectors and Area Type rows 3–6 still show `→ …` text lines; Pale Arroyo POI row 5 stays text.
+
 ## Uninstall and reinstall
 
 - [ ] Uninstall Gidubba (Settings → Apps).

@@ -20,7 +20,23 @@ public sealed record PumSourceTable(long Key, RollableTable Table, string? Folde
 /// Names of link targets that are not being exported, by key, so a link to one can still name it ("→ Wilderness Events (not
 /// included in this export)"). A link whose target is in neither list is reported as a link to a missing table.
 /// </param>
-public sealed record PumExportRequest(string CollectionName, IReadOnlyList<PumSourceTable> Tables, IReadOnlyDictionary<long, string>? OtherTableNames = null)
+/// <param name="NativeNestedTables">
+/// Write a link PUM can roll as <c>→ Name: {{Name}}</c>, so PUM rolls the linked table there (F11). Off by default, and off
+/// gives exactly the export there was before the option. A link stays a "→ table" line when its table is a manual-selection
+/// table (either end), when following it would loop, when its destination isn't in the bundle, or when its name is taken
+/// elsewhere (<paramref name="OtherCollectionTableNames"/>) or would be misread by PUM.
+/// </param>
+/// <param name="OtherCollectionTableNames">
+/// The PUM names the tables of the user's other Collections would export with, each with its Collection's name. PUM finds a
+/// nested table by name alone, in every category and ignoring case, so a link to a name in this list stays text: in PUM the two
+/// tables would be one. Only used with <paramref name="NativeNestedTables"/>.
+/// </param>
+public sealed record PumExportRequest(
+    string CollectionName,
+    IReadOnlyList<PumSourceTable> Tables,
+    IReadOnlyDictionary<long, string>? OtherTableNames = null,
+    bool NativeNestedTables = false,
+    IReadOnlyDictionary<string, string>? OtherCollectionTableNames = null)
 {
     /// <summary>
     /// The tables of a <c>.tfcollection</c> (all of them, or the chosen positions), keyed by position, which is exactly what its
@@ -81,6 +97,13 @@ public sealed record PumTableReport(
     IReadOnlyList<PumMessage> Messages)
 {
     public bool Exported => SkipReason is null;
+
+    /// <summary>How many of an exported table's rows link to another table.</summary>
+    public int Links { get; init; }
+
+    /// <summary>How many of those PUM rolls (native nested tables); the others end with a "→ table" line.</summary>
+    public int NativeLinks { get; init; }
+
     public bool HasConversions => Messages.Any(m => m.Kind == PumMessageKind.Conversion);
     public bool HasWarnings => Messages.Any(m => m.Kind == PumMessageKind.Warning);
 }
@@ -90,6 +113,8 @@ public sealed record PumExportReport(IReadOnlyList<PumTableReport> Tables, IRead
 {
     public int ExportedCount => Tables.Count(t => t.Exported);
     public int SkippedCount => Tables.Count(t => !t.Exported);
+    public int LinkCount => Tables.Sum(t => t.Links);
+    public int NativeLinkCount => Tables.Sum(t => t.NativeLinks);
 
     /// <summary>The report as plain text: exported tables with their conversions and warnings, then skipped tables, then the notes.</summary>
     public string ToText()
