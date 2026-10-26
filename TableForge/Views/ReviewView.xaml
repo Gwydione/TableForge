@@ -90,6 +90,10 @@
                            VerticalAlignment="Center" TextWrapping="Wrap"
                            Visibility="{Binding HasClampUnavailableNote, Converter={StaticResource BoolToVis}}" />
             </WrapPanel>
+            <!-- Per-table Manual-selection table. Off by default. Auto-follow opens such a table without rolling it. -->
+            <CheckBox x:Name="ManualSelectionBox" Content="Manual-selection table" Margin="0,6,0,0" HorizontalAlignment="Left"
+                      IsChecked="{Binding IsManualSelection}"
+                      ToolTip="You choose this table's result rather than roll it. Auto-follow opens it without rolling and waits for your choice." />
         </StackPanel>
 
         <!-- Result set selector: each set has its own name and its own independently ranged rows. -->

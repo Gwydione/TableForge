@@ -75,7 +75,7 @@ public class StartupTests
         using var raw = Raw(path);
         raw.Open();
         Assert.Equal(DatabaseMigrations.CurrentVersion, DatabaseMigrations.GetVersion(raw));
-        Assert.Equal(10, DatabaseMigrations.GetVersion(raw));
+        Assert.Equal(11, DatabaseMigrations.GetVersion(raw));
     }
 
     [Fact]

@@ -23,6 +23,9 @@ public sealed class TableImportDraft
     /// </summary>
     public bool ClampResultsToRange { get; set; }
 
+    /// <summary>Whether the table is a Manual-selection table (<see cref="RollableTable.IsManualSelection"/>). A new table starts off.</summary>
+    public bool IsManualSelection { get; set; }
+
     /// <summary>The table's description as typed (<see cref="RollableTable.Description"/>). Never read from pasted text: a new table starts empty.</summary>
     public string Description { get; set; } = "";
 
@@ -37,6 +40,7 @@ public sealed class TableImportDraft
         DiceText = table.Dice.ToString(),
         FolderId = table.FolderId,
         ClampResultsToRange = table.ClampResultsToRange,
+        IsManualSelection = table.IsManualSelection,
         Description = table.Description,
         ResultSets = table.ResultSets.Select(s => new ResultSetDraft
         {
@@ -123,6 +127,7 @@ public sealed class TableImportDraft
             Name = TableName.Trim(),
             Dice = dice,
             FolderId = FolderId,
+            IsManualSelection = IsManualSelection,
             Description = description,
             ResultSets = built,
         };

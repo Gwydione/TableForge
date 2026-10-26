@@ -30,6 +30,10 @@ public sealed record PortableTable(RollableTable Table, int? FolderIndex);
 /// stays version 1, which RC25 imports exactly, and one with any description is version 2, which RC25 refuses as a newer
 /// format instead of importing it and silently dropping the descriptions.
 /// </para>
+/// <para>
+/// An optional "manualSelection" on a table (added after Gidubba 1.2) needs no new version: it only steers auto-follow, so a reader that
+/// ignores it (1.2 and earlier) loses nothing it could use, and every version that knows it keeps it through a round trip.
+/// </para>
 /// </summary>
 public static class PortableFormat
 {

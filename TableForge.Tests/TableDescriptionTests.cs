@@ -202,7 +202,7 @@ public class TableDescriptionTests
     [Fact]
     public void The_schema_is_version_10_with_a_not_null_text_description_defaulting_to_empty()
     {
-        Assert.Equal(10, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration
+        Assert.Equal(11, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration
 
         using var temp = new TempDatabase();
         using (temp.Open()) { }
@@ -229,7 +229,7 @@ public class TableDescriptionTests
             history = db.GetRollHistory().ToList();
         }
         // Make it a real RC25 file: version 9, with no Tables.Description column.
-        Execute(temp.Path, "ALTER TABLE Tables DROP COLUMN Description; PRAGMA user_version = 9");
+        Execute(temp.Path, "ALTER TABLE Tables DROP COLUMN Description; ALTER TABLE Tables DROP COLUMN ManualSelection; PRAGMA user_version = 9");
 
         using (var upgraded = temp.Open())
         {
@@ -238,10 +238,10 @@ public class TableDescriptionTests
             Assert.Equal(history, upgraded.GetRollHistory());
         }
 
-        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith(".pre-v10-from-v9.backup.db", StringComparison.Ordinal));
+        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith(".pre-v11-from-v9.backup.db", StringComparison.Ordinal));
         Assert.Equal(0, Count(temp.Path, "SELECT COUNT(*) FROM Tables WHERE Description <> ''"));
         using var check = Raw(temp.Path);
-        Assert.Equal(10, DatabaseMigrations.GetVersion(check));
+        Assert.Equal(11, DatabaseMigrations.GetVersion(check));
     }
 
     [Fact]
@@ -253,12 +253,12 @@ public class TableDescriptionTests
         using (temp.Open()) { }
         using (var raw = Raw(temp.Path))
             Assert.True(DatabaseMigrations.GetVersion(raw) > 9);
-        Execute(temp.Path, "PRAGMA user_version = 11");
+        Execute(temp.Path, "PRAGMA user_version = 12");
 
         var ex = Assert.Throws<DatabaseTooNewException>(() => temp.Open());
-        Assert.Equal((11, 10), (ex.FileVersion, ex.SupportedVersion));
+        Assert.Equal((12, 11), (ex.FileVersion, ex.SupportedVersion));
         using var after = Raw(temp.Path);
-        Assert.Equal(11, DatabaseMigrations.GetVersion(after));                                    // refused untouched
+        Assert.Equal(12, DatabaseMigrations.GetVersion(after));                                    // refused untouched
         Assert.Empty(DatabaseBackup.Existing(temp.Path));
     }
 

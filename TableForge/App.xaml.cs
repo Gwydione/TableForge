@@ -19,6 +19,7 @@ public partial class App : Application
     // The dice choice is one word in a small file next to the database (no schema change for a single setting).
     private static string DataFolder => System.IO.Path.GetDirectoryName(AppDatabase.DefaultPath)!;
     private static string PreferencePath => System.IO.Path.Combine(DataFolder, "dice-provider.txt");
+    private static string AutoFollowPath => System.IO.Path.Combine(DataFolder, "auto-follow.txt");
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -64,7 +65,8 @@ public partial class App : Application
                 {
                     Owner = window,
                     DataContext = new StreamingOverlayViewModel(_overlayController!, connection, CopyText, OpenInBrowser),
-                }.ShowDialog());
+                }.ShowDialog(),
+                autoFollow: new AutoFollowSetting(LoadAutoFollow(), SaveAutoFollow));
             // The Streaming Overlay listens (on 127.0.0.1 only) just while it is enabled; a port problem is shown in its dialog.
             _overlayController = new StreamingOverlayController(_overlay, DataFolder);
             _overlayController.Start();
@@ -128,6 +130,19 @@ public partial class App : Application
     {
         System.IO.Directory.CreateDirectory(DataFolder);
         System.IO.File.WriteAllText(PreferencePath, value);
+    }
+
+    /// <summary>Auto-follow linked tables is on only when auto-follow.txt says "on"; missing or unreadable is off.</summary>
+    private static bool LoadAutoFollow()
+    {
+        try { return System.IO.File.Exists(AutoFollowPath) && System.IO.File.ReadAllText(AutoFollowPath).Trim() == "on"; }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    private static void SaveAutoFollow(bool on)
+    {
+        System.IO.Directory.CreateDirectory(DataFolder);
+        System.IO.File.WriteAllText(AutoFollowPath, on ? "on" : "off");
     }
 
     private void RunClipboardDiagnostic(string[] args)

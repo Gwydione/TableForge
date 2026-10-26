@@ -104,7 +104,7 @@ internal static class PortableFixtures
         foreach (var summary in summaries)
         {
             var t = db.LoadTable(summary.Id)!;
-            sb.AppendLine($"table {t.Name} | folder {summary.FolderName} | dice {t.Dice} ({t.Dice.Count},{t.Dice.Sides},{t.Dice.Modifier},{t.Dice.Convention}) | clamp {t.ClampResultsToRange} | description [{t.Description}]");
+            sb.AppendLine($"table {t.Name} | folder {summary.FolderName} | dice {t.Dice} ({t.Dice.Count},{t.Dice.Sides},{t.Dice.Modifier},{t.Dice.Convention}) | clamp {t.ClampResultsToRange} | manual {t.IsManualSelection} | description [{t.Description}]");
             foreach (var set in t.ResultSets)
             {
                 sb.AppendLine($"  set [{set.Name}]");

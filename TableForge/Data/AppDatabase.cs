@@ -161,6 +161,7 @@ public sealed class AppDatabase : IDisposable
                 Dice = item.Table.Dice,
                 FolderId = item.FolderIndex is { } f ? folderIds[f] : null,
                 ClampResultsToRange = item.Table.ClampResultsToRange,
+                IsManualSelection = item.Table.IsManualSelection,
                 Description = item.Table.Description,
                 CreatedUtc = now,
                 UpdatedUtc = now,
@@ -261,7 +262,7 @@ public sealed class AppDatabase : IDisposable
             using var update = Command(tx,
                 """
                 UPDATE Tables
-                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, FolderId = $folder, ClampResultsToRange = $clamp, Description = $description, UpdatedUtc = $updated
+                SET CollectionId = $collection, Name = $name, DiceCount = $count, DiceSides = $sides, DiceModifier = $modifier, DiceConvention = $convention, FolderId = $folder, ClampResultsToRange = $clamp, ManualSelection = $manual, Description = $description, UpdatedUtc = $updated
                 WHERE Id = $id
                 """);
             AddTableParameters(update, table);
@@ -283,8 +284,8 @@ public sealed class AppDatabase : IDisposable
     {
         using var insert = Command(tx,
             """
-            INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, ClampResultsToRange, Description, CreatedUtc, UpdatedUtc)
-            VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $clamp, $description, $created, $updated);
+            INSERT INTO Tables (CollectionId, Name, DiceCount, DiceSides, DiceModifier, DiceConvention, FolderId, ClampResultsToRange, ManualSelection, Description, CreatedUtc, UpdatedUtc)
+            VALUES ($collection, $name, $count, $sides, $modifier, $convention, $folder, $clamp, $manual, $description, $created, $updated);
             SELECT last_insert_rowid();
             """);
         AddTableParameters(insert, table);
@@ -341,7 +342,7 @@ public sealed class AppDatabase : IDisposable
         RollableTable? table;
         using (var cmd = _connection.CreateCommand())
         {
-            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention, FolderId, ClampResultsToRange, Description FROM Tables WHERE Id = $id";
+            cmd.CommandText = "SELECT Id, CollectionId, Name, DiceCount, DiceSides, DiceModifier, CreatedUtc, UpdatedUtc, DiceConvention, FolderId, ClampResultsToRange, Description, ManualSelection FROM Tables WHERE Id = $id";
             cmd.Parameters.AddWithValue("$id", id);
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
@@ -356,6 +357,7 @@ public sealed class AppDatabase : IDisposable
                 FolderId = reader.IsDBNull(9) ? null : reader.GetInt64(9),
                 ClampResultsToRange = reader.GetInt64(10) != 0,
                 Description = reader.GetString(11),
+                IsManualSelection = reader.GetInt64(12) != 0,
             };
         }
 
@@ -725,6 +727,7 @@ public sealed class AppDatabase : IDisposable
         cmd.Parameters.AddWithValue("$convention", (int)table.Dice.Convention);
         cmd.Parameters.AddWithValue("$folder", (object?)table.FolderId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$clamp", table.ClampResultsToRange ? 1 : 0);
+        cmd.Parameters.AddWithValue("$manual", table.IsManualSelection ? 1 : 0);
         cmd.Parameters.AddWithValue("$description", table.Description);
         cmd.Parameters.AddWithValue("$updated", FormatUtc(table.UpdatedUtc));
     }

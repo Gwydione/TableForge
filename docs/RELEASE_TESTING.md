@@ -126,6 +126,40 @@ table descriptions.
       folders are deleted too and that this cannot be undone. **No** keeps it; **Yes** removes it and selects the next
       collection. The original and `<name> (2)` are unchanged.
 
+## Auto-follow linked tables
+
+Use a copy of Under the Fourth Kingdom: Pallid Delve (or any collection where one table links to another, which links on).
+Mark the five Current Depth / Current Scourge selectors as **Manual-selection table** first (Edit table → the checkbox
+under Clamp → **Save Table**).
+
+- [ ] Edit table shows **Manual-selection table** under the Clamp checkbox, off for every existing table. Turn it on for
+      a selector, save, reopen: still on. Its Roll screen shows "Manual-selection table: choose the result and enter it
+      below." under the dice; other tables don't.
+- [ ] The Roll screen shows **Auto-follow linked tables**, **off**. With it off, rolling a linked row only offers
+      **Open …**, exactly as before.
+- [ ] Turn it on. Roll **Area Type** until it shows an Encounter / POI / NPC row: the selector opens with "Auto-followed
+      from Area Type (…)" above its name, and it is **not rolled** (no depth is chosen at random). Type your depth (for
+      example `4`) and **Resolve**: the depth's table opens and is rolled by itself.
+- [ ] Open a selector directly and type a result: its linked table opens and is rolled. Press **Roll** on a selector
+      instead: the result shows with its **Open …** button, and nothing is followed.
+- [ ] Pale Arroyo POI row 5 ("Reroll …"): auto-follow rolls the table again. If it keeps landing on 5, it stops after two
+      automatic rerolls with a message, and **Open Pale Arroyo POI** is still there.
+- [ ] Undead Horde — Pool 1 row 8: the Mundane Treasure Table is followed and rolled once; the Undead Merchant row (with
+      "twice … and the Exceptional Treasure Table once") is still shown on the step above. **Roll** on Mundane Treasure
+      again for the second roll.
+- [ ] A table with several result sets whose roll lands on more than one link, or **Rolls: 2** on a linked table: nothing
+      is followed, a message says why, and every **Open …** button is there.
+- [ ] Recent rolls lists every automatic roll as an ordinary roll. The Streaming Overlay (if on) shows each step's result
+      and ends on the last one.
+- [ ] Restart Gidubba: **Auto-follow linked tables** is still on. Turn it off and restart: off.
+- [ ] With **dddice**: each step throws its own dice and waits for them to settle; the status reads
+      "Auto-following… step N". Press **Stop** while dice are in the air: the chain stops ("Auto-follow stopped. The roll
+      was cancelled."), the table it had opened stays unrolled, and **Roll** works again. Leaving the table mid-chain also
+      stops it. **Stop** also cancels an ordinary dddice roll.
+- [ ] Export the collection: only the selectors carry `"manualSelection": true`, and the file version is unchanged (`1`
+      without descriptions, `2` with). Import it: the selectors are still Manual-selection tables. Gidubba 1.2.0 imports
+      the same file (it ignores the property).
+
 ## dddice
 
 - [ ] Choose **dddice** (guest): the dice panel prepares and a roll shows 3D dice and the right result.
@@ -277,3 +311,8 @@ the test tables with its own delete option.
       The program is still in `%LOCALAPPDATA%\Programs\TableForge` as `TableForge.exe`. A connected dddice account is
       still connected, the dice choice and overlay settings are kept, and an OBS Local file source keeps working.
       1.1.0 can still open the data afterwards, and `.tfcollection` files go both ways between 1.1.0 and 1.2.0.
+- [ ] From Gidubba 1.2.0 to the auto-follow version: `tableforge.pre-v11-from-v10.backup.db` appears; every collection,
+      table, description, link and setting is exactly as before, and no table is a Manual-selection table yet.
+      **Auto-follow linked tables** is off. 1.2.0 then refuses the data (it was made by a newer version) and changes
+      nothing; to go back, close Gidubba and restore the backup copy in place of `tableforge.db` (changes made since the
+      upgrade are lost; export collections first to keep them, since 1.2.0 imports those files).

@@ -78,6 +78,13 @@ public sealed class RollableTable
     public bool ClampResultsToRange { get; set; }
 
     /// <summary>
+    /// Opt-in: a Manual-selection table is one whose result the person chooses (a "current depth" selector, say) rather than rolls.
+    /// Auto-follow opens such a table but never rolls it, and never continues from a Roll made on it; only a manually entered
+    /// result continues the chain. Rolling it by hand stays available. Explicit only: never inferred from the name, description or dice.
+    /// </summary>
+    public bool IsManualSelection { get; set; }
+
+    /// <summary>
     /// Optional plain-text notes on when or how the table is used; "" for none. Informational only: it never affects parsing,
     /// rolling or resolution. See <see cref="TableDescription"/>.
     /// </summary>

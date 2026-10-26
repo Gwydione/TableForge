@@ -209,6 +209,13 @@ public static class PortableCollectionReader
                 else Shape($"{where}: clampToRange must be true or false.");
             }
 
+            // Optional; absent is false. It needs no newer format version: a reader that ignores it has no auto-follow to apply it to.
+            if (element.TryGetProperty("manualSelection", out var manualElement) && manualElement.ValueKind != JsonValueKind.Null)
+            {
+                if (manualElement.ValueKind is JsonValueKind.True or JsonValueKind.False) table.IsManualSelection = manualElement.GetBoolean();
+                else Shape($"{where}: manualSelection must be true or false.");
+            }
+
             // Optional; absent is "". Kept exactly as written (never trimmed, normalized or cut short). It is read whatever the
             // file's version says: a description is never silently dropped, even from a hand-made version 1 file.
             if (element.TryGetProperty("description", out var descriptionElement))

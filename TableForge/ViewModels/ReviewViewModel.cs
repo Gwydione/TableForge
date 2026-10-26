@@ -505,6 +505,21 @@ public sealed class ReviewViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Manual-selection table (see <see cref="RollableTable.IsManualSelection"/>): its result is chosen, not rolled, so
+    /// auto-follow opens it without rolling it. Off by default; always available.
+    /// </summary>
+    public bool IsManualSelection
+    {
+        get => _draft.IsManualSelection;
+        set
+        {
+            if (_draft.IsManualSelection == value) return;
+            _draft.IsManualSelection = value;
+            Raise();
+        }
+    }
+
     /// <summary>Whether this table, as currently edited, has one common range to clamp to.</summary>
     public bool IsClampAvailable
     {

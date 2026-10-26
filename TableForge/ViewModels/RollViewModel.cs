@@ -247,6 +247,16 @@ public sealed class RollStepViewModel(RollableTable table, bool isFirst) : Obser
         ? "d66 · two d6 read as tens and ones · legal rolls 11–66"
         : $"{Table.Dice} · legal rolls {Table.Dice.FormatValue(Table.Dice.Min)}–{Table.Dice.FormatValue(Table.Dice.Max)}";
 
+    /// <summary>
+    /// For a step auto-follow opened, where it came from, compactly: "Auto-followed from Area Type (5)". "" for a step the
+    /// person opened. The parent's full result stays on the step above; it is never repeated here.
+    /// </summary>
+    public string AutoFollowedFrom { get; init; } = "";
+    public bool IsAutoFollowed => AutoFollowedFrom.Length > 0;
+
+    /// <summary>A Manual-selection table (see <see cref="RollableTable.IsManualSelection"/>): the step says its result is meant to be chosen.</summary>
+    public bool IsManualSelection => Table.IsManualSelection;
+
     /// <summary>This step's own table's description, shown under its dice; "" for none (then nothing is shown at all).</summary>
     public string Description => Table.Description;
     public bool HasDescription => Description.Length > 0;
@@ -322,6 +332,8 @@ public sealed class RollViewModel : ObservableObject
     private bool _isRolling;
     private int _rollCount = 1;
     private int _batchPosition;
+    private int _autoFollowStep;
+    private bool _stopRequested;
     private CancellationTokenSource? _rollCancel;
 
     /// <param name="tableUsed">Called when a table becomes the current rollable table by being followed to (recent tables).</param>
@@ -337,11 +349,15 @@ public sealed class RollViewModel : ObservableObject
     /// it while that result is still the current one. Nothing else on this screen (links, exports, navigation) touches it.</param>
     /// <param name="exportPum">Save PUM Companion Bundle…: exports the table this screen shows (review, choose a file, save) and gives
     /// the message to show, or null when the person cancelled. Null disables the command.</param>
+    /// <param name="autoFollow">The app-wide Auto-follow linked tables setting (see <see cref="AutoFollowAsync"/>). Null means a
+    /// setting of this screen's own, off.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
         Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null,
-        Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null, Func<RollableTable, string?>? exportPum = null)
+        Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null, Func<RollableTable, string?>? exportPum = null,
+        AutoFollowSetting? autoFollow = null)
     {
         _dice = dice;
+        AutoFollow = autoFollow ?? new AutoFollowSetting();
         _overlay = overlay;
         _copyText = copyText ?? ClipboardText.Set;
         _chooseSaveFile = chooseSaveFile ?? SaveFileChooser.ChooseJson;
@@ -352,6 +368,7 @@ public sealed class RollViewModel : ObservableObject
         Steps.Add(new RollStepViewModel(table, isFirst: true));
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
+        StopCommand = new RelayCommand(CancelRoll, () => IsRolling);
         CopyTableTextCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Tab), () => Current.Table.ResultSets.Count > 0);
         CopyTableTextSpacesCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Space), () => Current.Table.ResultSets.Count > 0);
         CopyForSojourCommand = new RelayCommand(CopyForSojour, () => Current.Table.ResultSets.Count > 0);
@@ -659,14 +676,37 @@ public sealed class RollViewModel : ObservableObject
         }
     }
 
-    /// <summary>"Rolling…" while a roll is in progress ("Rolling 2 of 3…" during several). Each table result is shown only once its roll ends.</summary>
-    public string RollStatus => !IsRolling ? "" : _batchPosition > 0 && RollCount > 1 ? $"Rolling {_batchPosition} of {RollCount}…" : "Rolling…";
+    /// <summary>"Rolling…" while a roll is in progress ("Rolling 2 of 3…" during several, "Auto-following… step 2" during a
+    /// chain). Each table result is shown only once its roll ends.</summary>
+    public string RollStatus => !IsRolling ? ""
+        : _autoFollowStep > 0 ? $"Auto-following… step {_autoFollowStep}"
+        : _batchPosition > 0 && RollCount > 1 ? $"Rolling {_batchPosition} of {RollCount}…" : "Rolling…";
 
     /// <summary>The roll under way, or the last one that finished (for callers that need to wait for it).</summary>
     public Task RollTask { get; private set; } = Task.CompletedTask;
 
     public ICommand RollCommand { get; }
     public ICommand ResolveManualCommand { get; }
+
+    /// <summary>Stop: abandons whatever is under way — a roll, a multi-roll action, an inline roll or an auto-follow chain (see <see cref="CancelRoll"/>).</summary>
+    public ICommand StopCommand { get; }
+
+    // ---- Auto-follow linked tables -------------------------------------------------------------------------------------
+
+    /// <summary>The most linked tables one auto-follow chain opens. Each new action of the person's starts a new chain.</summary>
+    public const int MaxAutoFollows = 8;
+
+    /// <summary>
+    /// The most times one chain rolls the same table by itself. A table that links to itself ("reroll on this table") is
+    /// rolled again at most this many times after the person's own roll; any loop of links ends within this many passes.
+    /// </summary>
+    public const int MaxAutoRollsPerTable = 2;
+
+    /// <summary>Auto-follow linked tables, shared by every Roll screen (see <see cref="AutoFollowSetting"/>).</summary>
+    public AutoFollowSetting AutoFollow { get; }
+
+    /// <summary>True while the current table is a Manual-selection table: the screen says its result is meant to be chosen.</summary>
+    public bool IsManualSelection => Current.Table.IsManualSelection;
 
     /// <summary>
     /// Asks the chosen provider for a final number and, only when it has one, resolves and shows it. A failed or cancelled roll
@@ -695,6 +735,7 @@ public sealed class RollViewModel : ObservableObject
     private async Task RollCoreAsync(int situational, int count)
     {
         Message = "";
+        _stopRequested = false;
         var step = Current;
         IsRolling = true;
         try
@@ -702,33 +743,139 @@ public sealed class RollViewModel : ObservableObject
             for (var position = 1; position <= count; position++)
             {
                 SetBatchPosition(position);
-                var cancel = _rollCancel = new CancellationTokenSource();
-                int roll;
-                try
-                {
-                    roll = await _dice.RollAsync(step.Table.Dice, cancel.Token);
-                }
-                catch (OperationCanceledException) { Message = Stopped("The roll was cancelled.", position, count); return; }
-                catch (Exception ex) when (ex is not OutOfMemoryException)
-                {
-                    Message = Stopped(ex is DddiceException ? ex.Message : $"The roll could not be made: {ex.Message}", position, count);
-                    return;
-                }
-                finally
-                {
-                    if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
-                    cancel.Dispose();
-                }
+                if (await ThrowAsync(step.Table.Dice, position, count) is not { } roll) return;
                 // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
                 // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
                 Apply(roll + situational, situational, fromProvider: true, position: position, count: count);
                 if (position == 1 || situational != 0) ModifierText = "0";
                 situational = 0;
             }
+
+            // Auto-follow continues only from a single roll, and never from a Roll on a Manual-selection table: that table's
+            // result is the person's to choose, so only a manually entered one continues the chain.
+            if (!AutoFollow.IsOn || step.Table.IsManualSelection) return;
+            if (count == 1) await AutoFollowAsync();
+            else if (LatestRolls.Any(o => o.Lines.Any(l => l.Link != LinkState.None)))
+                Message = "Auto-follow runs after a single roll only. Choose a link below.";
         }
         finally
         {
             SetBatchPosition(0);
+            IsRolling = false;
+        }
+    }
+
+    /// <summary>
+    /// Asks the provider for one final number. Null when it could not: the reason is already in <see cref="Message"/> (with where a
+    /// multi-roll action stopped). Cancellable through <see cref="CancelRoll"/> while the dice are in the air.
+    /// </summary>
+    private async Task<int?> ThrowAsync(DiceExpression dice, int position = 1, int count = 1)
+    {
+        var cancel = _rollCancel = new CancellationTokenSource();
+        try
+        {
+            return await _dice.RollAsync(dice, cancel.Token);
+        }
+        catch (OperationCanceledException) { Message = Stopped("The roll was cancelled.", position, count); return null; }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Message = Stopped(ex is DddiceException ? ex.Message : $"The roll could not be made: {ex.Message}", position, count);
+            return null;
+        }
+        finally
+        {
+            if (ReferenceEquals(_rollCancel, cancel)) _rollCancel = null;
+            cancel.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Auto-follow linked tables: after one of the person's own actions (a single Roll, or a manually entered result) resolved on
+    /// the current table, follows its one link and rolls the destination, exactly as the person would with Open and Roll — the same
+    /// <see cref="Follow"/>, the same provider, the same <see cref="Apply"/> (so Recent Rolls, the overlay and Clamp behave as
+    /// for any roll) — and repeats from that result. It stops, leaving every manual control in place, when:
+    /// <list type="bullet">
+    /// <item>the result has no link (the chain is complete), or more than one (one per result set: the person chooses);</item>
+    /// <item>the link is unresolved or its table is missing;</item>
+    /// <item>the destination is a Manual-selection table: it is opened but not rolled, and a result entered there starts a new chain;</item>
+    /// <item><see cref="MaxAutoFollows"/> tables have been opened, or the destination has been rolled by this chain
+    /// <see cref="MaxAutoRollsPerTable"/> times already;</item>
+    /// <item>the dice are not ready, a roll fails or is cancelled (Stop, leaving the table, switching provider), or the setting is
+    /// turned off.</item>
+    /// </list>
+    /// Counts belong to one chain: every new action of the person's starts again from zero. The caller holds <see cref="IsRolling"/>.
+    /// </summary>
+    private async Task AutoFollowAsync()
+    {
+        var rolledHere = new Dictionary<long, int>();
+        try
+        {
+            for (var follows = 0; ; follows++)
+            {
+                var linked = LatestRolls.Count == 1 ? LatestRolls[0].Lines.Where(l => l.Link != LinkState.None).ToList() : [];
+                if (linked.Count == 0) return;
+                if (_stopRequested || !AutoFollow.IsOn) { Message = "Auto-follow stopped."; return; }
+                if (linked.Count > 1) { Message = "Auto-follow stopped: this result has more than one link. Choose one below."; return; }
+
+                var line = linked[0];
+                if (line.Link != LinkState.Resolved || line.LinkTarget is not { } target)
+                {
+                    Message = "Auto-follow stopped: the linked table isn't available.";
+                    return;
+                }
+                if (follows == MaxAutoFollows)
+                {
+                    Message = $"Auto-follow stopped after {MaxAutoFollows} linked tables. Continue with the link below.";
+                    return;
+                }
+                if (!target.IsManualSelection && rolledHere.GetValueOrDefault(target.Id) == MaxAutoRollsPerTable)
+                {
+                    Message = $"Auto-follow stopped: {target.Name} was already rolled automatically {MaxAutoRollsPerTable} times. Continue with the link below.";
+                    return;
+                }
+                if (!target.IsManualSelection && !(_diceReady?.Invoke() ?? true))
+                {
+                    Message = "Auto-follow stopped: the dice aren't ready. Continue with the link below.";
+                    return;
+                }
+
+                var from = $"Auto-followed from {Current.Table.Name}{(line.Range.Length > 0 ? $" ({line.Range})" : "")}";
+                Follow(line, from);
+                if (target.IsManualSelection) return; // opened, not rolled: the step itself asks for the person's choice
+
+                rolledHere[target.Id] = rolledHere.GetValueOrDefault(target.Id) + 1;
+                SetAutoFollowStep(follows + 1);
+                if (await ThrowAsync(Current.Table.Dice) is not { } roll)
+                {
+                    Message = $"Auto-follow stopped. {Message}";
+                    return;
+                }
+                Apply(roll, fromProvider: true);
+            }
+        }
+        finally
+        {
+            SetAutoFollowStep(0);
+        }
+    }
+
+    private void SetAutoFollowStep(int step)
+    {
+        _autoFollowStep = step;
+        Raise(nameof(RollStatus));
+    }
+
+    /// <summary>Auto-follow from a result the person entered by hand, which is how a Manual-selection table continues a chain.</summary>
+    private async Task AutoFollowFromManualAsync()
+    {
+        _stopRequested = false;
+        IsRolling = true;
+        try
+        {
+            await AutoFollowAsync();
+        }
+        finally
+        {
             IsRolling = false;
         }
     }
@@ -816,7 +963,11 @@ public sealed class RollViewModel : ObservableObject
 
     /// <summary>Abandons a roll still in progress (the person left this table, or switched provider) — the parent table's own
     /// roll or an <see cref="InlineDiceAction"/>'s, whichever is currently under way.</summary>
-    public void CancelRoll() { try { _rollCancel?.Cancel(); } catch (ObjectDisposedException) { } }
+    public void CancelRoll()
+    {
+        _stopRequested = true; // an auto-follow chain between two rolls stops too, before it opens or rolls anything more
+        try { _rollCancel?.Cancel(); } catch (ObjectDisposedException) { }
+    }
 
     private void ResolveManual()
     {
@@ -828,7 +979,11 @@ public sealed class RollViewModel : ObservableObject
         var rows = Current.Table.ResultSets.SelectMany(s => s.Entries).ToList();
         var extended = !dice.IsD66 && rows.Any(e => e.Min < dice.Min || e.Max > dice.Max);
         if (parsed && (dice.IsLegal(value) || (extended && rows.Any(e => e.Covers(value)))))
+        {
             Apply(value);
+            // A chosen result continues auto-follow from any table — on a Manual-selection table, this is the only way it does.
+            if (AutoFollow.IsOn) RollTask = AutoFollowFromManualAsync();
+        }
         else if (dice.IsD66)
             // The final d66 value is typed (35), never two separate dice; say why an impossible one is refused.
             Message = parsed ? $"{value} is not a possible d66 result. Enter two digits from 1 to 6, such as 35." : "Enter a d66 result: two digits from 1 to 6, such as 35.";
@@ -933,13 +1088,16 @@ public sealed class RollViewModel : ObservableObject
         return line;
     }
 
-    /// <summary>User-triggered: makes the destination the current table, keeps the trail, and does not roll it.</summary>
-    private void Follow(ResultLineViewModel line)
+    /// <summary>
+    /// Makes the destination the current table, keeps the trail, and does not roll it. User-triggered (Open), or the first half of
+    /// one auto-follow step, which passes <paramref name="autoFollowedFrom"/> (see <see cref="RollStepViewModel.AutoFollowedFrom"/>).
+    /// </summary>
+    private void Follow(ResultLineViewModel line, string autoFollowedFrom = "")
     {
         if (!line.IsActive || line.LinkTarget is null) return;
 
         DeactivateLinks();
-        Steps.Add(new RollStepViewModel(line.LinkTarget, isFirst: false));
+        Steps.Add(new RollStepViewModel(line.LinkTarget, isFirst: false) { AutoFollowedFrom = autoFollowedFrom });
         ManualRollText = "";
         ModifierText = "0"; // a modifier belongs to the table it was typed for, never the one followed to
         RollCount = 1;      // and so does a choice of several rolls
@@ -966,6 +1124,7 @@ public sealed class RollViewModel : ObservableObject
         Raise(nameof(IsModifierValid));
         Raise(nameof(HasModifierError));
         Raise(nameof(ModifierError));
+        Raise(nameof(IsManualSelection));
         _tableUsed?.Invoke(line.LinkTarget.Id);
     }
 

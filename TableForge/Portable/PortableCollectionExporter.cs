@@ -86,6 +86,7 @@ public static class PortableCollectionExporter
                 Name = table.Name,
                 Dice = table.Dice,
                 ClampResultsToRange = table.ClampResultsToRange,
+                IsManualSelection = table.IsManualSelection,
                 Description = table.Description,
             };
             for (var s = 0; s < table.ResultSets.Count; s++)
@@ -202,6 +203,7 @@ public static class PortableCollectionExporter
         if (portable.FolderIndex is { } folder) w.WriteString("folder", FolderId(folder));
         w.WriteString("dice", table.Dice.ToString());
         w.WriteBoolean("clampToRange", table.ClampResultsToRange);
+        if (table.IsManualSelection) w.WriteBoolean("manualSelection", true); // optional in any version; older readers ignore it
         if (table.Description.Length > 0) w.WriteString("description", table.Description); // only ever in a version 2 file
         w.WriteStartArray("resultSets");
         foreach (var set in table.ResultSets)

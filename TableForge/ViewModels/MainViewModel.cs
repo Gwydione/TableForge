@@ -108,12 +108,15 @@ public sealed class MainViewModel : ObservableObject
     /// Export to PUM Companion (here and on every Roll screen).</param>
     /// <param name="choosePumFile">Asks where to save a PUM Companion bundle (.pumb). Null means the Windows Save dialog.</param>
     /// <param name="now">The time stored in a PUM bundle's files. Null means the local time now.</param>
+    /// <param name="autoFollow">Auto-follow linked tables, shared by every Roll screen this opens. Null means off, not remembered.</param>
     public MainViewModel(AppDatabase db, IDiceProvider dice, Func<string, bool>? confirm = null, Action<string>? copyText = null,
         string? dataFolder = null, Action<string>? openFolder = null, Action? showAbout = null, Func<SaveFileRequest, string?>? chooseSaveFile = null,
         Func<SaveFileRequest, string?>? chooseCollectionFile = null, Func<string?>? chooseImportFile = null, Func<string, bool>? confirmImport = null,
         Action<string>? showMessage = null, OverlayPublisher? overlay = null, Action? showStreamingOverlay = null,
-        Func<PumExportReviewViewModel, bool>? reviewPumExport = null, Func<SaveFileRequest, string?>? choosePumFile = null, Func<DateTime>? now = null)
+        Func<PumExportReviewViewModel, bool>? reviewPumExport = null, Func<SaveFileRequest, string?>? choosePumFile = null, Func<DateTime>? now = null,
+        AutoFollowSetting? autoFollow = null)
     {
+        AutoFollow = autoFollow ?? new AutoFollowSetting();
         _db = db;
         _dice = dice;
         _confirm = confirm ?? (_ => false);
@@ -160,6 +163,9 @@ public sealed class MainViewModel : ObservableObject
         ReloadRecentRolls();
         Status = Collections.Count == 0 ? "Create a collection to begin." : "";
     }
+
+    /// <summary>Auto-follow linked tables (see <see cref="RollViewModel.AutoFollow"/>): one setting, shown on every Roll screen.</summary>
+    public AutoFollowSetting AutoFollow { get; }
 
     /// <summary>Raised after a collection is created, so the view can move focus on to the natural next step.</summary>
     public event EventHandler? CollectionCreated;
@@ -795,7 +801,7 @@ public sealed class MainViewModel : ObservableObject
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
             diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile, overlay: _overlay,
-            exportPum: _reviewPumExport is null ? null : ExportTableToPum);
+            exportPum: _reviewPumExport is null ? null : ExportTableToPum, autoFollow: AutoFollow);
     }
 
     private void MarkUsed(long tableId)

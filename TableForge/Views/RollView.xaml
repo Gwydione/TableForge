@@ -29,11 +29,19 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
+                            <!-- Only for a step auto-follow opened: a compact note of where it came from (the parent's result is on the step above). -->
+                            <TextBlock x:Name="AutoFollowedFromText" Text="{Binding AutoFollowedFrom}" Foreground="#666" FontStyle="Italic"
+                                       TextWrapping="Wrap" Margin="0,0,0,2"
+                                       Visibility="{Binding IsAutoFollowed, Converter={StaticResource BoolToVis}}" />
                             <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding DiceInfo}" Foreground="#666" Margin="0,2,0,8" />
                             <!-- The table's own description, when it has one: secondary, plain, wrapping. Collapsed (no space at all) when empty. -->
                             <TextBlock x:Name="DescriptionText" Text="{Binding Description}" Foreground="#666" TextWrapping="Wrap" Margin="0,-4,0,8"
                                        Visibility="{Binding HasDescription, Converter={StaticResource BoolToVis}}" />
+                            <!-- A Manual-selection table: a small hint that its result is meant to be chosen. Roll still works as always. -->
+                            <TextBlock x:Name="ManualSelectionHint" Text="Manual-selection table: choose the result and enter it below."
+                                       Foreground="{StaticResource WarningText}" TextWrapping="Wrap" Margin="0,-4,0,8"
+                                       Visibility="{Binding IsManualSelection, Converter={StaticResource BoolToVis}}" />
                             <TextBlock Text="Not rolled yet." Foreground="#888" FontStyle="Italic" Margin="0,0,0,4">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -152,6 +160,9 @@
                 <!-- Shown only while a visual (dddice) roll is in the air; the table result appears when the dice settle. -->
                 <TextBlock x:Name="RollStatusText" Text="{Binding RollStatus}" AutomationProperties.AutomationId="RollStatus"
                            FontSize="16" Foreground="#555" VerticalAlignment="Center" Margin="14,0,0,0" />
+                <!-- Stop: only while something is under way (a roll, several rolls, an inline roll or an auto-follow chain). -->
+                <Button x:Name="StopButton" Content="Stop" Padding="12,4" Margin="10,0,0,0" VerticalAlignment="Center" Command="{Binding StopCommand}"
+                        ToolTip="Stop the roll or auto-follow under way" Visibility="{Binding IsRolling, Converter={StaticResource BoolToVis}}" />
                 <TextBlock Text="or enter a roll:" Foreground="#666" VerticalAlignment="Center" Margin="24,0,8,0" />
                 <TextBox x:Name="ManualBox" Width="70" Padding="4" VerticalContentAlignment="Center"
                          Text="{Binding ManualRollText, UpdateSourceTrigger=PropertyChanged}">
@@ -161,6 +172,10 @@
                 </TextBox>
                 <Button Content="Resolve" Padding="14,6" Margin="8,0,0,0" Command="{Binding ResolveManualCommand}" />
             </StackPanel>
+            <!-- One app-wide setting, remembered between sessions. Off is exactly the behavior Gidubba always had. -->
+            <CheckBox x:Name="AutoFollowBox" Content="Auto-follow linked tables" IsChecked="{Binding AutoFollow.IsOn}" Margin="0,8,0,0"
+                      HorizontalAlignment="Left"
+                      ToolTip="After a roll or a result you enter, open its one linked table and roll it, and so on. Manual-selection tables are opened but not rolled." />
             <TextBlock x:Name="ModifierErrorText" Text="{Binding ModifierError}" Foreground="{StaticResource ProblemText}" Margin="0,6,0,0"
                        Visibility="{Binding HasModifierError, Converter={StaticResource BoolToVis}}" />
             <TextBlock Text="{Binding Message}" Foreground="{StaticResource ProblemText}" Margin="0,6,0,0" />

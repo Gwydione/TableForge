@@ -133,6 +133,13 @@ public static class DatabaseMigrations
         """
         ALTER TABLE Tables ADD COLUMN Description TEXT NOT NULL DEFAULT '' CHECK (length(Description) <= 2000);
         """,
+
+        // 11: Manual-selection tables. Tables.ManualSelection is an explicit per-table property; every existing table gets 0
+        // (an ordinary table), so nothing already saved behaves differently. It only matters to auto-follow, which never rolls
+        // such a table by itself. Older versions refuse this database rather than re-saving tables and dropping the property.
+        """
+        ALTER TABLE Tables ADD COLUMN ManualSelection INTEGER NOT NULL DEFAULT 0 CHECK (ManualSelection IN (0, 1));
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;
