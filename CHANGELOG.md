@@ -3,6 +3,24 @@
 Each released version of Gidubba (formerly TableForge), newest first. The full notes for each one are in
 `docs/release-notes/`. Versions before 1.2.0 were released as TableForge, and their entries keep that name.
 
+## 1.3.0
+
+- **Data format update: 1.2.0 cannot open the data afterwards.** The first start updates the database from schema 10
+  to 11, after saving `tableforge.pre-v11-from-v10.backup.db` beside it. To go back to 1.2.0, restore that copy; anything
+  changed since the update is lost.
+- **New: Auto-follow linked tables** (Roll screen, off by default, remembered). A result linking to one other table
+  opens and rolls it, and so on; each step says where it came from. **Stop** ends a chain or a dddice roll. A chain
+  stops after 8 tables, or after rolling one table automatically twice.
+- **New: Manual-selection tables** (Edit table, under Clamp to Range). Auto-follow opens such a table without rolling it
+  and continues from the result you enter. **Every existing table starts with it off**: mark your own selector tables.
+  `.tfcollection` keeps the setting without a new format version, and 1.2.0 imports those files.
+- **New, optional: Roll linked tables automatically in PUM ({{…}})** in the Collection PUM export review, **unticked
+  every time**. Unticked, the export is byte-identical to 1.2.0. Ticked, links to tables in the bundle become PUM nested
+  rolls. Links to or from Manual-selection tables, loops, and names another collection also uses stay text, and the
+  report says why.
+- The installer identity, install folder and data folder are unchanged.
+- Notes: `docs/release-notes/1.3.0.md`
+
 ## 1.2.0
 
 - **TableForge is now Gidubba**, by RPG Frequencies, with a new icon (a clay tablet and reed stylus). Only the name and

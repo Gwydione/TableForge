@@ -2,7 +2,7 @@
 
 **Gidubba turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.2.0 · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.3.0 · Windows 10/11 (64-bit) · by RPG Frequencies
 
 **Formerly TableForge.** Gidubba is the new name for TableForge, from version 1.2.0. Only the name and icon changed:
 installing Gidubba over TableForge upgrades it in place and keeps all your tables and settings. Some technical names
@@ -21,6 +21,8 @@ Gidubba can also:
 - roll with fast **Built-in dice**, or optionally with **dddice** 3D visual dice, including themes from your own
   dddice account;
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
+- optionally **auto-follow linked tables**, rolling down a chain of linked tables by itself, and stopping to let you
+  choose on **Manual-selection tables** such as a "current depth" selector;
 - make words in a result **bold** or *italic* on the Review screen, shown that way when it is rolled;
 - give a table an optional plain-text **description** ("Roll when entering a new region"), shown under its dice while rolling;
 - make **several rolls at once**, keeping every result;
@@ -74,8 +76,9 @@ its TableForge name so that upgrading finds your data:
 - **Open Data Folder**, at the bottom of the Gidubba window, opens it.
 - **Uninstalling Gidubba does not delete this folder.** Reinstalling finds your tables again automatically.
 - **To back up**, close Gidubba and copy the whole folder somewhere safe. To restore, put it back.
-- When a future version needs to update your data's format, Gidubba first saves an automatic safety copy of your
-  database beside it (and changes nothing if it cannot).
+- When a newer version needs to update your data's format, Gidubba first saves an automatic safety copy of your
+  database beside it (and changes nothing if it cannot). The older version cannot open the updated data; going back
+  means restoring that copy. Gidubba 1.3.0 is such an update (see [Data folder details](#data-folder-details)).
 - **Export Collection…** (see [Sharing a Collection](#sharing-a-collection-tfcollection)) saves one collection's tables
   to a file. It is a way to share a collection, not a full backup: it does not include your other collections, recent
   rolls or settings.
@@ -99,9 +102,12 @@ only the current result with programs on this computer (address `127.0.0.1`); it
 - **Owlbear Rodeo (Tables+) export** has been checked in Tables+ only for `d20`, `d66` and `2d6` tables; other cases
   (negative numbers, gaps and overlaps, `{2d6}`, `#reroll`, a real `1d66`, importing a saved file) are untested.
   `2d6+1`-style dice (several dice with a modifier) are refused for now.
-- **PUM Companion export** skips any table it can't reproduce exactly in PUM, and says why. Links become text lines,
-  inline dice are not rolled by PUM, and descriptions are not exported. Rows beyond the dice, which only PUM's own roll
-  overrides reach, have not been checked in PUM.
+- **PUM Companion export** skips any table it can't reproduce exactly in PUM, and says why. Links become text lines
+  unless you tick **Roll linked tables automatically in PUM**, and even then some stay text (the report says why). Inline
+  dice are not rolled by PUM, and descriptions are not exported. Rows beyond the dice, which only PUM's own roll overrides
+  reach, have not been checked in PUM.
+- **Auto-follow** follows one link per result and at most 8 tables in a chain, and never chooses on a Manual-selection
+  table. Every table starts as an ordinary table: mark your selector tables yourself.
 - **Copy for Sojour** has been tested only by pasting with **Ctrl+V** into a Sojour Lookup Table; it copies one result
   set's rows, and the table's name and dice are set up in Sojour yourself.
 - dddice dice need an internet connection and the WebView2 Runtime.
@@ -141,7 +147,8 @@ components are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 2. Choose **Paste Table…**, paste the copied text, and choose **Interpret** (or **Ctrl+Enter**). Check the result on the
    Review screen — notes beside rows say where the parser was unsure — then **Save Table**.
 3. Choose a table to open it, then **Roll** (or type a number and press **Enter** to resolve a specific roll).
-4. If a result links to another table, a button appears; following it never rolls automatically.
+4. If a result links to another table, a button appears; following it never rolls automatically, unless you turn on
+   [Auto-follow linked tables](#auto-follow-linked-tables).
 
 Keyboard: in the table search box **Enter** opens the first match and **Escape** clears the search. In the table list the
 arrow keys move the highlight and **Enter** opens. In “Paste rows into this set…”, **Escape** closes it and **Ctrl+Enter**
@@ -169,11 +176,13 @@ dddice, a `WebView2` folder (the browser profile that draws the dice; it holds n
 also `dddice-account.json`: the connection's token, encrypted with Windows (DPAPI, readable only by your Windows user), plus your
 account's display name, chosen theme and dddice room. Disconnect deletes it. Deleting it by hand just returns dddice to guest.
 Once you use the [Streaming Overlay](#streaming-overlay-obs) there are also `streaming-overlay.json` (its settings) and
-`streaming-overlay.html` (the page OBS loads).
+`streaming-overlay.html` (the page OBS loads). Once you change **Auto-follow linked tables** there is also
+`auto-follow.txt` (one word, `on` or `off`).
 
 On first launch Gidubba creates the folder and database itself. When a newer Gidubba needs to update an existing
 database to its format, it first saves a copy beside it, `tableforge.pre-v8-from-v7.backup.db` (the format it updates to,
-and the one it came from), and updates nothing if that copy cannot be made. If an update then fails, Gidubba says so and
+and the one it came from; Gidubba 1.3.0 makes `tableforge.pre-v11-from-v10.backup.db`), and updates nothing if that copy
+cannot be made. If an update then fails, Gidubba says so and
 where the copy is (to go back, close Gidubba and copy the backup over `tableforge.db`). The newest three copies are kept.
 Nothing is copied on an ordinary start. A database from a newer Gidubba is never opened or changed: Gidubba asks you
 to install the newer version.
@@ -227,6 +236,37 @@ spaces or blank lines at the very start and end are removed.
 While rolling, the description appears under the table's dice. A table with no description shows nothing there. A
 followed table shows its own description in its own step. The description is only a note: it never changes how the table
 rolls or resolves, and it does not appear in the table list, Recent tables or Recent rolls.
+
+## Auto-follow linked tables
+
+**Auto-follow linked tables**, under **Roll** on the Roll screen, is **off** by default, and Gidubba remembers it between
+sessions. Off, a linked result just shows its **Open …** button, as it always has. On:
+
+- After a roll, or a result you enter yourself, whose result links to one other table, Gidubba opens that table and rolls
+  it, and carries on down the chain. Each table it opened says where it came from, such as "Auto-followed from Area Type
+  (5)", above its name. The step above keeps its own result.
+- Every automatic roll is an ordinary roll: it uses your dice (Built-in or dddice, waiting for dddice's dice to settle),
+  goes into Recent rolls and shows on the Streaming Overlay.
+- It follows nothing when a result has more than one link, or after several rolls at once. A message says why, and the
+  **Open …** buttons are there as usual.
+- It stops by itself after 8 linked tables, or when one table has already been rolled automatically twice in the chain
+  (a "reroll on this table" row). The link to carry on by hand is still there.
+- **Stop** (beside **Roll** while something is under way) ends the chain, cancelling any dddice roll in the air. Leaving
+  the table, or turning the setting off, ends it too.
+
+### Manual-selection tables
+
+Some tables are meant to be chosen from, not rolled: a "current depth" or "current region" selector, say. Mark such a
+table in Edit table: tick **Manual-selection table** (under **Clamp to Range**), then **Save Table**. Its Roll screen then
+says "Manual-selection table: choose the result and enter it below."
+
+- Auto-follow opens a Manual-selection table **without rolling it**. Type the result you want and **Resolve**, and the
+  chain carries on from there.
+- **Roll** still works on it. A rolled result is not followed automatically; use its **Open …** button.
+- **Every table starts as an ordinary table.** Gidubba never guesses from a table's name, dice or description, so mark
+  your selector tables yourself.
+- Export Collection keeps the setting (`"manualSelection": true`) without changing the file's format version. Gidubba
+  1.2.0 imports such a file and ignores the setting.
 
 ## Sharing a Collection (.tfcollection)
 
@@ -393,7 +433,8 @@ gives the reason and an example roll.
 - **Dice:** `1d6`, `2d6+1` and `1d20-2` are written as they are. A `d66` (tens and ones) becomes PUM's `1D66`, and a real
   66-sided die stays `1d66`. `96-00` on a `d100` and open-ended rows such as `26+` work.
 - **Links** become a line under the result, `→ Table name`, with "(not included in this export)" when that table isn't in
-  the bundle, or "(unresolved link)". PUM doesn't open or roll the linked table.
+  the bundle, or "(unresolved link)". PUM doesn't open or roll the linked table, unless you tick **Roll linked tables
+  automatically in PUM** (see below).
 - **Text:** bold and italic become PUM's Markdown (`**bold**`, `*italic*`). Inline dice such as `1d6` stay as text.
 - **Text that PUM would run as a command** (`{{Table}}`, `;;2d6;;`, `::result::`) is never written: such a table is skipped.
   Other PUM-like text, such as `%%`, is written as it is and stays plain text in PUM.
@@ -405,6 +446,26 @@ gives the reason and an example roll.
   - Each table's PUM category is the collection's name, or `Collection - Folder` for a table in a folder.
   - Exporting the same table again (same collection, folder and name) gives the same PUM table.
 - **Table descriptions** are not exported, as with the other exports.
+
+**Roll linked tables automatically in PUM ({{…}}).** A Collection export's review has this checkbox. It is **unticked
+every time** the review opens, and unticked the bundle is exactly what earlier versions saved. Ticked, the review and
+report update at once:
+
+- A link to a table in the same bundle becomes a PUM nested roll: under the result, `→ Exceptional Treasure Table:`
+  followed by the result PUM rolls on that table. The result's own text is kept, so "roll twice on the Mundane Treasure
+  Table" still says so, and PUM rolls the linked table once.
+- A link stays a `→ Table name` text line when PUM can't roll it safely, and the report says why for each one:
+  - it goes to, or comes from, a **Manual-selection table** (PUM can only roll a table, not let you choose its row);
+  - it leads back round to its own table (PUM would keep rolling round the loop);
+  - **another of your collections has a table with the same name.** PUM finds tables by name alone, in every category
+    and ignoring case, so in PUM they would be one table. The review shows this as a warning too;
+  - the table isn't in the bundle, or its name contains characters PUM uses for commands (`{{`, `}}`, `%%`, `;;`).
+- A line says how many links will roll, for example "55 of 131 links will roll their table in PUM. 76 stay text (see
+  the report)."
+- Gidubba can't see tables made in PUM itself or imported from elsewhere. If one has the same name as a table in your
+  bundle, PUM replaces its rows when you import.
+
+A single table's export (Roll screen → **Export…**) has no such option.
 
 **Importing a bundle again:** PUM Companion offers to overwrite the tables it already has, and overwriting replaces them,
 including any changes you made to them in PUM. The review says so whenever there is a bundle to save.
@@ -419,7 +480,9 @@ differs from Gidubba, the report notes it.
 - `d66`, a real `1d66`, `d100` with `00`, and open-ended rows;
 - several result sets, links, bold and italic, and empty rows;
 - special and repeated names, categories and folders;
-- importing the same bundle again.
+- importing the same bundle again;
+- nested rolls (2026-10-26, Windows and iPad): Under the Fourth Kingdom, names that differ only in case, em dashes, ` (2)`
+  names and five levels of nesting.
 
 Rows beyond the dice, which only PUM's overrides reach, have not been checked there.
 
@@ -765,7 +828,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.2.0 · built 2026-10-23 13:13 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.3.0 · built 2026-10-26 12:45 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 

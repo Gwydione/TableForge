@@ -27,7 +27,7 @@ public class PublicReleaseTests
         Assert.Equal("Gidubba - RPG Rollable Tables", assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description);
         Assert.Equal("RPG Frequencies", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
         Assert.Equal("Copyright (c) 2026 RPG Frequencies", assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright);
-        Assert.Equal("1.2.0", AppInfo.Version);
+        Assert.Equal("1.3.0", AppInfo.Version);
         Assert.Equal(("Gidubba", "Gidubba — RPG Rollable Tables"), (AppInfo.Name, AppInfo.Title));
         Assert.Equal("TableForge", assembly.GetName().Name);                                         // TableForge.exe: installs, pins and shortcuts keep working
         Assert.Contains("<AssemblyName>TableForge</AssemblyName>", Read("TableForge", "TableForge.csproj"));
@@ -125,15 +125,29 @@ public class PublicReleaseTests
     [Fact]
     public void The_release_notes_and_testing_checklist_exist()
     {
-        var notes = Read("docs", "release-notes", "1.2.0.md");
-        Assert.Equal("# Gidubba 1.2.0 (formerly TableForge)", notes.Split('\n')[0].TrimEnd('\r'));    // 1.2.0, not an rc
+        var notes = Read("docs", "release-notes", "1.3.0.md");
+        Assert.Equal("# Gidubba 1.3.0", notes.Split('\n')[0].TrimEnd('\r'));                  // 1.3.0, not an rc
+        Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);
+        foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
+            Assert.Contains(heading, notes);
+        Assert.True(notes.IndexOf("**This version updates your data, and 1.2.0 cannot open it afterwards.**", StringComparison.Ordinal)
+            < notes.IndexOf("## Highlights", StringComparison.Ordinal));                       // the one-way update, before anything else
+        Assert.Contains("tableforge.pre-v11-from-v10.backup.db", notes);
+        Assert.Contains("**1.3.0 changes the data format (database schema version 10 to 11).**", notes);
+        Assert.Contains("**Going back to 1.2.0:** 1.2.0 refuses data that 1.3.0 has updated", notes);
+        Assert.Contains("**Every existing table starts as an ordinary table (Manual-selection off).**", notes);   // selectors are the user's to mark
+        Assert.Contains("It is **unticked every time the review opens**", notes);                // PUM nested rolls: optional, off by default
+        Assert.Contains("byte for byte", notes);
+        Assert.Contains("**The installer, the program's folder and your data folder are unchanged.**", notes);
+        Assert.Contains("Gidubba-1.3.0-Setup.exe", notes);
+        Assert.Contains("Gidubba-1.3.0-win-x64.zip", notes);
+
+        notes = Read("docs", "release-notes", "1.2.0.md");                                     // the 1.2.0 notes stay as released
+        Assert.Equal("# Gidubba 1.2.0 (formerly TableForge)", notes.Split('\n')[0].TrimEnd('\r'));
         Assert.Contains("**TableForge has been renamed Gidubba**", notes);                     // the rename, said plainly to TableForge users:
         Assert.Contains("You do not need to uninstall TableForge first.", notes);
         Assert.Contains("**your existing tables, collections and settings are preserved**", notes);
         Assert.Contains("not a new or separate one", notes);
-        Assert.DoesNotContain("release candidate", notes, StringComparison.OrdinalIgnoreCase);
-        foreach (var heading in new[] { "## Highlights", "## Installation", "## What's Included", "## Known Issues", "## Data and Upgrades", "## Feedback" })
-            Assert.Contains(heading, notes);
         Assert.Contains("Gidubba-1.2.0-Setup.exe", notes);
         Assert.Contains("Gidubba-1.2.0-win-x64.zip", notes);
         Assert.Contains("**Formerly TableForge.**", notes);                                     // the rename, and what it keeps:
@@ -166,9 +180,11 @@ public class PublicReleaseTests
         Assert.StartsWith("# TableForge 1.0.0", Read("docs", "release-notes", "1.0.0.md"));       // earlier notes stay
 
         var changelog = Read("CHANGELOG.md");
-        var newest = changelog.IndexOf("## 1.2.0", StringComparison.Ordinal);
-        Assert.InRange(newest, 0, changelog.IndexOf("## 1.1.0", StringComparison.Ordinal));        // newest first
+        var newest = changelog.IndexOf("## 1.3.0", StringComparison.Ordinal);
+        Assert.InRange(newest, 0, changelog.IndexOf("## 1.2.0", StringComparison.Ordinal));        // newest first
+        Assert.InRange(changelog.IndexOf("## 1.2.0", StringComparison.Ordinal), 0, changelog.IndexOf("## 1.1.0", StringComparison.Ordinal));
         Assert.InRange(changelog.IndexOf("## 1.1.0", StringComparison.Ordinal), 0, changelog.IndexOf("## 1.0.0", StringComparison.Ordinal));
+        Assert.Contains("docs/release-notes/1.3.0.md", changelog);
         Assert.Contains("docs/release-notes/1.2.0.md", changelog);
         Assert.Contains("docs/release-notes/1.1.0.md", changelog);
         Assert.Contains("same result in PUM as in TableForge", changelog);                         // the 1.1.0 entry is kept as released

@@ -329,7 +329,7 @@ Use a copy of real data with the five Fourth Kingdom selectors marked Manual-sel
       The program is still in `%LOCALAPPDATA%\Programs\TableForge` as `TableForge.exe`. A connected dddice account is
       still connected, the dice choice and overlay settings are kept, and an OBS Local file source keeps working.
       1.1.0 can still open the data afterwards, and `.tfcollection` files go both ways between 1.1.0 and 1.2.0.
-- [ ] From Gidubba 1.2.0 to the auto-follow version: `tableforge.pre-v11-from-v10.backup.db` appears; every collection,
+- [ ] From Gidubba 1.2.0 to 1.3.0: `tableforge.pre-v11-from-v10.backup.db` appears; every collection,
       table, description, link and setting is exactly as before, and no table is a Manual-selection table yet.
       **Auto-follow linked tables** is off. 1.2.0 then refuses the data (it was made by a newer version) and changes
       nothing; to go back, close Gidubba and restore the backup copy in place of `tableforge.db` (changes made since the
