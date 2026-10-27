@@ -3,6 +3,27 @@
 Each released version of Gidubba (formerly TableForge), newest first. The full notes for each one are in
 `docs/release-notes/`. Versions before 1.2.0 were released as TableForge, and their entries keep that name.
 
+## 1.4.0
+
+- **Data format update: 1.3.0 cannot open the data afterwards.** The first start updates the database from schema 11
+  to 12, after saving `tableforge.pre-v12-from-v11.backup.db` beside it. That copy is the only way back to 1.3.0;
+  anything changed since the update is lost.
+- **New: Unique Results** (Edit table: a **Unique** checkbox per row, **Ctrl+U**, **Mark All Unique**, **Clear Unique**).
+  A used Unique row is skipped: a roll landing on it is discarded and the same dice rolled again (Built-in up to 10,000
+  times, dddice 10 throws), with the modifier and Clamp as usual. Gaps stay "no result". Typed results on a used row
+  are refused. Recent rolls notes "Rerolled N×". **Every existing row starts repeatable.**
+- **New: used results on the Roll screen** (tagged **Unique** / **Used**, used rows grey), "Unique results: N of M
+  used", and **Reset Used Results…** (asks first; one table; keeps which rows are Unique).
+- **Simpler sidebar:** the table list fills the left side under a heading saying what it shows; the Recent tables list
+  is gone. **Recent rolls** is a collapsible panel at the bottom of the main area, collapsed at start.
+- **Aligned result-set columns** on the Roll screen and in Edit table share the window's width and scroll sideways
+  when needed, with headings kept in line.
+- **`.tfcollection` format version 3** when a collection has Unique rows (1.3.0 refuses it); otherwise version 1 or 2
+  exactly as before. Used results are never exported. Other exports are unchanged.
+- The GitHub project is now [Gwydione/Gidubba](https://github.com/Gwydione/Gidubba). The installer identity, install
+  folder and data folder are unchanged.
+- Notes: `docs/release-notes/1.4.0.md`
+
 ## 1.3.0
 
 - **Data format update: 1.2.0 cannot open the data afterwards.** The first start updates the database from schema 10

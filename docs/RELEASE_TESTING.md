@@ -84,7 +84,7 @@ Use a table that links to another table (or make one: a row whose text names ano
 - [ ] A table without a description shows nothing there: no empty line or gap before "Not rolled yet."
 - [ ] Give the linked-to table its own description. Roll (or type) the linking row and open the link: each step in the
       trail shows only its own table's description.
-- [ ] The table list, Recent and Recent rolls (and its tooltip) never show description text.
+- [ ] The table list and Recent rolls (and its tooltip) never show description text.
 - [ ] Paste more than 2,000 characters into the box: only the first 2,000 are kept. Save: the long text wraps under the
       dice and **Roll** stays usable.
 - [ ] **Export…** → **Copy Table Text**, **Copy Table Text (Spaces)**, **Copy for Sojour**, **Copy Foundry JSON** and
@@ -122,6 +122,9 @@ table descriptions.
       table has a `"description"`. Import it: the copy shows the description under that table's dice.
 - [ ] With rc25 (see Upgrade): the version 1 file imports; the version 2 file is refused ("uses a newer file format …
       Nothing was changed.") and rc25's collection list is unchanged.
+- [ ] Mark one row Unique, use it, and export again: the file says `"formatVersion": 3`, only that row has
+      `"unique": true`, and the status line says importing it needs Gidubba 1.4 or later. Import it: the row is Unique and
+      not used. Gidubba 1.3.0 refuses the file and changes nothing. Clear Unique and export: back to version 1 or 2.
 - [ ] Select `<name> (3)` and choose **Delete Collection…**: it names the collection and its table count, says its
       folders are deleted too and that this cannot be undone. **No** keeps it; **Yes** removes it and selects the next
       collection. The original and `<name> (2)` are unchanged.
@@ -159,6 +162,40 @@ under Clamp → **Save Table**).
 - [ ] Export the collection: only the selectors carry `"manualSelection": true`, and the file version is unchanged (`1`
       without descriptions, `2` with). Import it: the selectors are still Manual-selection tables. Gidubba 1.2.0 imports
       the same file (it ignores the property).
+
+## Unique Results
+
+Use a `d6` table with rows `1`–`6`, and a two-result-set table (for example `D3 Difficulty` / `1 Easy +10` / `2 Normal +0`
+/ `3 Hard -10`).
+
+- [ ] Edit table shows a **Unique** checkbox on every row, off for every existing row. **Ctrl+U** in a row toggles it;
+      **Mark All Unique** and **Clear Unique** change every row (every result set, in the side-by-side view).
+- [ ] Mark rows 1–3 of the `d6` Unique and **Save Table**. The Roll screen tags them **Unique**, shows "Unique results: 0
+      of 3 used" and **Reset Used Results…**. A table without Unique rows shows neither.
+- [ ] Roll with **Built-in** until row 1 comes up: it is tagged **Used**, grey and still readable; the summary counts it.
+      Keep rolling: row 1 never comes up again, and a result that needed rerolls says "Rerolled N×" (also in Recent rolls).
+- [ ] Type `1` and **Resolve**: "Result already used — choose another result." Nothing changes.
+- [ ] Use up rows 1–3, then mark rows 4–6 Unique and use them up: "All results used — Reset to roll again.", and nothing
+      is rolled or recorded.
+- [ ] **Reset Used Results…** → **No** keeps them; **Yes** makes them all available, and they are still Unique.
+- [ ] Edit a used row's text and save: it stays used. Delete a used row and save: the count drops.
+- [ ] With a modifier (`+2`) and with Clamp to Range on: rerolls use the same modifier and Clamp.
+- [ ] **Rolls: 3** on a table with three unused Unique rows: three different results, all used afterwards.
+- [ ] Auto-follow into a linked table with used Unique rows: the chain rerolls past them, and stops with the message when
+      the table is used up.
+- [ ] With **dddice**: a throw on a used row is followed by another visible throw, up to 10. If none lands on an unused
+      row, it stops with "No unused result came up in 10 rolls, so nothing was used." and does not switch to Built-in.
+      **Stop** during rerolls stops them, and the result that was in the air is not used.
+- [ ] Restart Gidubba: the used rows are still used.
+
+## Sidebar, Recent rolls and aligned columns
+
+- [ ] The left side shows the table list under "All tables" (a folder's tables, or "Search results" while searching),
+      filling the space down to Edit / Delete. There is no Recent tables list.
+- [ ] **Recent rolls (N)** sits at the bottom of the main area, collapsed at start. Opening it shows the time, any rerolls
+      and the whole result of each roll; clicking one opens its table. It is hidden on Paste Table and Review.
+- [ ] A table with three or more result sets: on the Roll screen and in Edit table the columns share the window's width,
+      scroll sideways when the window is narrow, and the headings stay over their columns while scrolling.
 
 ## dddice
 
@@ -334,3 +371,7 @@ Use a copy of real data with the five Fourth Kingdom selectors marked Manual-sel
       **Auto-follow linked tables** is off. 1.2.0 then refuses the data (it was made by a newer version) and changes
       nothing; to go back, close Gidubba and restore the backup copy in place of `tableforge.db` (changes made since the
       upgrade are lost; export collections first to keep them, since 1.2.0 imports those files).
+- [ ] From Gidubba 1.3.0 to 1.4.0: `tableforge.pre-v12-from-v11.backup.db` appears; every collection, table, description,
+      link, Manual-selection mark and setting is exactly as before, no row is Unique and Recent rolls are kept. 1.3.0 then
+      refuses the data (it was made by a newer version) and changes nothing; to go back, close Gidubba and restore the
+      backup copy in place of `tableforge.db` (changes made since the upgrade are lost).

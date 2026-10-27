@@ -2,7 +2,7 @@
 
 **Gidubba turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.**
 
-Version 1.3.0 · Windows 10/11 (64-bit) · by RPG Frequencies
+Version 1.4.0 · Windows 10/11 (64-bit) · by RPG Frequencies
 
 **Formerly TableForge.** Gidubba is the new name for TableForge, from version 1.2.0. Only the name and icon changed:
 installing Gidubba over TableForge upgrades it in place and keeps all your tables and settings. Some technical names
@@ -17,7 +17,8 @@ whenever you need it at the table:
 Gidubba can also:
 
 - clean up difficult PDF-copied table text (wrapped lines, broken hyphenation, stray characters, several columns);
-- organize tables into **Collections** and **Folders**, with search and recent tables;
+- organize tables into **Collections** and **Folders**, with search and recent rolls;
+- mark rows **Unique**, so each comes up only once until you reset the table ("roll without replacement");
 - roll with fast **Built-in dice**, or optionally with **dddice** 3D visual dice, including themes from your own
   dddice account;
 - follow **linked tables** ("Scavenging → Scavenged Items") and roll **inline dice** inside results ("gain 1d4 Armor");
@@ -78,7 +79,7 @@ its TableForge name so that upgrading finds your data:
 - **To back up**, close Gidubba and copy the whole folder somewhere safe. To restore, put it back.
 - When a newer version needs to update your data's format, Gidubba first saves an automatic safety copy of your
   database beside it (and changes nothing if it cannot). The older version cannot open the updated data; going back
-  means restoring that copy. Gidubba 1.3.0 is such an update (see [Data folder details](#data-folder-details)).
+  means restoring that copy. Gidubba 1.4.0 is such an update (see [Data folder details](#data-folder-details)).
 - **Export Collection…** (see [Sharing a Collection](#sharing-a-collection-tfcollection)) saves one collection's tables
   to a file. It is a way to share a collection, not a full backup: it does not include your other collections, recent
   rolls or settings.
@@ -108,6 +109,8 @@ only the current result with programs on this computer (address `127.0.0.1`); it
   reach, have not been checked in PUM.
 - **Auto-follow** follows one link per result and at most 8 tables in a chain, and never chooses on a Manual-selection
   table. Every table starts as an ordinary table: mark your selector tables yourself.
+- **Unique Results:** which results have been used is kept on this computer only, never in exported files, and Reset
+  works on a whole table. dddice tries 10 throws per result. Exports to other programs leave out Unique.
 - **Copy for Sojour** has been tested only by pasting with **Ctrl+V** into a Sojour Lookup Table; it copies one result
   set's rows, and the table's name and dice are set up in Sojour yourself.
 - dddice dice need an internet connection and the WebView2 Runtime.
@@ -155,9 +158,11 @@ arrow keys move the highlight and **Enter** opens. In “Paste rows into this se
 adds the rows. On the Review screen, **Ctrl+J** joins the selected row into the row above it (see below), and in a row's
 result text **Ctrl+B**, **Ctrl+I** and **Ctrl+Space** make the selected words bold, italic or plain again.
 
-**Recent** (under the search box) lists the tables you opened most recently in the current collection. **Recent rolls**
-(bottom left) shows the last 10 rolls anywhere as read-only snapshots; clicking one reopens its table (a snapshot of a
-deleted table stays readable but cannot be opened).
+The table list fills the left side, under a heading that says what it shows: "All tables", a folder's tables, or "Search
+results" while you search. **Recent rolls (N)**, at the bottom of the main area, shows the last 10 rolls anywhere as
+read-only snapshots, with the time, any rerolls and the whole result. It starts collapsed; click its heading to open or
+close it. Clicking a roll reopens its table (a snapshot of a deleted table stays readable but cannot be opened). It is
+hidden while you paste or review a table.
 
 ## Data folder details
 
@@ -181,7 +186,7 @@ Once you use the [Streaming Overlay](#streaming-overlay-obs) there are also `str
 
 On first launch Gidubba creates the folder and database itself. When a newer Gidubba needs to update an existing
 database to its format, it first saves a copy beside it, `tableforge.pre-v8-from-v7.backup.db` (the format it updates to,
-and the one it came from; Gidubba 1.3.0 makes `tableforge.pre-v11-from-v10.backup.db`), and updates nothing if that copy
+and the one it came from; Gidubba 1.4.0 makes `tableforge.pre-v12-from-v11.backup.db`), and updates nothing if that copy
 cannot be made. If an update then fails, Gidubba says so and
 where the copy is (to go back, close Gidubba and copy the backup over `tableforge.db`). The newest three copies are kept.
 Nothing is copied on an ordinary start. A database from a newer Gidubba is never opened or changed: Gidubba asks you
@@ -235,7 +240,7 @@ spaces or blank lines at the very start and end are removed.
 
 While rolling, the description appears under the table's dice. A table with no description shows nothing there. A
 followed table shows its own description in its own step. The description is only a note: it never changes how the table
-rolls or resolves, and it does not appear in the table list, Recent tables or Recent rolls.
+rolls or resolves, and it does not appear in the table list or Recent rolls.
 
 ## Auto-follow linked tables
 
@@ -268,17 +273,54 @@ says "Manual-selection table: choose the result and enter it below."
 - Export Collection keeps the setting (`"manualSelection": true`) without changing the file's format version. Gidubba
   1.2.0 imports such a file and ignores the setting.
 
+## Unique Results
+
+A row can be **Unique**: once it has been the result, it is skipped until you reset the table, like drawing a card and
+not putting it back. Every other row stays repeatable. Use it for treasure that can be found only once, a deck of
+events, or names you don't want to repeat.
+
+**Marking rows.** In Edit table each row has a **Unique** checkbox (or press **Ctrl+U** anywhere in the row). **Mark All
+Unique** and **Clear Unique**, beside **Add row**, change every row of the result set (of every result set, when they
+are shown side by side). Every row starts repeatable, including every row from before 1.4.0.
+
+**Rolling.** Gidubba always rolls the table's own dice. A roll that lands on a used Unique row is discarded and the same
+dice are rolled again, so each result still available keeps its usual chance:
+
+- The situational modifier and Clamp to Range apply to every reroll, exactly as to any roll.
+- A roll where no row covers it (a gap) is the usual "no result"; it is not rerolled.
+- With overlapping rows, or several result sets, a roll is refused if it lands on **any** used Unique row, and an
+  accepted roll uses up every Unique row it lands on.
+- Only the accepted result is shown and recorded. If rerolls were needed, the result and Recent rolls say "Rerolled 2×".
+- If every result the dice can reach has been used, nothing is rolled: "All results used — Reset to roll again."
+- Built-in dice try up to 10,000 times for one result. **dddice** tries 10 throws, the first included, since each throw
+  takes a few seconds; if none lands on an unused result it stops, uses nothing up and says so. It never switches to
+  Built-in dice for you. **Stop** stops a run of rerolls.
+- Auto-follow and several rolls at once follow the same rules (each result is used up before the next roll). A result
+  you type yourself on a used Unique row is refused: "Result already used — choose another result."
+
+**Seeing and resetting.** On the Roll screen Unique rows are tagged **Unique**; used ones are tagged **Used** and shown
+in grey, still readable. A table with Unique rows shows "Unique results: 3 of 8 used" and **Reset Used Results…**, which
+asks first and makes every used result of that table available again. It does not change which rows are Unique.
+
+Which rows have been used belongs to the row, not its text: editing a row's text or range keeps it used, and deleting
+the row deletes its used state too. It is kept in your database only. It is never exported, so an imported collection
+starts with every result available. Copy Table Text, Copy for Sojour, Foundry, Tables+ and PUM Companion exports leave
+out Unique entirely.
+
 ## Sharing a Collection (.tfcollection)
 
 **Export Collection…** (under the Collection list) saves the selected collection as one `.tfcollection` file: its folders,
 tables, dice, result sets, rows and their ranges (including `96-00`, negative and open-ended ranges such as `26+`), bold
-and italic text, Clamp settings, table descriptions and the links between its tables. It is plain, readable UTF-8 text
-(JSON). It does not include recent tables, recent rolls, dice settings or anything from your other collections.
+and italic text, Clamp settings, table descriptions, which rows are Unique and the links between its tables. It is plain,
+readable UTF-8 text (JSON). It does not include which results have been used, recent rolls, dice settings or anything
+from your other collections.
 
 **Older versions (including TableForge):** a collection whose tables have no descriptions is saved in the same file format as
 1.0.0-rc25 (format version 1), so rc25 can import it. A collection with any table description is saved as format version
 2, which rc25 refuses ("uses a newer file format… Nothing was changed") instead of importing it without the descriptions.
-This version imports both.
+A collection with any Unique row is saved as format version 3, which Gidubba 1.3.0 and earlier refuse the same way
+instead of importing every row as repeatable; after exporting one, the status line says it needs Gidubba 1.4 or later.
+This version imports all three.
 
 **Import Collection…** (under the New collection box) reads a `.tfcollection` file and, after showing you its name and
 how many folders and tables it holds, adds it as a **new** collection. It never merges into, replaces or changes a
@@ -828,7 +870,7 @@ dotnet publish TableForge\TableForge.csproj -p:PublishProfile=win-x64-folder
 ### Confirming the running exe matches current source
 
 The bottom-right of the main window shows the running build's version and the exact time its main assembly was
-written to disk, e.g. `1.3.0 · built 2026-10-26 12:45 local` (`TableForge/AppInfo.cs`). The build time comes
+written to disk, e.g. `1.4.0 · built 2026-10-27 12:45 local` (`TableForge/AppInfo.cs`). The build time comes
 from the DLL's own file timestamp, not a manually-maintained field, so it stays accurate without anyone
 remembering to bump it. To check a specific exe from the command line instead:
 
