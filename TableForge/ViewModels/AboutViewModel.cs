@@ -11,7 +11,7 @@ public sealed class AboutViewModel
 {
     public const string Publisher = "RPG Frequencies";
     public const string Purpose = "Turns random tables from RPG books and PDFs into fast, searchable, rollable digital tables.";
-    public const string ProjectUrl = "https://github.com/Gwydione/TableForge";
+    public const string ProjectUrl = "https://github.com/Gwydione/Gidubba";
 
     private readonly string _appFolder;
     private readonly Action<string> _open;

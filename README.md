@@ -38,7 +38,7 @@ Gidubba can also:
 
 ## Install
 
-1. Download `Gidubba-<version>-Setup.exe` from **[GitHub Releases](https://github.com/Gwydione/TableForge/releases)**.
+1. Download `Gidubba-<version>-Setup.exe` from **[GitHub Releases](https://github.com/Gwydione/Gidubba/releases)**.
 2. Run the installer. It installs for your Windows user only and needs no administrator rights.
 3. Start **Gidubba** from the Start Menu. (If TableForge was installed, the installer replaces it in place and its
    Start Menu shortcut becomes **Gidubba**.)
@@ -52,7 +52,7 @@ Gidubba can also:
   place.
 
 **SmartScreen:** Gidubba is not code-signed, so Windows may show "Windows protected your PC"
-when you run the installer. If you downloaded it from the [Gidubba Releases page](https://github.com/Gwydione/TableForge/releases) and trust it, choose
+when you run the installer. If you downloaded it from the [Gidubba Releases page](https://github.com/Gwydione/Gidubba/releases) and trust it, choose
 **More info**, then **Run anyway**. You can compare the download with the `SHA256SUMS.txt` published beside it
 (`Get-FileHash Gidubba-<version>-Setup.exe` in PowerShell). Don't turn off SmartScreen or other Windows protection.
 
@@ -122,7 +122,7 @@ only the current result with programs on this computer (address `127.0.0.1`); it
 
 ## Feedback and bug reports
 
-Please report problems and ideas on **[GitHub Issues](https://github.com/Gwydione/TableForge/issues)**. It helps to include:
+Please report problems and ideas on **[GitHub Issues](https://github.com/Gwydione/Gidubba/issues)**. It helps to include:
 
 - your Gidubba version (bottom right of the window, or **About**);
 - your Windows version;

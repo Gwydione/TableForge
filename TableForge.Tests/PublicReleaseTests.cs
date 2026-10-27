@@ -65,9 +65,9 @@ public class PublicReleaseTests
         Assert.Contains("UninstallDisplayName=Gidubba", iss);
         Assert.Contains("VersionInfoProductName=Gidubba", iss);
         Assert.Contains("AppPublisher=RPG Frequencies", iss);
-        Assert.Contains("AppPublisherURL=https://github.com/Gwydione/TableForge", iss);
-        Assert.Contains("AppSupportURL=https://github.com/Gwydione/TableForge/issues", iss);
-        Assert.Contains("AppUpdatesURL=https://github.com/Gwydione/TableForge/releases", iss);
+        Assert.Contains("AppPublisherURL=https://github.com/Gwydione/Gidubba", iss);
+        Assert.Contains("AppSupportURL=https://github.com/Gwydione/Gidubba/issues", iss);
+        Assert.Contains("AppUpdatesURL=https://github.com/Gwydione/Gidubba/releases", iss);
         Assert.Contains("VersionInfoCompany=RPG Frequencies", iss);
         Assert.Contains("VersionInfoCopyright=Copyright (c) 2026 RPG Frequencies", iss);
         Assert.Contains(@"OutputDir=publish\release", iss);
@@ -118,8 +118,8 @@ public class PublicReleaseTests
                      "no telemetry", "PRIVACY.txt", "GitHub Issues", "Never post dddice tokens", "OCR", "Windows x64 only" })
             Assert.Contains(fact, readme);
         Assert.DoesNotContain("disable SmartScreen", readme, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("(https://github.com/Gwydione/TableForge/releases)", readme);
-        Assert.Contains("(https://github.com/Gwydione/TableForge/issues)", readme);
+        Assert.Contains("(https://github.com/Gwydione/Gidubba/releases)", readme);
+        Assert.Contains("(https://github.com/Gwydione/Gidubba/issues)", readme);
     }
 
     [Fact]
@@ -219,9 +219,9 @@ public class AboutTests
             Assert.Equal([Path.Combine(folder, "LICENSE.txt"), Path.Combine(folder, "PRIVACY.txt"), @"C:\Data\TableForge"], opened);
             Assert.False(about.OpenNoticesCommand.CanExecute(null));                           // not there: not offered
 
-            Assert.Equal("https://github.com/Gwydione/TableForge", about.ProjectUrlText);
+            Assert.Equal("https://github.com/Gwydione/Gidubba", about.ProjectUrlText);
             about.OpenProjectPageCommand.Execute(null);                                         // only when clicked
-            Assert.Equal("https://github.com/Gwydione/TableForge", opened[^1]);
+            Assert.Equal("https://github.com/Gwydione/Gidubba", opened[^1]);
         }
         finally { Directory.Delete(folder, recursive: true); }
     }
