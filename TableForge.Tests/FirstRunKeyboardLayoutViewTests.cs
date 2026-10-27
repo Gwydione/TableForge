@@ -177,10 +177,11 @@ public class KeyboardViewTests
             Assert.Equal(4, deleteButtons.Count);
             Assert.All(deleteButtons, b => Assert.False(b.IsTabStop));
 
-            // Tab order inside a row: range → text → link chooser → next row's range.
+            // Tab order inside a row: range → text → link chooser → Unique checkbox → next row's range.
             var firstRow = (ContentPresenter)rows.ItemContainerGenerator.ContainerFromIndex(0);
             var boxes = ViewTests.FindAll<TextBox>(firstRow).ToList();
             var combo = ViewTests.FindAll<ComboBox>(firstRow).Single();
+            var unique = ViewTests.FindAll<CheckBox>(firstRow).Single(b => b.Name == "UniqueBox");
             var nextRange = ViewTests.FindAll<TextBox>((ContentPresenter)rows.ItemContainerGenerator.ContainerFromIndex(1)).First();
 
             boxes[0].Focus();
@@ -190,6 +191,8 @@ public class KeyboardViewTests
             boxes[1].MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
             Assert.Same(combo, ui.Focused);
             combo.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            Assert.Same(unique, ui.Focused);
+            unique.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
             Assert.Same(nextRange, ui.Focused);
         });
     }
@@ -248,7 +251,7 @@ public class LayoutViewTests
     [InlineData(1024, 768)]
     [InlineData(1366, 768)]
     [InlineData(1920, 1080)]
-    public void The_left_pane_stays_usable_with_a_full_set_of_recent_tables_and_rolls(int width, int height)
+    public void The_left_pane_and_the_Recent_Rolls_panel_stay_usable_with_a_full_set_of_recent_tables_and_rolls(int width, int height)
     {
         Sta.Run(() =>
         {
@@ -262,8 +265,9 @@ public class LayoutViewTests
             for (var i = 0; i < 7; i++) ui.Click("Roll"); // ten recent rolls in all
 
             var scroller = ui.One<ScrollViewer>(s => s.Name == "LeftScroll");
-            Assert.Equal(5, ui.Main.RecentTables.Count);
+            Assert.Equal(5, ui.Main.RecentTables.Count);                              // still tracked, no longer listed
             Assert.Equal(10, ui.Main.RecentRolls.Count);
+            Assert.DoesNotContain(ui.All<Button>(), b => scroller.IsAncestorOf(b) && b.DataContext is RecentRollViewModel or TableSummary);
             Assert.True(InView(scroller, ui.One<Button>(b => b.Name == "PasteTableButton")));
             Assert.True(ui.One<ListBox>(l => l.Name == "TablesList").ActualHeight >= 90, "the table list must keep a usable height");
 
@@ -272,13 +276,26 @@ public class LayoutViewTests
                 Assert.Equal(Visibility.Visible, scroller.ComputedVerticalScrollBarVisibility);
             scroller.ScrollToBottom();
             ui.Layout();
-            var lastRoll = ui.All<Button>().Where(b => b.DataContext is RecentRollViewModel && b.IsVisible).Last();
-            Assert.True(InView(scroller, lastRoll) || ui.One<ScrollViewer>(s => s.MaxHeight == 170).ExtentHeight > 0);
-            Assert.True(InView(scroller, ui.One<Button>(b => b.Content as string == "Delete table")) || scroller.VerticalOffset > 0);
+            Assert.True(InView(scroller, ui.One<Button>(b => b.Content as string == "Delete table")));
 
             // Long names are trimmed rather than pushing the pane wider.
             Assert.All(ui.All<TextBlock>().Where(t => scroller.IsAncestorOf(t) && t.Text.StartsWith("A fairly long") && t.IsVisible), t => Assert.Equal(TextTrimming.CharacterEllipsis, t.TextTrimming));
             Assert.True(scroller.ExtentWidth <= scroller.ViewportWidth + 1, "no horizontal scrolling in the left pane");
+
+            // Recent Rolls open: its list takes at most 240 px and 40% of the main area, and the Roll button stays on screen above it.
+            ui.Main.IsRecentRollsExpanded = true;
+            ui.Layout();
+            var main = ui.One<Grid>(g => g.Name == "MainArea");
+            var rolls = ui.One<ScrollViewer>(s => s.Name == "RecentRollsScroller");
+            Assert.True(rolls.ActualHeight <= Math.Min(240, main.ActualHeight * 0.4) + 1, $"Recent Rolls is {rolls.ActualHeight:0} px of {main.ActualHeight:0}");
+            var panelTop = BoundsIn(ui.One<Expander>(e => e.Name == "RecentRollsPanel"), ui.Window).Top;
+            var roll = BoundsIn(ui.One<Button>(b => b.Name == "RollButton"), ui.Window);
+            Assert.True(roll.Top >= 0 && roll.Bottom <= panelTop, $"the Roll button ({roll}) must stay above Recent Rolls ({panelTop:0})");
+            rolls.ScrollToBottom();                                                    // the oldest roll is reachable in its own scroll
+            ui.Layout();
+            var oldest = ui.All<Button>().Last(b => b.DataContext is RecentRollViewModel && b.IsVisible);
+            Assert.True(InView(rolls, oldest));
+            Assert.True(rolls.ExtentWidth <= rolls.ViewportWidth + 1, "long results wrap: no horizontal scrolling");
         });
     }
 

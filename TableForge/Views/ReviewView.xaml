@@ -10,6 +10,9 @@
         <SolidColorBrush x:Key="WarningText" Color="#7A5200" />
         <SolidColorBrush x:Key="ErrorText" Color="#A00000" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <!-- Aligned columns share the width left after the row number (34), range (84) and delete button (32); each column also
+             takes its 4 px left margin. -->
+        <views:AlignedColumnWidth x:Key="AlignedWidth" Fixed="150" Gap="4" />
 
         <!-- How a row's result looks when rolled. Only a row with bold or italic gets one (FormattedPreviewHost), so a plain
              table has exactly the rows it always had. -->
@@ -37,6 +40,8 @@
         <!-- Join With Previous Row: joins the selected continuation row into the row above it. Safe anywhere in this
              screen — no WPF text control uses Ctrl+J for anything of its own. -->
         <KeyBinding Key="J" Modifiers="Ctrl" Command="{Binding JoinWithPreviousRowCommand}" />
+        <!-- Unique on the selected row (the row whose range, text or link has focus). A plain TextBox has no Ctrl+U of its own. -->
+        <KeyBinding Key="U" Modifiers="Ctrl" Command="{Binding ToggleUniqueSelectedCommand}" />
     </UserControl.InputBindings>
 
     <Grid Margin="16">
@@ -210,17 +215,21 @@
                     </StackPanel>
                 </Border>
                 <StackPanel DockPanel.Dock="Top" Visibility="{Binding IsNotAligned, Converter={StaticResource BoolToVis}}">
-                    <Grid>
+                    <!-- As wide as the rows themselves (not the scrollbar beside them), so each heading sits over its own column. -->
+                    <Grid HorizontalAlignment="Left" Width="{Binding ActualWidth, ElementName=RowsList}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="28" />
                             <ColumnDefinition Width="80" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="24" />
                             <ColumnDefinition Width="28" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
                         <TextBlock Grid.Column="2" Text="Result text" Foreground="#555" Margin="4,0,0,0" />
                         <TextBlock Grid.Column="3" Text="Linked table" Foreground="#555" Margin="4,0,0,0" />
+                        <!-- Over the Unique checkboxes; spans the ✕ column, which has no heading, so the checkbox column stays narrow. -->
+                        <TextBlock Grid.Column="4" Grid.ColumnSpan="2" Text="Unique" Foreground="#555" Margin="4,0,0,0" />
                     </Grid>
                 </StackPanel>
                 <!-- One result set at a time: its own name, notes and tools apply to just these rows. Used whenever the
@@ -237,6 +246,7 @@
                                                 <ColumnDefinition Width="80" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="24" />
                                                 <ColumnDefinition Width="28" />
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
@@ -254,8 +264,14 @@
                                                          ToolTip="Name of the table this should link to"
                                                          Visibility="{Binding IsUnresolvedLink, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
-                                            <!-- Not a tab stop: Tab walks range → text → link on each row without stopping at every ✕. -->
-                                            <Button Grid.Column="4" Content="✕" Margin="4,0,0,0" Padding="0" Height="24" VerticalAlignment="Top"
+                                            <!-- Unique: a tab stop after the link (Space toggles it), and Ctrl+U toggles the selected row's from
+                                                 anywhere in it. Unlabelled to keep the result text wide: the column heading, tooltip and
+                                                 accessible name say what it is. -->
+                                            <CheckBox x:Name="UniqueBox" Grid.Column="4" IsChecked="{Binding IsUnique}" Margin="6,5,0,0" VerticalAlignment="Top"
+                                                      AutomationProperties.Name="{Binding Number, StringFormat=Unique result (row {0})}"
+                                                      ToolTip="Unique (Ctrl+U): once rolled, this result is skipped until the table's used results are reset" />
+                                            <!-- Not a tab stop: Tab walks range → text → link → Unique on each row without stopping at every ✕. -->
+                                            <Button Grid.Column="5" Content="✕" Margin="4,0,0,0" Padding="0" Height="24" VerticalAlignment="Top"
                                                     IsTabStop="False" ToolTip="Delete this row" Command="{Binding DeleteCommand}" />
                                             <ContentControl Grid.Row="1" Grid.Column="2" Style="{StaticResource FormattedPreviewHost}" />
                                             <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Notes}"
@@ -284,7 +300,13 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <Button Content="Add row" HorizontalAlignment="Left" Padding="10,3" Margin="30,4,0,0" Command="{Binding SelectedResultSet.AddRowCommand}" />
+                        <StackPanel Orientation="Horizontal" Margin="30,4,0,0">
+                            <Button Content="Add row" Padding="10,3" Command="{Binding SelectedResultSet.AddRowCommand}" />
+                            <Button x:Name="MarkAllUniqueButton" Content="Mark All Unique" Padding="10,3" Margin="12,0,0,0" Command="{Binding MarkAllUniqueCommand}"
+                                    ToolTip="Make every row in this result set Unique" />
+                            <Button x:Name="ClearUniqueButton" Content="Clear Unique" Padding="10,3" Margin="6,0,0,0" Command="{Binding ClearUniqueCommand}"
+                                    ToolTip="Make every row in this result set repeatable again" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -294,29 +316,40 @@
                      result set underneath (AlignedRowViewModel just groups the same per-set row view models by position),
                      so nothing here merges the domain model. -->
                 <StackPanel DockPanel.Dock="Top" Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
-                    <!-- Column widths match an aligned row below (row number 28 + 6 margin, range 80 + 4 margin), and the
-                         third column holds the name editors, so each one sits directly above its own result set's column. -->
-                    <Grid Margin="0,0,0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="34" />
-                            <ColumnDefinition Width="84" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="1" Text="Range" Foreground="#555" Margin="4,0,0,0" />
-                        <ItemsControl Grid.Column="2" ItemsSource="{Binding ResultSets}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="230" Margin="4,0,0,0" Padding="3"
-                                             ToolTip="This column's result set name, e.g. Difficulty, Modifier" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Grid>
+                    <!-- Laid out exactly like an aligned row below (row number 28 + 6 margin, range 80 + 4 margin, then each column
+                         with its 4 px margin, then the 32 px delete button), so each name editor sits over its own column. It is kept
+                         as wide as the rows' viewport and at the same sideways offset (see OnAlignedRowsScrollChanged), so it moves
+                         with them; its own scrollbar is hidden. -->
+                    <ScrollViewer x:Name="AlignedHeaderScroller" HorizontalAlignment="Left" Margin="0,0,0,2" Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                                  ScrollChanged="OnAlignedHeaderScrollChanged">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="34" />
+                            <TextBlock Text="Range" Foreground="#555" Width="84" Padding="4,0,0,0" />
+                            <ItemsControl x:Name="AlignedHeaders" ItemsSource="{Binding ResultSets}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBox x:Name="AlignedSetName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0" Padding="3"
+                                                 ToolTip="This column's result set name, e.g. Difficulty, Modifier">
+                                            <TextBox.Width>
+                                                <MultiBinding Converter="{StaticResource AlignedWidth}">
+                                                    <Binding Path="ViewportWidth" RelativeSource="{RelativeSource AncestorType=ScrollViewer}" />
+                                                    <Binding Path="DataContext.ResultSets.Count" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                </MultiBinding>
+                                            </TextBox.Width>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Width="32" />
+                        </StackPanel>
+                    </ScrollViewer>
                 </StackPanel>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                <ScrollViewer x:Name="AlignedRowsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                              ScrollChanged="OnAlignedRowsScrollChanged"
                               Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <ItemsControl x:Name="AlignedRowsList" ItemsSource="{Binding AlignedRows}">
@@ -332,11 +365,28 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <StackPanel Width="230" Margin="4,0,0,0">
+                                                        <StackPanel x:Name="AlignedCell" Margin="4,0,0,0">
+                                                            <StackPanel.Width>
+                                                                <MultiBinding Converter="{StaticResource AlignedWidth}">
+                                                                    <Binding Path="ViewportWidth" RelativeSource="{RelativeSource AncestorType=ScrollViewer}" />
+                                                                    <Binding Path="DataContext.ResultSets.Count" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                                </MultiBinding>
+                                                            </StackPanel.Width>
                                                             <TextBox x:Name="ResultTextBox" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Padding="3" TextWrapping="Wrap"
                                                                      TextChanged="OnResultTextChanged" />
                                                             <ContentControl Style="{StaticResource FormattedPreviewHost}" />
-                                                            <ComboBox ItemsSource="{Binding LinkChoices}" SelectedItem="{Binding SelectedLink}" DisplayMemberPath="Label" Padding="3" Margin="0,3,0,0" />
+                                                            <!-- Link chooser, then Unique: in that order for Tab too. -->
+                                                            <Grid Margin="0,3,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <ComboBox ItemsSource="{Binding LinkChoices}" SelectedItem="{Binding SelectedLink}" DisplayMemberPath="Label" Padding="3" />
+                                                                <CheckBox x:Name="UniqueBox" Grid.Column="1" Content="Unique" IsChecked="{Binding IsUnique}" Margin="6,0,0,0"
+                                                                          VerticalAlignment="Center"
+                                                                          AutomationProperties.Name="{Binding Number, StringFormat=Unique result (row {0})}"
+                                                                          ToolTip="Unique (Ctrl+U): once rolled, this result is skipped until the table's used results are reset" />
+                                                            </Grid>
                                                             <TextBox Text="{Binding UnresolvedName, UpdateSourceTrigger=PropertyChanged}" Padding="3" Margin="0,3,0,0"
                                                                      ToolTip="Name of the table this should link to"
                                                                      Visibility="{Binding IsUnresolvedLink, Converter={StaticResource BoolToVis}}" />
@@ -352,8 +402,14 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <Button Content="Add row" HorizontalAlignment="Left" Padding="10,3" Margin="30,4,0,0"
-                                ToolTip="Adds one row to every result set, keeping them aligned" Command="{Binding AddAlignedRowCommand}" />
+                        <StackPanel Orientation="Horizontal" Margin="30,4,0,0">
+                            <Button Content="Add row" Padding="10,3"
+                                    ToolTip="Adds one row to every result set, keeping them aligned" Command="{Binding AddAlignedRowCommand}" />
+                            <Button x:Name="AlignedMarkAllUniqueButton" Content="Mark All Unique" Padding="10,3" Margin="12,0,0,0" Command="{Binding MarkAllUniqueCommand}"
+                                    ToolTip="Make every row in every result set Unique" />
+                            <Button x:Name="AlignedClearUniqueButton" Content="Clear Unique" Padding="10,3" Margin="6,0,0,0" Command="{Binding ClearUniqueCommand}"
+                                    ToolTip="Make every row in every result set repeatable again" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

@@ -209,6 +209,22 @@ public sealed class EntryRowViewModel : ObservableObject
 
     public bool IsUnresolvedLink => _selectedLink.Kind == LinkChoiceKind.Unresolved;
 
+    /// <summary>
+    /// A Unique row can be rolled once, then is skipped until its table's used results are reset (see <see cref="UniqueResults"/>).
+    /// Only the setting: which rows have been used is shown and reset on the Roll screen.
+    /// </summary>
+    public bool IsUnique
+    {
+        get => _draft.IsUnique;
+        set
+        {
+            if (_draft.IsUnique == value) return;
+            _draft.IsUnique = value;
+            Raise();
+            _edited();
+        }
+    }
+
     public string UnresolvedName
     {
         get => _unresolvedName;
@@ -404,11 +420,14 @@ public sealed class ReviewViewModel : ObservableObject
         AppendPastedRowsCommand = new RelayCommand(() => ApplyPastedRows(replace: false), () => !string.IsNullOrWhiteSpace(PasteRowsText));
         ReplacePastedRowsCommand = new RelayCommand(() => ApplyPastedRows(replace: true), () => !string.IsNullOrWhiteSpace(PasteRowsText));
         JoinWithPreviousRowCommand = new RelayCommand(JoinWithPreviousRow, () => SelectedRow is not null);
+        ToggleUniqueSelectedCommand = new RelayCommand(() => SelectedRow!.IsUnique = !SelectedRow.IsUnique, () => SelectedRow is not null);
         DehyphenateSelectedCommand = new RelayCommand(DehyphenateSelected, () => SelectedRow is not null);
         RemoveEmptyRowsCommand = new RelayCommand(RemoveEmptyRows);
         NormalizeTextCommand = new RelayCommand(NormalizeText);
         UndoCleanupCommand = new RelayCommand(UndoCleanup, () => _undoCleanup is not null);
         AddAlignedRowCommand = new RelayCommand(AddAlignedRow);
+        MarkAllUniqueCommand = new RelayCommand(() => SetUnique(true), () => UniqueScope.Any(r => !r.IsUnique));
+        ClearUniqueCommand = new RelayCommand(() => SetUnique(false), () => UniqueScope.Any(r => r.IsUnique));
         CopyTableTextCommand = new RelayCommand(CopyTableText, () => CanSave);
         Refresh();
     }
@@ -568,6 +587,19 @@ public sealed class ReviewViewModel : ObservableObject
 
     public ICommand AddAlignedRowCommand { get; }
 
+    /// <summary>Marks every row Unique: the selected result set's rows, or in the aligned view every set's (each cell is its own row).</summary>
+    public ICommand MarkAllUniqueCommand { get; }
+
+    /// <summary>Makes every row repeatable again, in the same rows as <see cref="MarkAllUniqueCommand"/>.</summary>
+    public ICommand ClearUniqueCommand { get; }
+
+    private IEnumerable<EntryRowViewModel> UniqueScope => IsAligned ? ResultSets.SelectMany(s => s.Rows) : SelectedResultSet.Rows;
+
+    private void SetUnique(bool unique)
+    {
+        foreach (var row in UniqueScope.ToList()) row.IsUnique = unique;
+    }
+
     /// <summary>Parser issues about the table as a whole (heading, dice, unrecognized lines).</summary>
     public ObservableCollection<string> TableNotes { get; } = [];
 
@@ -665,6 +697,9 @@ public sealed class ReviewViewModel : ObservableObject
     public bool CanUndoCleanup => _undoCleanup is not null;
 
     public ICommand JoinWithPreviousRowCommand { get; }
+
+    /// <summary>Ctrl+U: the selected row's Unique checkbox, from wherever in the row the keyboard is (its checkbox is also a Tab stop).</summary>
+    public ICommand ToggleUniqueSelectedCommand { get; }
     public ICommand DehyphenateSelectedCommand { get; }
     public ICommand RemoveEmptyRowsCommand { get; }
     public ICommand NormalizeTextCommand { get; }

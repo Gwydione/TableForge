@@ -4,9 +4,39 @@
              xmlns:views="clr-namespace:TableForge.Views">
     <UserControl.Resources>
         <SolidColorBrush x:Key="MatchBrush" Color="#DFF1E1" />
+        <!-- A used Unique row: a light gray background and muted text that still reads clearly on it (about 5.6:1). -->
+        <SolidColorBrush x:Key="UsedBrush" Color="#EEEEEE" />
+        <SolidColorBrush x:Key="UsedText" Color="#5F5F5F" />
         <SolidColorBrush x:Key="ProblemText" Color="#A00000" />
         <SolidColorBrush x:Key="WarningText" Color="#7A5200" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <!-- Aligned columns share the width left after each row's 4 px padding either side and its 90 px range column. -->
+        <views:AlignedColumnWidth x:Key="AlignedWidth" Fixed="98" Gap="0" />
+        <!-- A row's result text in the table listing: a used Unique row stays fully readable, only muted (its "Used" tag says why).
+             The row just rolled keeps normal text on its green highlight, used or not. -->
+        <Style x:Key="UniqueEntryText" TargetType="TextBlock">
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsUsed}" Value="True" />
+                        <Condition Binding="{Binding IsMatched}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{StaticResource UsedText}" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- The same for one cell of an aligned table: only the row knows it was rolled (one roll is one row of every set). -->
+        <Style x:Key="AlignedUniqueEntryText" TargetType="TextBlock">
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsUsed}" Value="True" />
+                        <Condition Binding="{Binding DataContext.IsMatched, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{StaticResource UsedText}" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <ScrollViewer x:Name="TrailScroller" VerticalScrollBarVisibility="Auto">
@@ -71,6 +101,11 @@
                                                  what was calculated; this is the value the table was resolved with. -->
                                             <TextBlock x:Name="ClampNoteText" Text="{Binding ClampNote}" Foreground="#555" FontWeight="SemiBold" Margin="0,-2,0,4"
                                                        Visibility="{Binding HasClampNote, Converter={StaticResource BoolToVis}}" />
+                                            <!-- Only for a result that took rerolls: used Unique results came up first and were rolled again.
+                                                 The rejected throws themselves are never shown. -->
+                                            <TextBlock x:Name="RerollNoteText" Text="{Binding RerollNote}" Foreground="#555" Margin="0,-2,0,4"
+                                                       ToolTip="Used Unique results came up first, so the same dice were rolled again."
+                                                       Visibility="{Binding HasRerollNote, Converter={StaticResource BoolToVis}}" />
                                             <ItemsControl ItemsSource="{Binding Lines}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -220,29 +255,49 @@
             </WrapPanel>
             <TextBlock x:Name="ExportWarningText" Text="{Binding ExportWarning}" Foreground="{StaticResource WarningText}" TextWrapping="Wrap"
                        Margin="0,0,0,6" Visibility="{Binding HasExportWarning, Converter={StaticResource BoolToVis}}" />
+            <!-- Only for a table with Unique rows: how many are used, and Reset (confirmed; the Unique setting itself is never changed here). -->
+            <WrapPanel x:Name="UsedResultsBar" Margin="0,0,0,6" Visibility="{Binding HasUniqueRows, Converter={StaticResource BoolToVis}}">
+                <TextBlock x:Name="UsedResultsSummaryText" Text="{Binding UsedResultsSummary}" Foreground="#555" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <Button x:Name="ResetUsedResultsButton" Content="Reset Used Results…" Padding="10,2" VerticalAlignment="Center"
+                        Command="{Binding ResetUsedResultsCommand}"
+                        ToolTip="Make every used Unique result of this table available to roll again. Which rows are Unique does not change." />
+            </WrapPanel>
 
             <!-- Result sets that are genuine parallel outputs of one roll (same row count, same range at every row):
                  shown as one aligned multi-column grid instead of separate stacked sections, mirroring the Review
                  screen (see RollStepViewModel.IsAligned). Each column is still its own independent result set
                  underneath — only the presentation is grouped. -->
-            <Grid Margin="0,0,0,2" Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <ItemsControl x:Name="AlignedRollHeaders" Grid.Column="1" ItemsSource="{Binding ResultSets}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Width="230" Margin="4,0,0,0" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
-            <ItemsControl x:Name="AlignedRollRowsList" ItemsSource="{Binding AlignedRows}"
+            <!-- The aligned table scrolls sideways on its own when its columns (never under 230 px) do not fit; headings and rows
+                 scroll together. The page above still takes the mouse wheel (see OnAlignedMouseWheel). -->
+            <ScrollViewer x:Name="AlignedRollScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          Focusable="False" PreviewMouseWheel="OnAlignedMouseWheel"
                           Visibility="{Binding IsAligned, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+            <!-- Laid out exactly like a row below (4 px padding, the 90 px range column, then the columns), so each heading sits
+                 over its own column at any width. -->
+            <Border Padding="4,0" Margin="0,0,0,2">
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="90" />
+                    <ItemsControl x:Name="AlignedRollHeaders" ItemsSource="{Binding ResultSets}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock x:Name="AlignedRollHeader" Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" Padding="0,0,6,0">
+                                    <TextBlock.Width>
+                                        <MultiBinding Converter="{StaticResource AlignedWidth}">
+                                            <Binding Path="ViewportWidth" RelativeSource="{RelativeSource AncestorType=ScrollViewer}" />
+                                            <Binding Path="DataContext.ResultSets.Count" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                        </MultiBinding>
+                                    </TextBlock.Width>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+            <ItemsControl x:Name="AlignedRollRowsList" ItemsSource="{Binding AlignedRows}" Focusable="False">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Padding="4,2" CornerRadius="3">
@@ -263,7 +318,34 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock views:FormattedText.Segments="{Binding Segments}" Width="230" TextWrapping="Wrap" />
+                                            <!-- Each cell is its own result set's row, so each is gray on its own when used; never over the
+                                                 rolled row's green. The negative margin keeps the text exactly under its column heading. -->
+                                            <Border x:Name="AlignedCell" Padding="2,0" Margin="-2,0,2,0" CornerRadius="3">
+                                                <Border.Width>
+                                                    <MultiBinding Converter="{StaticResource AlignedWidth}">
+                                                        <Binding Path="ViewportWidth" RelativeSource="{RelativeSource AncestorType=ScrollViewer}" />
+                                                        <Binding Path="DataContext.ResultSets.Count" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                    </MultiBinding>
+                                                </Border.Width>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsUsed}" Value="True" />
+                                                                    <Condition Binding="{Binding DataContext.IsMatched, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="False" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Background" Value="{StaticResource UsedBrush}" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <DockPanel>
+                                                    <TextBlock x:Name="UniqueTagText" DockPanel.Dock="Right" Text="{Binding UniqueTag}" FontSize="11" Foreground="#666" Margin="6,1,0,0"
+                                                               VerticalAlignment="Top" Visibility="{Binding HasUniqueTag, Converter={StaticResource BoolToVis}}" />
+                                                    <TextBlock views:FormattedText.Segments="{Binding Segments}" TextWrapping="Wrap" Style="{StaticResource AlignedUniqueEntryText}" />
+                                                </DockPanel>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -272,6 +354,8 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </StackPanel>
+            </ScrollViewer>
 
             <!-- Single result set, or several independent sets that are not parallel outputs (e.g. Ambient/Noise):
                  shown one at a time, stacked, as before. -->
@@ -285,10 +369,14 @@
                             <ItemsControl ItemsSource="{Binding Entries}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Padding="4,2" CornerRadius="3">
+                                        <Border x:Name="EntryRow" Padding="4,2" CornerRadius="3">
                                             <Border.Style>
                                                 <Style TargetType="Border">
+                                                    <!-- Used is gray across the whole row; the rolled row's green comes after it, so it wins. -->
                                                     <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUsed}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource UsedBrush}" />
+                                                        </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsMatched}" Value="True">
                                                             <Setter Property="Background" Value="{StaticResource MatchBrush}" />
                                                         </DataTrigger>
@@ -299,9 +387,14 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="90" />
                                                     <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{Binding RangeLabel}" FontFamily="Consolas" Foreground="#555" />
-                                                <TextBlock Grid.Column="1" views:FormattedText.Segments="{Binding Segments}" TextWrapping="Wrap" />
+                                                <TextBlock Grid.Column="1" views:FormattedText.Segments="{Binding Segments}" TextWrapping="Wrap"
+                                                           Style="{StaticResource UniqueEntryText}" />
+                                                <!-- "Unique" or "Used" (words, so never colour alone); nothing for a repeatable row. -->
+                                                <TextBlock x:Name="UniqueTagText" Grid.Column="2" Text="{Binding UniqueTag}" FontSize="11" Foreground="#666" Margin="8,1,0,0"
+                                                           VerticalAlignment="Top" Visibility="{Binding HasUniqueTag, Converter={StaticResource BoolToVis}}" />
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

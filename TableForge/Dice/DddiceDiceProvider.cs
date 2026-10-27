@@ -117,6 +117,9 @@ public sealed class DddiceDiceProvider(IDddiceRoomRoller roller) : IPreparableDi
 
     public void Reset() => roller.Reset();
 
+    /// <summary>Each throw is seconds of visible dice, so a result on a table with Unique rows may take 10 throws, the first included.</summary>
+    public int MaxAttemptsPerResult => UniqueRoller.DefaultMaxAttempts;
+
     public async Task<int> RollAsync(DiceExpression expression, CancellationToken cancellationToken) =>
         (await RollDetailedAsync(expression, cancellationToken)).Final;
 

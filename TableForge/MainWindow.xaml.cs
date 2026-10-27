@@ -41,6 +41,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// The table list fills the left pane down to its Edit/Delete buttons, but never shrinks below 160 px: on a short window the pane
+    /// scrolls a little instead. Its place in the pane does not depend on its own height, so this settles at once.
+    /// </summary>
+    private void OnLeftPaneSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!TablesList.IsVisible) return;
+        var top = TablesList.TranslatePoint(new Point(0, 0), LeftContent).Y;
+        var room = LeftScroll.ViewportHeight - top - TableActions.ActualHeight - TableActions.Margin.Top;
+        TablesList.MaxHeight = Math.Max(160, Math.Floor(room));
+    }
+
+    /// <summary>The Recent Rolls list takes at most 240 px, and never more than 40% of the main area, so the screen above keeps its room.</summary>
+    private void OnMainAreaSizeChanged(object sender, SizeChangedEventArgs e) =>
+        RecentRollsScroller.MaxHeight = Math.Clamp(e.NewSize.Height * 0.4, 80, 240);
+
+    /// <summary>
     /// After naming a first collection the natural next step is pasting a table. Paste Table only becomes enabled once WPF
     /// re-evaluates its command (a moment after the collection exists), and a disabled button cannot take focus, so wait for that.
     /// </summary>

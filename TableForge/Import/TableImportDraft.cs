@@ -53,6 +53,8 @@ public sealed class TableImportDraft
                 Styles = e.Styles,
                 LinkedTableId = e.LinkedTableId,
                 UnresolvedLinkName = e.UnresolvedLinkName,
+                RowKey = e.RowKey,
+                IsUnique = e.IsUnique,
             }).ToList(),
         }).ToList(),
     };
@@ -113,6 +115,8 @@ public sealed class TableImportDraft
                     LinkedTableId = entry.LinkedTableId,
                     UnresolvedLinkName = unresolved,
                     SortOrder = i,
+                    RowKey = entry.RowKey,
+                    IsUnique = entry.IsUnique,
                 });
             }
             built.Add(set);
@@ -157,6 +161,15 @@ public sealed class EntryDraft
 
     /// <summary>Intended destination name for a link with no table yet. Empty (not null) means "unresolved, name not yet entered".</summary>
     public string? UnresolvedLinkName { get; set; }
+
+    /// <summary>
+    /// The saved row this draft edits (<see cref="TableEntry.RowKey"/>), kept however its text or range changes, so the row keeps
+    /// its used state. <see cref="Guid.Empty"/> for a new row (added, pasted or parsed), which starts unused when saved.
+    /// </summary>
+    public Guid RowKey { get; set; }
+
+    /// <summary>Whether the row is a Unique row (<see cref="TableEntry.IsUnique"/>). A new row starts off.</summary>
+    public bool IsUnique { get; set; }
 
     /// <summary>One-based lines of the original source this entry came from; zero when the entry was not parsed from text.</summary>
     public int SourceLineStart { get; set; }

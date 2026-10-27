@@ -25,6 +25,17 @@ public partial class RollView : UserControl
     private void OnModifierGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => ModifierBox.SelectAll();
 
     /// <summary>
+    /// The aligned table's own scroll area only scrolls sideways, but a ScrollViewer takes every mouse-wheel turn over it: pass
+    /// the turn on to the page, so the wheel scrolls the Roll screen wherever the pointer is.
+    /// </summary>
+    private void OnAlignedMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled) return;
+        e.Handled = true;
+        TrailScroller.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = MouseWheelEvent, Source = sender });
+    }
+
+    /// <summary>
     /// The first click into the box only focuses it (selecting the whole value), instead of also placing the caret beside the
     /// "0". Once it has focus, clicks place the caret as usual so the value can be edited.
     /// </summary>

@@ -24,14 +24,17 @@ public sealed class Folder
 /// <param name="RollValue">The final value the table was resolved with, after any <paramref name="SituationalModifier"/>.</param>
 /// <param name="SituationalModifier">The temporary modifier this roll used (see <see cref="Domain.SituationalModifier"/>); 0 for none.</param>
 /// <param name="ClampedValue">The value the table was looked up with when <see cref="TableClamp"/> clamped <paramref name="RollValue"/>; null when it was not clamped.</param>
+/// <param name="RerolledCount">How many rolls this one rejected before it, because they landed on already-used Unique rows
+/// (see <see cref="UniqueResults"/>); 0 for none. Only the accepted roll is ever recorded.</param>
 public sealed record RollSnapshot(long? TableId, string TableName, string DiceText, int RollValue, string ResultText, int SituationalModifier = 0,
-    int? ClampedValue = null);
+    int? ClampedValue = null, int RerolledCount = 0);
 
 /// <summary>A stored roll snapshot. It stays readable after its table is renamed, edited or deleted (then <see cref="TableId"/> is null).</summary>
 /// <param name="RollValue">The final calculated roll, never replaced by a clamped value.</param>
 /// <param name="ClampedValue">The value the table was looked up with because <see cref="RollValue"/> was clamped to the table's range; null when it was not.</param>
+/// <param name="RerolledCount">How many used Unique results were rerolled before this one (see <see cref="RollSnapshot.RerolledCount"/>).</param>
 public sealed record RollHistoryItem(long Id, long? TableId, string TableName, string DiceText, int RollValue, string ResultText, DateTime RolledUtc,
-    int SituationalModifier = 0, int? ClampedValue = null)
+    int SituationalModifier = 0, int? ClampedValue = null, int RerolledCount = 0)
 {
     /// <summary>
     /// The final roll. Unmodified, it reads as the dice show it (numeric 100 on a d100 reads "00"); with a situational
@@ -46,11 +49,15 @@ public sealed record RollHistoryItem(long Id, long? TableId, string TableName, s
     /// <summary>"Resolved as 6 (clamped)" for a clamped roll; empty otherwise.</summary>
     public string ClampNote => ClampedValue is { } v ? $"Resolved as {v} (clamped)" : "";
 
-    /// <summary>Readable snapshot: table, dice and roll (and how a modifier reached it, and any clamp), then each result set's output.</summary>
+    /// <summary>"Rerolled 2×" when used Unique results were rerolled before this one; empty otherwise.</summary>
+    public string RerollNote => UniqueResults.RerollNote(RerolledCount);
+
+    /// <summary>Readable snapshot: table, dice and roll (and how a modifier reached it, any clamp and any rerolls), then each result set's output.</summary>
     public string FullText => (SituationalModifier == 0
             ? $"{TableName}\n{DiceText} → {RollDisplay}"
             : $"{TableName}\n{DiceText} → {RollDisplay} ({SituationalBreakdown})")
         + (ClampedValue is null ? "" : $"\n{ClampNote}")
+        + (RerolledCount == 0 ? "" : $"\n{RerollNote} (used Unique results came up)")
         + $"\n\n{ResultText}";
 }
 
@@ -106,7 +113,21 @@ public sealed class ResultSet
 
 public sealed class TableEntry
 {
+    /// <summary>The database row's id. It changes every time the table is saved (a save replaces the stored rows); see <see cref="RowKey"/>.</summary>
     public long Id { get; set; }
+
+    /// <summary>
+    /// This row's stable identity within its table. It is kept through every edit of the row's text, range, formatting or link
+    /// and through every save, so state about the row (whether a Unique row has been used) follows the row itself, never its
+    /// text or position. <see cref="Guid.Empty"/> until the row is first saved, which gives it a new one. Never shown or exported.
+    /// </summary>
+    public Guid RowKey { get; set; }
+
+    /// <summary>
+    /// Opt-in: once this row is the result of a roll or a manual entry it is used, and cannot be the result again until the
+    /// table's used results are reset (see <see cref="UniqueResults"/>). Other rows stay repeatable. Off for every existing row.
+    /// </summary>
+    public bool IsUnique { get; set; }
 
     /// <summary>
     /// Numeric bounds are what resolution uses. Display strings never are. An open-ended row ("26+", "1 or less") holds

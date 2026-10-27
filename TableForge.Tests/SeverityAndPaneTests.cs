@@ -163,7 +163,8 @@ public class SeverityAndPaneViewTests
         Sta.Run(() =>
         {
             using var ui = new UiHarness(68, (db, c) => { db.SaveTable(Fixtures.RoomFeatures(c.Id)); Fixtures.SeedScavenging(db, c.Id); });
-            Assert.False(ui.One<ItemsControl>(i => i.Name == "RecentRollsList").IsVisible);   // nothing yet: no empty box
+            var panel = ui.One<Expander>(e => e.Name == "RecentRollsPanel");
+            Assert.False(panel.IsVisible);                                             // nothing yet: no empty panel
 
             ui.SelectTable("Room Features");
             ui.Click("Roll");
@@ -171,6 +172,13 @@ public class SeverityAndPaneViewTests
             ui.Dice.Value = 6;
             ui.Click("Roll");
 
+            Assert.True(panel.IsVisible);
+            Assert.False(panel.IsExpanded);                                            // closed until opened
+            Assert.DoesNotContain(ui.All<ItemsControl>(), i => i.Name == "RecentRollsList" && i.IsVisible);
+            Assert.Equal("Recent rolls (2)", ui.One<TextBlock>(t => t.Name == "RecentRollsHeader").Text);
+            panel.IsExpanded = true;
+            ui.Layout();
+            Assert.True(ui.Main.IsRecentRollsExpanded);
             var list = ui.One<ItemsControl>(i => i.Name == "RecentRollsList");
             Assert.True(list.IsVisible);
             Assert.Equal(2, list.Items.Count);
@@ -178,7 +186,8 @@ public class SeverityAndPaneViewTests
             Assert.Contains(ui.Texts(), t => t.Text == "6");
             Assert.Contains(ui.Texts(), t => t.Text == "Room Features");
             Assert.Contains(ui.Texts(), t => t.Text == "68");
-            Assert.Contains(ui.Texts(), t => t.Text.EndsWith("Ambient: Smell of burning flesh · Noise: Hissing · General Feature: Grated floors reveal dozens of people below"));
+            var detail = ui.One<TextBlock>(t => t.Name == "RecentRollDetail" && t.Text.EndsWith("Ambient: Smell of burning flesh · Noise: Hissing · General Feature: Grated floors reveal dozens of people below"));
+            Assert.Equal(System.Windows.TextWrapping.Wrap, detail.TextWrapping);                    // the whole result, wrapped
 
             var roomEntry = Row(ui, "RecentRollsList", o => ((RecentRollViewModel)o).TableName == "Room Features");
             Assert.Equal("Room Features\nd100 → 68\n\nAmbient: Smell of burning flesh\nNoise: Hissing\nGeneral Feature: Grated floors reveal dozens of people below",
@@ -191,34 +200,35 @@ public class SeverityAndPaneViewTests
             Assert.Empty(roll.Current.Outcomes);
             Assert.Contains(ui.Texts(), t => t.Text == "Not rolled yet.");
             Assert.Equal(2, ui.Main.RecentRolls.Count);
+            Assert.True(panel.IsExpanded);                                             // still open on the reopened table
         });
     }
 
     [Fact]
-    public void Recent_tables_list_the_tables_in_use_and_return_to_them_in_one_click()
+    public void Recent_tables_are_still_tracked_but_the_sidebar_lists_only_the_searchable_table_list()
     {
         Sta.Run(() =>
         {
             using var ui = new UiHarness(6, (db, c) => { db.SaveTable(Fixtures.RoomFeatures(c.Id)); Fixtures.SeedScavenging(db, c.Id); });
-            var recent = ui.One<ItemsControl>(i => i.Name == "RecentTablesList");
-            Assert.False(recent.IsVisible);                       // the search list alone makes nothing recent
-            Assert.Equal(3, ui.One<ListBox>(l => l.Name == "TablesList").Items.Count);
-
             ui.SelectTable("Scavenging");
             ui.SelectTable("Room Features");
-            Assert.True(recent.IsVisible);
-            Assert.Equal(["Room Features", "Scavenging"], recent.Items.Cast<TableSummary>().Select(t => t.Name).ToArray());
 
-            // Filtering the big list does not touch the recent list.
+            Assert.Equal(["Room Features", "Scavenging"], ui.Main.RecentTables.Select(t => t.Name).ToArray());   // tracking unchanged
+            Assert.DoesNotContain(ui.All<ItemsControl>(), i => i.Name == "RecentTablesList");
+            Assert.DoesNotContain(ui.Texts(), t => t.Text == "Recent tables");
+            var list = ui.One<ListBox>(l => l.Name == "TablesList");
+            Assert.Equal(3, list.Items.Count);                                         // every table, each once
+            // The list now fills the pane down to Edit/Delete (more than the 220 px it had), with both buttons in view.
+            Assert.True(list.MaxHeight > 220, $"the table list may only grow to {list.MaxHeight:0} px");
+            var pane = ui.One<ScrollViewer>(v => v.Name == "LeftScroll");
+            var delete = ui.All<Button>().Single(b => b.Content as string == "Delete table");
+            var bottom = delete.TransformToAncestor(pane).Transform(new System.Windows.Point(0, delete.ActualHeight)).Y;
+            Assert.True(bottom <= pane.ViewportHeight + 1, "Edit and Delete stay in view without scrolling");
+
             ui.One<TextBox>(t => t.Name == "TableFilterBox").Text = "scavenged";
             ui.Layout();
-            Assert.Single(ui.One<ListBox>(l => l.Name == "TablesList").Items);
-            Assert.Equal(2, recent.Items.Count);
-
-            Invoke(ui, Row(ui, "RecentTablesList", o => ((TableSummary)o).Name == "Scavenging"));
-
-            Assert.Equal("Scavenging", ((RollViewModel)ui.Main.Current!).Title);
-            Assert.Equal(["Scavenging", "Room Features"], recent.Items.Cast<TableSummary>().Select(t => t.Name).ToArray());
+            Assert.Equal("Scavenged Items", Assert.Single(list.Items.Cast<TableSummary>()).Name);
+            Assert.Equal("Search results", ui.One<TextBlock>(t => t.Name == "TableListHeading").Text);
         });
     }
 
@@ -233,6 +243,8 @@ public class SeverityAndPaneViewTests
 
             ui.Main.SelectedTable = ui.Main.Tables.Single(t => t.Name == "Scavenged Items");
             ui.Click("Delete table");                                          // the harness confirms
+            ui.Main.IsRecentRollsExpanded = true;
+            ui.Layout();
 
             var entry = Row(ui, "RecentRollsList", o => true);
             Assert.False(entry.IsEnabled);

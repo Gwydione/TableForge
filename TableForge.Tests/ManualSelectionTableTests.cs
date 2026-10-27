@@ -31,7 +31,7 @@ public class ManualSelectionTableTests
     [Fact]
     public void The_schema_is_version_11_with_a_not_null_flag_defaulting_to_off()
     {
-        Assert.Equal(11, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration
+        Assert.Equal(12, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration
 
         using var temp = new TempDatabase();
         using (temp.Open()) { }
@@ -62,7 +62,7 @@ public class ManualSelectionTableTests
             history = db.GetRollHistory().ToList();
         }
         // Make it a real Gidubba 1.2.0 file: version 10, with no Tables.ManualSelection column.
-        Execute(temp.Path, "ALTER TABLE Tables DROP COLUMN ManualSelection; PRAGMA user_version = 10");
+        Execute(temp.Path, "ALTER TABLE Entries DROP COLUMN RowKey; ALTER TABLE Entries DROP COLUMN IsUnique; DROP TABLE UsedResults; ALTER TABLE RollHistory DROP COLUMN RerolledCount; ALTER TABLE Tables DROP COLUMN ManualSelection; PRAGMA user_version = 10");
 
         using (var upgraded = temp.Open())
         {
@@ -71,9 +71,9 @@ public class ManualSelectionTableTests
             Assert.Equal(history, upgraded.GetRollHistory());
         }
 
-        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith(".pre-v11-from-v10.backup.db", StringComparison.Ordinal));
+        Assert.Contains(DatabaseBackup.Existing(temp.Path), p => p.EndsWith(".pre-v12-from-v10.backup.db", StringComparison.Ordinal));
         using var check = Raw(temp.Path);
-        Assert.Equal(11, DatabaseMigrations.GetVersion(check));
+        Assert.Equal(12, DatabaseMigrations.GetVersion(check));
     }
 
     [Fact]

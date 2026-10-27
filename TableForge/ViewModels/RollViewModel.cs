@@ -11,6 +11,7 @@ namespace TableForge.ViewModels;
 public sealed class EntryViewModel(TableEntry entry) : ObservableObject
 {
     private bool _isMatched;
+    private bool _isUsed;
 
     public TableEntry Entry { get; } = entry;
     public string RangeLabel => Entry.RangeLabel;
@@ -20,6 +21,13 @@ public sealed class EntryViewModel(TableEntry entry) : ObservableObject
     public IReadOnlyList<FormattedSegment> Segments => Entry.Styles.Segments(Entry.Text);
 
     public bool IsMatched { get => _isMatched; set => Set(ref _isMatched, value); }
+
+    /// <summary>A Unique row that has been used: still shown and readable, tagged "Used" and muted until the table is reset.</summary>
+    public bool IsUsed { get => _isUsed; internal set { if (Set(ref _isUsed, value)) { Raise(nameof(UniqueTag)); Raise(nameof(HasUniqueTag)); } } }
+
+    /// <summary>"Unique" for an available Unique row, "Used" for a used one, nothing for a repeatable row: words, never colour alone.</summary>
+    public string UniqueTag => IsUsed ? "Used" : Entry.IsUnique ? "Unique" : "";
+    public bool HasUniqueTag => UniqueTag.Length > 0;
 }
 
 public sealed class ResultSetViewModel(ResultSet set)
@@ -222,12 +230,17 @@ public sealed class ResultLineViewModel(string heading, string range, string tex
 /// <param name="Breakdown">How a situational modifier reached the roll ("11 +3 situational"); empty for an unmodified roll.</param>
 /// <param name="ClampNote">"Resolved as 6 (clamped)" when the table's Clamp to Range looked the roll up at a boundary; empty otherwise.</param>
 /// <param name="BatchLabel">"Roll 2" for the second result of one multi-roll action; empty for an ordinary single roll.</param>
+/// <param name="RerolledCount">How many throws landed on used Unique rows and were rerolled before this result (see <see cref="UniqueRoller"/>).</param>
 public sealed record RollOutcomeViewModel(string Display, IReadOnlyList<ResultLineViewModel> Lines, string Breakdown = "", string ClampNote = "",
-    string BatchLabel = "")
+    string BatchLabel = "", int RerolledCount = 0)
 {
     public bool HasBreakdown => Breakdown.Length > 0;
     public bool HasClampNote => ClampNote.Length > 0;
     public bool HasBatchLabel => BatchLabel.Length > 0;
+
+    /// <summary>"Rerolled 2×" when used Unique results came up first; empty (and not shown) for a result accepted on its first throw.</summary>
+    public string RerollNote => UniqueResults.RerollNote(RerolledCount);
+    public bool HasRerollNote => RerolledCount > 0;
 
     /// <summary>This result's place on the Streaming Overlay (see <see cref="OverlayPublisher"/>); null when no overlay is wired in.
     /// Each result of a multi-roll action has its own.</summary>
@@ -281,6 +294,18 @@ public sealed class RollStepViewModel(RollableTable table, bool isFirst) : Obser
 
     /// <param name="keepHighlights">True for the second and later results of one multi-roll action: their rows are highlighted
     /// alongside the earlier ones in that action instead of replacing them.</param>
+    /// <summary>Every row of this table, once, as the listing shows it (the aligned view has its own copies of the same rows).</summary>
+    private IEnumerable<EntryViewModel> AllEntries => ResultSets.SelectMany(s => s.Entries).Concat(AlignedRows.SelectMany(r => r.Cells));
+
+    /// <summary>Marks which Unique rows are used, as the store says now; returns (used, Unique) row counts for the summary.</summary>
+    internal (int Used, int Unique) ShowUsed(IReadOnlySet<Guid> used)
+    {
+        foreach (var entry in AllEntries)
+            entry.IsUsed = entry.Entry.IsUnique && entry.Entry.RowKey != Guid.Empty && used.Contains(entry.Entry.RowKey);
+        var unique = ResultSets.SelectMany(s => s.Entries).Where(e => e.Entry.IsUnique).ToList();
+        return (unique.Count(e => e.IsUsed), unique.Count);
+    }
+
     internal void Add(RollOutcomeViewModel outcome, int roll, bool keepHighlights = false)
     {
         Outcomes.Add(outcome);
@@ -323,6 +348,7 @@ public sealed class RollViewModel : ObservableObject
     private readonly Action<string> _copyText;
     private readonly Func<SaveFileRequest, string?> _chooseSaveFile;
     private readonly OverlayPublisher? _overlay;
+    private readonly UsedResultsStore _usedResults;
     private int _copyResultSetIndex;
     private string _copyMessage = "";
     private string _exportWarning = "";
@@ -335,6 +361,9 @@ public sealed class RollViewModel : ObservableObject
     private int _autoFollowStep;
     private bool _stopRequested;
     private CancellationTokenSource? _rollCancel;
+    private readonly Func<string, bool> _confirm;
+    private (int Used, int Unique) _usedCounts;
+    private bool _usedUnreadable;
 
     /// <param name="tableUsed">Called when a table becomes the current rollable table by being followed to (recent tables).</param>
     /// <param name="rolled">Called once for every actual resolved roll, with a snapshot of what was shown (recent rolls).
@@ -351,12 +380,17 @@ public sealed class RollViewModel : ObservableObject
     /// the message to show, or null when the person cancelled. Null disables the command.</param>
     /// <param name="autoFollow">The app-wide Auto-follow linked tables setting (see <see cref="AutoFollowAsync"/>). Null means a
     /// setting of this screen's own, off.</param>
+    /// <param name="usedResults">Which Unique rows of a table have been used (see <see cref="UniqueResults"/>). Null means kept in
+    /// this screen's memory only.</param>
+    /// <param name="confirm">Asks the person a yes/no question (Reset Used Results…). Null means never confirmed, so nothing is reset.</param>
     public RollViewModel(RollableTable table, IDiceProvider dice, Func<long, RollableTable?>? loadTable = null,
         Action<long>? tableUsed = null, Action<RollSnapshot>? rolled = null, Func<bool>? diceReady = null, Action<string>? copyText = null,
         Func<SaveFileRequest, string?>? chooseSaveFile = null, OverlayPublisher? overlay = null, Func<RollableTable, string?>? exportPum = null,
-        AutoFollowSetting? autoFollow = null)
+        AutoFollowSetting? autoFollow = null, UsedResultsStore? usedResults = null, Func<string, bool>? confirm = null)
     {
         _dice = dice;
+        _usedResults = usedResults ?? UsedResultsStore.InMemory();
+        _confirm = confirm ?? (_ => false);
         AutoFollow = autoFollow ?? new AutoFollowSetting();
         _overlay = overlay;
         _copyText = copyText ?? ClipboardText.Set;
@@ -366,9 +400,11 @@ public sealed class RollViewModel : ObservableObject
         _tableUsed = tableUsed;
         _rolled = rolled;
         Steps.Add(new RollStepViewModel(table, isFirst: true));
+        ShowUsedResults();
         RollCommand = new RelayCommand(() => _ = RollAsync(), () => !IsRolling && (_diceReady?.Invoke() ?? true) && IsModifierValid);
         ResolveManualCommand = new RelayCommand(ResolveManual, () => !IsRolling);
         StopCommand = new RelayCommand(CancelRoll, () => IsRolling);
+        ResetUsedResultsCommand = new RelayCommand(ResetUsedResults, () => !IsRolling && _usedCounts.Used > 0);
         CopyTableTextCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Tab), () => Current.Table.ResultSets.Count > 0);
         CopyTableTextSpacesCommand = new RelayCommand(() => CopyTableText(TableTextSeparator.Space), () => Current.Table.ResultSets.Count > 0);
         CopyForSojourCommand = new RelayCommand(CopyForSojour, () => Current.Table.ResultSets.Count > 0);
@@ -731,6 +767,8 @@ public sealed class RollViewModel : ObservableObject
     /// before the next one is thrown), each through the same pipeline as a single roll and each recorded in Recent Rolls on its own.
     /// The situational modifier belongs to the first roll that succeeds, then resets as always. A roll that fails or is cancelled
     /// stops the action there: the results already shown (and recorded) stay, and nothing is made up for the rest.
+    /// On a table with Unique rows each result is one accepted roll (see <see cref="ThrowForResultAsync"/>), used up before the next
+    /// roll is thrown, and the action stops the same way once the table is exhausted.
     /// </summary>
     private async Task RollCoreAsync(int situational, int count)
     {
@@ -743,10 +781,10 @@ public sealed class RollViewModel : ObservableObject
             for (var position = 1; position <= count; position++)
             {
                 SetBatchPosition(position);
-                if (await ThrowAsync(step.Table.Dice, position, count) is not { } roll) return;
+                if (await ThrowForResultAsync(step.Table, situational, position, count) is not var (roll, rerolled)) return;
                 // The provider produced a real roll: the modifier is used now, and used up, even if no row covers the sum.
                 // (A failed or cancelled roll returned above, so the modifier is still there to retry with.)
-                Apply(roll + situational, situational, fromProvider: true, position: position, count: count);
+                Apply(roll + situational, situational, fromProvider: true, position: position, count: count, rerolled: rerolled);
                 if (position == 1 || situational != 0) ModifierText = "0";
                 situational = 0;
             }
@@ -765,16 +803,148 @@ public sealed class RollViewModel : ObservableObject
         }
     }
 
+    // ---- Unique Results ------------------------------------------------------------------------------------------------
+    //
+    // Every way a table's result is produced on this screen — the person's Roll (single or several), an auto-follow roll and a
+    // manually entered result — goes through the same rules (UniqueResults) and the same two steps below: the table's used
+    // results are read fresh from the store for every result, and an accepted result's Unique rows are recorded as used before
+    // the result is shown (or a chain continues from it). A table without Unique rows never touches the store.
+
+    /// <summary>True when the current table has Unique rows: only then are its used results summarised and resettable here.</summary>
+    public bool HasUniqueRows => UniqueResults.HasUniqueRows(Current.Table);
+
+    /// <summary>"Unique results: 3 of 8 used" for the current table.</summary>
+    public string UsedResultsSummary => _usedUnreadable
+        ? "Unique results: which have been used could not be read."
+        : $"Unique results: {_usedCounts.Used} of {_usedCounts.Unique} used";
+
+    /// <summary>Reset Used Results…: after a confirmation, every used result of the current table can be rolled again. Only the
+    /// used results are forgotten — which rows are Unique is the table's own setting and never changes here.</summary>
+    public ICommand ResetUsedResultsCommand { get; }
+
+    /// <summary>Shows the current table's used results as the store says now: its rows' Used tags and the summary.</summary>
+    private void ShowUsedResults()
+    {
+        var table = Current.Table;
+        IReadOnlySet<Guid> used = new HashSet<Guid>();
+        _usedUnreadable = false;
+        if (UniqueResults.HasUniqueRows(table))
+        {
+            try { used = _usedResults.Get(table.Id); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { _usedUnreadable = true; }
+        }
+        _usedCounts = Current.ShowUsed(used);
+        Raise(nameof(HasUniqueRows));
+        Raise(nameof(UsedResultsSummary));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void ResetUsedResults()
+    {
+        var table = Current.Table;
+        var count = _usedCounts.Used;
+        var message = $"Reset the used results for \"{table.Name}\"?\n\n{count} used Unique {(count == 1 ? "result" : "results")} will be " +
+            "available to roll again. Which rows are Unique does not change.";
+        if (!_confirm(message)) return;
+        try
+        {
+            _usedResults.Reset(table.Id);
+            Message = "";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Message = $"The used results could not be reset: {ex.Message}";
+        }
+        ShowUsedResults(); // what the store says now, so a failed reset never looks like a successful one
+    }
+
+    /// <summary>The table's used results, fresh from the store; false, with the reason in <see cref="Message"/>, when they cannot be read.</summary>
+    private bool TryReadUsed(RollableTable table, out IReadOnlySet<Guid> used, int position = 1, int count = 1)
+    {
+        try
+        {
+            used = _usedResults.Get(table.Id);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            used = new HashSet<Guid>();
+            Message = Stopped($"The used results could not be read: {ex.Message}", position, count);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Records an accepted result's Unique rows (see <see cref="UniqueResults.RowsUsedBy"/>) as used. False, with the reason in
+    /// <see cref="Message"/>, when that cannot be recorded: the caller must then not show the result, or it could come up again unnoticed.
+    /// </summary>
+    private bool TryUse(RollableTable table, IReadOnlyList<Guid> rows, int position = 1, int count = 1)
+    {
+        if (rows.Count == 0) return true; // a gap or a repeatable row uses nothing up
+        try
+        {
+            _usedResults.MarkUsed(table.Id, rows);
+            ShowUsedResults();
+            return true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Message = Stopped($"The result could not be recorded as used, so it was not shown: {ex.Message}", position, count);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// One result's roll, for the person's Roll and for auto-follow alike: the provider's number and how many throws were rerolled
+    /// for it, or null with the reason in <see cref="Message"/>. A table without Unique rows is exactly one throw, as it always was.
+    /// A table with them is rolled by <see cref="UniqueRoller"/> with this provider's <see cref="IDiceProvider.MaxAttemptsPerResult"/>:
+    /// never rolled when it is exhausted, and every throw the original dice with the same situational modifier and Clamp. Only the
+    /// accepted result's Unique rows are used up, and before it is shown (see <see cref="TryUse"/>). Exhausted, out of attempts,
+    /// failed or cancelled, nothing is used and the modifier stays for another try.
+    /// </summary>
+    private async Task<(int Roll, int Rerolled)?> ThrowForResultAsync(RollableTable table, int situational, int position = 1, int count = 1)
+    {
+        if (!UniqueResults.HasUniqueRows(table))
+            return await ThrowAsync(table.Dice, position, count) is { } roll ? (roll, 0) : null;
+
+        if (!TryReadUsed(table, out var used, position, count)) return null;
+
+        var limit = _dice.MaxAttemptsPerResult;
+        var result = await UniqueRoller.RollAsync(table, situational, used, limit, () => ThrowAsync(table.Dice, position, count), () => _stopRequested);
+        switch (result.Status)
+        {
+            case UniqueRollStatus.Exhausted:
+                Message = Stopped(UniqueResults.ExhaustedMessage, position, count);
+                return null;
+            case UniqueRollStatus.AttemptLimitReached:
+                Message = Stopped(AttemptLimitMessage(limit), position, count);
+                return null;
+            case UniqueRollStatus.NotRolled:
+                if (Message.Length == 0) Message = Stopped("The roll was cancelled.", position, count); // Stop between two throws
+                return null;
+        }
+
+        return TryUse(table, result.RowsUsed, position, count) ? (result.Roll, result.RerolledCount) : null;
+    }
+
+    /// <summary>Why a Unique table's roll stopped with every throw rejected. Nothing was used, and the dice were never changed.</summary>
+    public static string AttemptLimitMessage(int attempts) =>
+        $"No unused result came up in {attempts.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} rolls, so nothing was used. Roll again, or enter a result manually.";
+
     /// <summary>
     /// Asks the provider for one final number. Null when it could not: the reason is already in <see cref="Message"/> (with where a
-    /// multi-roll action stopped). Cancellable through <see cref="CancelRoll"/> while the dice are in the air.
+    /// multi-roll action stopped). Cancellable through <see cref="CancelRoll"/> while the dice are in the air, and a number that
+    /// arrives once Stop has been pressed counts as cancelled too, so a batch or chain never continues from it.
     /// </summary>
     private async Task<int?> ThrowAsync(DiceExpression dice, int position = 1, int count = 1)
     {
         var cancel = _rollCancel = new CancellationTokenSource();
         try
         {
-            return await _dice.RollAsync(dice, cancel.Token);
+            var roll = await _dice.RollAsync(dice, cancel.Token);
+            // Dice that settle just as Stop is pressed (or the table is left) are not accepted: Stop always means no further result.
+            cancel.Token.ThrowIfCancellationRequested();
+            return roll;
         }
         catch (OperationCanceledException) { Message = Stopped("The roll was cancelled.", position, count); return null; }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -801,7 +971,9 @@ public sealed class RollViewModel : ObservableObject
     /// <item><see cref="MaxAutoFollows"/> tables have been opened, or the destination has been rolled by this chain
     /// <see cref="MaxAutoRollsPerTable"/> times already;</item>
     /// <item>the dice are not ready, a roll fails or is cancelled (Stop, leaving the table, switching provider), or the setting is
-    /// turned off.</item>
+    /// turned off;</item>
+    /// <item>a destination with Unique rows is exhausted, runs out of attempts, or its result cannot be recorded as used: it is
+    /// opened but not rolled, exactly as when its roll fails.</item>
     /// </list>
     /// Counts belong to one chain: every new action of the person's starts again from zero. The caller holds <see cref="IsRolling"/>.
     /// </summary>
@@ -845,12 +1017,14 @@ public sealed class RollViewModel : ObservableObject
 
                 rolledHere[target.Id] = rolledHere.GetValueOrDefault(target.Id) + 1;
                 SetAutoFollowStep(follows + 1);
-                if (await ThrowAsync(Current.Table.Dice) is not { } roll)
+                // The same roll as the person's own (Unique Results included): a destination that is exhausted, runs out of attempts
+                // or cannot record its result is left open and unrolled, and the chain continues only from a result already recorded.
+                if (await ThrowForResultAsync(Current.Table, situational: 0) is not var (roll, rerolled))
                 {
                     Message = $"Auto-follow stopped. {Message}";
                     return;
                 }
-                Apply(roll, fromProvider: true);
+                Apply(roll, fromProvider: true, rerolled: rerolled);
             }
         }
         finally
@@ -916,6 +1090,7 @@ public sealed class RollViewModel : ObservableObject
         try
         {
             roll = await _dice.RollAsync(action.Expression, cancel.Token);
+            cancel.Token.ThrowIfCancellationRequested(); // settled just as Stop was pressed: the previous value stays, as for any cancel
         }
         catch (OperationCanceledException) { Message = "The roll was cancelled."; return; }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -980,6 +1155,19 @@ public sealed class RollViewModel : ObservableObject
         var extended = !dice.IsD66 && rows.Any(e => e.Min < dice.Min || e.Max > dice.Max);
         if (parsed && (dice.IsLegal(value) || (extended && rows.Any(e => e.Covers(value)))))
         {
+            // Unique Results: the same rule as a roll, looked up exactly as typed (never clamped), but a person's choice is never
+            // rerolled — a value on a used Unique row (in any result set) is refused, and an accepted one uses its rows up first.
+            var table = Current.Table;
+            if (UniqueResults.HasUniqueRows(table))
+            {
+                if (!TryReadUsed(table, out var used)) return;
+                if (UniqueResults.IsRejected(table, value, used))
+                {
+                    Message = UniqueResults.AlreadyUsedMessage;
+                    return;
+                }
+                if (!TryUse(table, UniqueResults.RowsUsedBy(table, value))) return;
+            }
             Apply(value);
             // A chosen result continues auto-follow from any table — on a Manual-selection table, this is the only way it does.
             if (AutoFollow.IsOn) RollTask = AutoFollowFromManualAsync();
@@ -999,7 +1187,8 @@ public sealed class RollViewModel : ObservableObject
     /// the roll's arithmetic and before lookup. A manual entry is the user's explicit final value and is looked up exactly as typed.</param>
     /// <param name="position">Which roll of a multi-roll action this is (1-based).</param>
     /// <param name="count">How many rolls that action asked for; 1 for an ordinary roll or a manual entry.</param>
-    private void Apply(int roll, int situational = 0, bool fromProvider = false, int position = 1, int count = 1)
+    /// <param name="rerolled">How many throws were rerolled before this one because they landed on used Unique rows.</param>
+    private void Apply(int roll, int situational = 0, bool fromProvider = false, int position = 1, int count = 1, int rerolled = 0)
     {
         Message = "";
         var step = Current;
@@ -1033,7 +1222,7 @@ public sealed class RollViewModel : ObservableObject
         // Links and inline dice offered by earlier Roll actions are superseded by this one; the other results of the same
         // multi-roll action stay active, each with its own.
         if (position == 1) DeactivateLinks();
-        var outcome = new RollOutcomeViewModel(display, lines, breakdown, clampNote, count > 1 ? $"Roll {position}" : "");
+        var outcome = new RollOutcomeViewModel(display, lines, breakdown, clampNote, count > 1 ? $"Roll {position}" : "", rerolled);
         step.Add(outcome, lookup, keepHighlights: position > 1);
         LatestRolls = position == 1 ? [outcome] : [.. LatestRolls, outcome];
         Raise(nameof(LatestRolls));
@@ -1052,7 +1241,7 @@ public sealed class RollViewModel : ObservableObject
 
         // What the user saw, as text: each set's output, headed by the set's name when it has one.
         var shown = string.Join("\n", lines.Select(l => l.HasHeading ? $"{l.Heading}: {l.Text}" : l.Text));
-        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown, situational, clamped));
+        _rolled?.Invoke(new RollSnapshot(step.Table.Id, step.Table.Name, dice.ToString(), roll, shown, situational, clamped, rerolled));
     }
 
     private ResultLineViewModel MatchedLine(string heading, TableEntry entry)
@@ -1125,6 +1314,7 @@ public sealed class RollViewModel : ObservableObject
         Raise(nameof(HasModifierError));
         Raise(nameof(ModifierError));
         Raise(nameof(IsManualSelection));
+        ShowUsedResults();
         _tableUsed?.Invoke(line.LinkTarget.Id);
     }
 

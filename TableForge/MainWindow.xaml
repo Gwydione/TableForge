@@ -10,7 +10,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-        <!-- A flat, list-like button for the Recent Tables and Recent Rolls rows. -->
+        <!-- A flat, list-like button for the Recent Rolls rows. -->
         <Style x:Key="RowButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -95,8 +95,9 @@
             </Grid.ColumnDefinitions>
 
             <!-- The whole left pane scrolls if the window is short, so nothing in it is ever out of reach. -->
-            <ScrollViewer Grid.Column="0" x:Name="LeftScroll" Margin="12,12,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="0,0,12,0">
+            <ScrollViewer Grid.Column="0" x:Name="LeftScroll" Margin="12,12,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          SizeChanged="OnLeftPaneSizeChanged">
+                <StackPanel x:Name="LeftContent" Margin="0,0,12,0" SizeChanged="OnLeftPaneSizeChanged">
                     <TextBlock Text="Collection" FontWeight="SemiBold" Margin="0,0,0,4" />
                     <ComboBox x:Name="CollectionBox" ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}"
                               DisplayMemberPath="Name" Margin="0,0,0,6" />
@@ -215,26 +216,14 @@
                         </TextBox.InputBindings>
                     </TextBox>
 
-                    <!-- Recent tables: the few most recently opened in this collection. Not narrowed by the filter. -->
-                    <StackPanel Margin="0,0,0,8" Visibility="{Binding HasRecentTables, Converter={StaticResource BoolToVis}}">
-                        <TextBlock x:Name="RecentTablesHeading" Text="Recent tables" Foreground="#555" Margin="0,0,0,2" />
-                        <ItemsControl x:Name="RecentTablesList" ItemsSource="{Binding RecentTables}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Style="{StaticResource RowButton}"
-                                            Command="{Binding DataContext.OpenRecentTableCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}">
-                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TableRow}" />
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock x:Name="TableListHeading" Text="{Binding TableListHeading}" Foreground="#555" Margin="0,8,0,0" />
-                    </StackPanel>
+                    <!-- What the list below holds: "All tables", "<folder> tables" or "Search results". (Recent tables are still
+                         tracked, but no longer listed here.) -->
+                    <TextBlock x:Name="TableListHeading" Text="{Binding TableListHeading}" Foreground="#555" Margin="0,0,0,2" />
 
-                    <!-- Arrow keys only move the highlight; Enter or a click opens the table (so browsing never opens or "uses" tables). -->
+                    <!-- Tall enough to fill the pane down to Edit/Delete, never less than 160 px (see FitTableList).
+                         Arrow keys only move the highlight; Enter or a click opens the table (so browsing never opens or "uses" tables). -->
                     <ListBox x:Name="TablesList" ItemsSource="{Binding Tables}" SelectedItem="{Binding HighlightedTable}"
-                             MinHeight="90" MaxHeight="220" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MinHeight="90" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ItemTemplate="{StaticResource TableRow}">
                         <ListBox.InputBindings>
                             <KeyBinding Key="Return" Command="{Binding OpenTableCommand}" />
@@ -247,7 +236,7 @@
                         </ListBox.ItemContainerStyle>
                     </ListBox>
 
-                    <Grid Margin="0,6,0,0">
+                    <Grid x:Name="TableActions" Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
@@ -255,45 +244,6 @@
                         <Button Content="Edit table" Padding="8,4" Margin="0,0,3,0" Command="{Binding EditTableCommand}" />
                         <Button Grid.Column="1" Content="Delete table" Padding="8,4" Margin="3,0,0,0" Command="{Binding DeleteTableCommand}" />
                     </Grid>
-
-                    <!-- Recent rolls: the last 10 rolls anywhere, newest first. Compact; hover for the full snapshot. Clicking reopens the table (nothing else). -->
-                    <StackPanel Margin="0,10,0,0" Visibility="{Binding HasRecentRolls, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="Recent rolls" FontWeight="SemiBold" Margin="0,0,0,2" />
-                        <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="RecentRollsList" ItemsSource="{Binding RecentRolls}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource RowButton}" ToolTip="{Binding FullText}"
-                                                Command="{Binding DataContext.OpenRecentRollCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}">
-                                            <StackPanel>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding TableName}" TextTrimming="CharacterEllipsis">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsDeleted}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#888" />
-                                                                        <Setter Property="FontStyle" Value="Italic" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Grid.Column="1" Text="{Binding RollDisplay}" FontWeight="SemiBold" Margin="8,0,0,0" />
-                                                </Grid>
-                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="#777" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
 
@@ -349,7 +299,14 @@
                     </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="1">
+                <!-- The current screen, with the Recent Rolls panel at its foot. The panel's list never takes more than 40% of
+                     this area (see OnMainAreaSizeChanged), so the Roll screen above stays usable, dddice panel and all. -->
+                <Grid x:Name="MainArea" Grid.Row="1" SizeChanged="OnMainAreaSizeChanged">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                  <Grid>
                     <ContentControl Content="{Binding Current}" IsTabStop="False" />
                     <TextBlock x:Name="EmptyStateBlock" Text="{Binding EmptyStateText}" Foreground="#777" TextWrapping="Wrap" TextAlignment="Center"
                                MaxWidth="440" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -364,6 +321,52 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                  </Grid>
+
+                  <!-- Recent rolls: the last 10 rolls anywhere, newest first. Closed at start; open or closed stays as left for the
+                       session, across tables and while hidden for editing. Hover for the full snapshot; clicking reopens the table. -->
+                  <Expander x:Name="RecentRollsPanel" Grid.Row="1" IsExpanded="{Binding IsRecentRollsExpanded}" Padding="16,0,16,6"
+                            BorderBrush="#DDD" BorderThickness="0,1,0,0"
+                            Visibility="{Binding ShowRecentRolls, Converter={StaticResource BoolToVis}}">
+                      <Expander.Header>
+                          <TextBlock x:Name="RecentRollsHeader" Text="{Binding RecentRollsHeading}" FontWeight="SemiBold" Margin="4,4,0,4" />
+                      </Expander.Header>
+                      <ScrollViewer x:Name="RecentRollsScroller" MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                          <ItemsControl x:Name="RecentRollsList" ItemsSource="{Binding RecentRolls}" Focusable="False">
+                              <ItemsControl.ItemTemplate>
+                                  <DataTemplate>
+                                      <Button Style="{StaticResource RowButton}" ToolTip="{Binding FullText}"
+                                              Command="{Binding DataContext.OpenRecentRollCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              CommandParameter="{Binding}">
+                                          <StackPanel>
+                                              <Grid>
+                                                  <Grid.ColumnDefinitions>
+                                                      <ColumnDefinition Width="*" />
+                                                      <ColumnDefinition Width="Auto" />
+                                                  </Grid.ColumnDefinitions>
+                                                  <TextBlock Text="{Binding TableName}" TextTrimming="CharacterEllipsis">
+                                                      <TextBlock.Style>
+                                                          <Style TargetType="TextBlock">
+                                                              <Style.Triggers>
+                                                                  <DataTrigger Binding="{Binding IsDeleted}" Value="True">
+                                                                      <Setter Property="Foreground" Value="#888" />
+                                                                      <Setter Property="FontStyle" Value="Italic" />
+                                                                  </DataTrigger>
+                                                              </Style.Triggers>
+                                                          </Style>
+                                                      </TextBlock.Style>
+                                                  </TextBlock>
+                                                  <TextBlock Grid.Column="1" Text="{Binding RollDisplay}" FontWeight="SemiBold" Margin="8,0,0,0" />
+                                              </Grid>
+                                              <!-- Time, any "Rerolled N×", then the whole result: wrapped, never cut short. -->
+                                              <TextBlock x:Name="RecentRollDetail" Text="{Binding Detail}" FontSize="12" Foreground="#666" TextWrapping="Wrap" />
+                                          </StackPanel>
+                                      </Button>
+                                  </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                      </ScrollViewer>
+                  </Expander>
                 </Grid>
               </Grid>
             </Border>

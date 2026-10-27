@@ -73,6 +73,25 @@ public partial class ReviewView : UserControl
         row.RefineLastEdit(change.Offset, change.RemovedLength, change.AddedLength);
     }
 
+    /// <summary>
+    /// The aligned table's headings move with its rows: the heading strip is kept exactly as wide as the rows' viewport (so its
+    /// columns get the same width; the rows' vertical scrollbar takes some of theirs) and at the same sideways offset. Only the
+    /// rows' own ScrollViewer counts: a result text box's inner one reports here too.
+    /// </summary>
+    private void OnAlignedRowsScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, AlignedRowsScroller)) return;
+        if (e.ViewportWidth > 0) AlignedHeaderScroller.Width = e.ViewportWidth;
+        AlignedHeaderScroller.ScrollToHorizontalOffset(e.HorizontalOffset);
+    }
+
+    /// <summary>The other way round: Tab into a heading that is scrolled out of view brings the rows along with it.</summary>
+    private void OnAlignedHeaderScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, AlignedHeaderScroller) || e.HorizontalChange == 0) return;
+        AlignedRowsScroller.ScrollToHorizontalOffset(e.HorizontalOffset);
+    }
+
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.OldValue is INotifyPropertyChanged old) old.PropertyChanged -= OnViewModelChanged;

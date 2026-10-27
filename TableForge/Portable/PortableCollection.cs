@@ -31,6 +31,12 @@ public sealed record PortableTable(RollableTable Table, int? FolderIndex);
 /// format instead of importing it and silently dropping the descriptions.
 /// </para>
 /// <para>
+/// Version 3 adds an optional "unique": true on each Unique row (see <see cref="UniqueResults"/>); a repeatable row has none. Only
+/// that setting travels — which rows have been used is local play state and is never in any file, so every Unique row of an
+/// imported Collection starts available. A Collection with any Unique row is version 3, which 1.3 and earlier refuse as a newer
+/// format instead of importing every row as repeatable; one without stays version 1 or 2 exactly as before.
+/// </para>
+/// <para>
 /// An optional "manualSelection" on a table (added after Gidubba 1.2) needs no new version: it only steers auto-follow, so a reader that
 /// ignores it (1.2 and earlier) loses nothing it could use, and every version that knows it keeps it through a round trip.
 /// </para>
@@ -40,14 +46,19 @@ public static class PortableFormat
     public const string FormatName = "TableForgeCollection";
 
     /// <summary>The newest format version this TableForge reads (and the newest it ever writes).</summary>
-    public const int NewestVersion = 2;
+    public const int NewestVersion = 3;
 
     /// <summary>The first version with table descriptions.</summary>
     public const int DescriptionsVersion = 2;
 
+    /// <summary>The first version with Unique rows.</summary>
+    public const int UniqueRowsVersion = 3;
+
     /// <summary>The version a file holding <paramref name="collection"/> is written in: the lowest that carries all of it.</summary>
     public static int VersionFor(PortableCollection collection) =>
-        collection.Tables.Any(t => t.Table.Description.Length > 0) ? DescriptionsVersion : 1;
+        collection.Tables.Any(t => t.Table.ResultSets.Any(s => s.Entries.Any(e => e.IsUnique))) ? UniqueRowsVersion
+        : collection.Tables.Any(t => t.Table.Description.Length > 0) ? DescriptionsVersion
+        : 1;
     public const string Extension = ".tfcollection";
 
     /// <summary>Files larger than this are refused before they are read.</summary>

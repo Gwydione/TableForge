@@ -124,7 +124,7 @@ internal static class PortableFixtures
     {
         using var raw = Raw(path);
         var sb = new StringBuilder();
-        foreach (var table in new[] { "Collections", "Folders", "Tables", "ResultSets", "Entries", "RollHistory", "sqlite_sequence" })
+        foreach (var table in new[] { "Collections", "Folders", "Tables", "ResultSets", "Entries", "UsedResults", "RollHistory", "sqlite_sequence" })
         {
             using var cmd = raw.CreateCommand();
             cmd.CommandText = $"SELECT * FROM {table} ORDER BY rowid";

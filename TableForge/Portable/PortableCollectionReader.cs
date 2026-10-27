@@ -301,6 +301,14 @@ public static class PortableCollectionReader
 
             if (text is not null) entry.Styles = Styles(element, text, where, ref ok);
             Link(element, entry, where, pendingLinks, ref ok);
+
+            // Optional; absent (every version 1 and 2 file) or null is a repeatable row. Like a description, it is read whatever the
+            // file's version says, so it is never silently dropped from a hand-made file. Only the setting: a file has no used results.
+            if (element.TryGetProperty("unique", out var uniqueElement) && uniqueElement.ValueKind != JsonValueKind.Null)
+            {
+                if (uniqueElement.ValueKind is JsonValueKind.True or JsonValueKind.False) entry.IsUnique = uniqueElement.GetBoolean();
+                else { Shape($"{where}: unique must be true or false."); ok = false; }
+            }
             return ok ? entry : null;
         }
 

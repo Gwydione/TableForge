@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <!-- Used directly by DatabaseMigrations.ExecuteScript (sqlite3_prepare_v2). The version Microsoft.Data.Sqlite 10.0.12 already resolves. -->
+    <PackageReference Include="SQLitePCLRaw.core" Version="2.1.12" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
   </ItemGroup>
 

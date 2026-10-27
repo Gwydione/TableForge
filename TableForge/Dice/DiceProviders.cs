@@ -17,6 +17,13 @@ public interface IDiceProvider
     /// A visual provider completes only after the dice have settled. Throws if the roll cannot be made; never returns a partial result.
     /// </summary>
     Task<int> RollAsync(DiceExpression expression, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many throws one result may take on a table with Unique rows before TableForge stops without a result (see
+    /// <see cref="UniqueRoller"/>): a throw that lands on a used Unique row is rejected and the same expression thrown again.
+    /// The first throw counts. A provider whose throws take time allows few.
+    /// </summary>
+    int MaxAttemptsPerResult => UniqueRoller.DefaultMaxAttempts;
 }
 
 /// <summary>A provider that must be made ready (connections, rendering) before it can roll.</summary>
@@ -47,4 +54,7 @@ public sealed class BuiltInDiceProvider(Random? random = null) : IDiceProvider
 
     public Task<int> RollAsync(DiceExpression expression, CancellationToken cancellationToken) =>
         cancellationToken.IsCancellationRequested ? Task.FromCanceled<int>(cancellationToken) : Task.FromResult(Roll(expression));
+
+    /// <summary>Built-in throws are instant, so a result may take many before TableForge gives up.</summary>
+    public int MaxAttemptsPerResult => UniqueRoller.BuiltInMaxAttempts;
 }

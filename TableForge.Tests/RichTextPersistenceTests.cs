@@ -160,7 +160,7 @@ public class RichTextPersistenceTests
     [Fact]
     public void Since_version_9_the_schema_has_one_nullable_text_formatting_column()
     {
-        Assert.Equal(11, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration (11 added Tables.ManualSelection)
+        Assert.Equal(12, DatabaseMigrations.CurrentVersion); // pinned: bump deliberately with each migration (12 added Unique Results)
 
         using var temp = new TempDatabase();
         using var db = temp.Open();
@@ -190,7 +190,7 @@ public class RichTextPersistenceTests
         using (var raw = Raw(temp.Path))
         {
             using var cmd = raw.CreateCommand();
-            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN TextFormatting; ALTER TABLE Tables DROP COLUMN Description; ALTER TABLE Tables DROP COLUMN ManualSelection; PRAGMA user_version = 8";
+            cmd.CommandText = "ALTER TABLE Entries DROP COLUMN RowKey; ALTER TABLE Entries DROP COLUMN IsUnique; DROP TABLE UsedResults; ALTER TABLE RollHistory DROP COLUMN RerolledCount; ALTER TABLE Entries DROP COLUMN TextFormatting; ALTER TABLE Tables DROP COLUMN Description; ALTER TABLE Tables DROP COLUMN ManualSelection; PRAGMA user_version = 8";
             cmd.ExecuteNonQuery();
         }
         using (var raw = Raw(temp.Path))

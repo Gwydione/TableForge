@@ -168,9 +168,11 @@ public sealed class AppDatabase : IDisposable
             }));
         }
 
-        // Pass B: result sets and entries, with each link translated from a file position to the new table id.
+        // Pass B: result sets and entries, with each link translated from a file position to the new table id. Every row gets a
+        // new row key: an imported table is a new table, with no used results.
         for (var t = 0; t < portable.Tables.Count; t++)
-            InsertResultSets(tx, tableIds[t], portable.Tables[t].Table.ResultSets, link => link is { } position ? tableIds[(int)position] : null);
+            InsertResultSets(tx, tableIds[t], portable.Tables[t].Table.ResultSets, link => link is { } position ? tableIds[(int)position] : null,
+                newRowKeys: true);
 
         tx.Commit();
         return collection;
@@ -243,6 +245,9 @@ public sealed class AppDatabase : IDisposable
     /// Inserts the table (Id == 0) or replaces the stored copy (Id != 0), all in one transaction.
     /// Ids of the table, result sets and entries are assigned on the passed object.
     /// Sort order is persisted from list position.
+    /// Each entry keeps its <see cref="TableEntry.RowKey"/>; one without (a new row) is given a new one, on the passed object too.
+    /// Used results are never written here, only pruned: a row that is no longer in the table takes its used state with it, while a
+    /// row that is merely edited, or no longer Unique, keeps it (see <see cref="GetUsedRowKeys"/>).
     /// </summary>
     public RollableTable SaveTable(RollableTable table)
     {
@@ -275,6 +280,17 @@ public sealed class AppDatabase : IDisposable
         }
 
         InsertResultSets(tx, table.Id, table.ResultSets, link => link);
+        if (!isNew)
+        {
+            using var prune = Command(tx,
+                """
+                DELETE FROM UsedResults
+                WHERE TableId = $id
+                  AND RowKey NOT IN (SELECT e.RowKey FROM Entries e JOIN ResultSets r ON r.Id = e.ResultSetId WHERE r.TableId = $id)
+                """);
+            prune.Parameters.AddWithValue("$id", table.Id);
+            prune.ExecuteNonQuery();
+        }
         tx.Commit();
         return table;
     }
@@ -297,9 +313,12 @@ public sealed class AppDatabase : IDisposable
     /// Inserts a table's result sets and their entries in list order, assigning ids and sort orders on the passed objects.
     /// Each entry's <see cref="TableEntry.LinkedTableId"/> is stored as <paramref name="link"/> maps it (unchanged for a
     /// normal save; from a file position to a new table id for an import).
+    /// Row keys are kept, except that a row with none, a row repeating a key already used earlier in this table, or every row
+    /// when <paramref name="newRowKeys"/> is true, is given a new one: within a table, a row key always names exactly one row.
     /// </summary>
-    private void InsertResultSets(SqliteTransaction tx, long tableId, List<ResultSet> resultSets, Func<long?, long?> link)
+    private void InsertResultSets(SqliteTransaction tx, long tableId, List<ResultSet> resultSets, Func<long?, long?> link, bool newRowKeys = false)
     {
+        var keys = new HashSet<Guid>();
         for (var s = 0; s < resultSets.Count; s++)
         {
             var set = resultSets[s];
@@ -317,10 +336,15 @@ public sealed class AppDatabase : IDisposable
             {
                 var entry = set.Entries[e];
                 entry.SortOrder = e;
+                if (newRowKeys || entry.RowKey == Guid.Empty || !keys.Add(entry.RowKey))
+                {
+                    entry.RowKey = Guid.NewGuid();
+                    keys.Add(entry.RowKey);
+                }
                 using var insertEntry = Command(tx,
                     """
-                    INSERT INTO Entries (ResultSetId, MinValue, MaxValue, DisplayText, DisplayRange, LinkedTableId, UnresolvedLinkName, SortOrder, TextFormatting)
-                    VALUES ($set, $min, $max, $text, $range, $linked, $unresolved, $order, $formatting);
+                    INSERT INTO Entries (ResultSetId, MinValue, MaxValue, DisplayText, DisplayRange, LinkedTableId, UnresolvedLinkName, SortOrder, TextFormatting, RowKey, IsUnique)
+                    VALUES ($set, $min, $max, $text, $range, $linked, $unresolved, $order, $formatting, $key, $unique);
                     SELECT last_insert_rowid();
                     """);
                 insertEntry.Parameters.AddWithValue("$set", set.Id);
@@ -332,6 +356,8 @@ public sealed class AppDatabase : IDisposable
                 insertEntry.Parameters.AddWithValue("$unresolved", (object?)entry.UnresolvedLinkName ?? DBNull.Value);
                 insertEntry.Parameters.AddWithValue("$order", e);
                 insertEntry.Parameters.AddWithValue("$formatting", (object?)entry.Styles.Serialize(entry.Text) ?? DBNull.Value);
+                insertEntry.Parameters.AddWithValue("$key", FormatRowKey(entry.RowKey));
+                insertEntry.Parameters.AddWithValue("$unique", entry.IsUnique ? 1 : 0);
                 entry.Id = (long)insertEntry.ExecuteScalar()!;
             }
         }
@@ -380,7 +406,7 @@ public sealed class AppDatabase : IDisposable
             cmd.CommandText =
                 """
                 SELECT e.Id, e.ResultSetId, e.MinValue, e.MaxValue, e.DisplayText, e.DisplayRange,
-                       e.LinkedTableId, e.UnresolvedLinkName, e.SortOrder, e.TextFormatting
+                       e.LinkedTableId, e.UnresolvedLinkName, e.SortOrder, e.TextFormatting, e.RowKey, e.IsUnique
                 FROM Entries e
                 JOIN ResultSets r ON r.Id = e.ResultSetId
                 WHERE r.TableId = $id
@@ -403,6 +429,9 @@ public sealed class AppDatabase : IDisposable
                     LinkedTableId = reader.IsDBNull(6) ? null : reader.GetInt64(6),
                     UnresolvedLinkName = reader.IsDBNull(7) ? null : reader.GetString(7),
                     SortOrder = reader.GetInt32(8),
+                    // A malformed key (only a damaged database has one) reads as none, so the next save gives the row a new one.
+                    RowKey = Guid.TryParse(reader.GetString(10), out var key) ? key : Guid.Empty,
+                    IsUnique = reader.GetInt64(11) != 0,
                 });
             }
         }
@@ -583,6 +612,58 @@ public sealed class AppDatabase : IDisposable
         return true;
     }
 
+    // ---- used results (Unique Results) --------------------------------------------------------
+
+    /// <summary>
+    /// The row keys of this table's rows that have been used (see <see cref="UniqueResults"/>). Only an explicit
+    /// <see cref="ResetUsedResults"/>, deleting the row or deleting the table ever clears one: a row whose text or range is edited,
+    /// or that is no longer Unique, keeps its used state. Empty for a table that does not exist.
+    /// </summary>
+    public IReadOnlySet<Guid> GetUsedRowKeys(long tableId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT RowKey FROM UsedResults WHERE TableId = $id";
+        cmd.Parameters.AddWithValue("$id", tableId);
+        using var reader = cmd.ExecuteReader();
+        var keys = new HashSet<Guid>();
+        while (reader.Read())
+            if (Guid.TryParse(reader.GetString(0), out var key)) keys.Add(key);
+        return keys;
+    }
+
+    /// <summary>
+    /// Records these rows of the table as used, in one transaction. A row already used stays as it was; a key that names no row of
+    /// this table is ignored, so used state can only ever refer to rows the table has.
+    /// </summary>
+    public void MarkRowsUsed(long tableId, IEnumerable<Guid> rowKeys)
+    {
+        using var tx = _connection.BeginTransaction();
+        var now = FormatUtc(DateTime.UtcNow);
+        foreach (var key in rowKeys.Distinct())
+        {
+            using var insert = Command(tx,
+                """
+                INSERT OR IGNORE INTO UsedResults (TableId, RowKey, UsedUtc)
+                SELECT $id, $key, $now
+                WHERE EXISTS (SELECT 1 FROM Entries e JOIN ResultSets r ON r.Id = e.ResultSetId WHERE r.TableId = $id AND e.RowKey = $key)
+                """);
+            insert.Parameters.AddWithValue("$id", tableId);
+            insert.Parameters.AddWithValue("$key", FormatRowKey(key));
+            insert.Parameters.AddWithValue("$now", now);
+            insert.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    /// <summary>Reset Used Results: every row of this table becomes unused again. No other table is changed. Returns how many were used.</summary>
+    public int ResetUsedResults(long tableId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM UsedResults WHERE TableId = $id";
+        cmd.Parameters.AddWithValue("$id", tableId);
+        return cmd.ExecuteNonQuery();
+    }
+
     // ---- recent tables ------------------------------------------------------------------------
 
     public const int RecentTablesLimit = 5;
@@ -637,6 +718,7 @@ public sealed class AppDatabase : IDisposable
     /// </summary>
     public RollHistoryItem AddRollHistory(RollSnapshot snapshot)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(snapshot.RerolledCount); // RollHistory's CHECK refuses it too
         using var tx = _connection.BeginTransaction();
         var rolledUtc = DateTime.UtcNow;
 
@@ -644,10 +726,10 @@ public sealed class AppDatabase : IDisposable
         long? tableId;
         using (var insert = Command(tx,
             """
-            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue)
+            INSERT INTO RollHistory (TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue, RerolledCount)
             VALUES (
                 CASE WHEN EXISTS (SELECT 1 FROM Tables WHERE Id = $table) THEN $table ELSE NULL END,
-                $name, $dice, $roll, $result, $rolled, $situational, $clamped);
+                $name, $dice, $roll, $result, $rolled, $situational, $clamped, $rerolled);
             SELECT last_insert_rowid(), TableId FROM RollHistory WHERE Id = last_insert_rowid();
             """))
         {
@@ -659,6 +741,7 @@ public sealed class AppDatabase : IDisposable
             insert.Parameters.AddWithValue("$rolled", FormatUtc(rolledUtc));
             insert.Parameters.AddWithValue("$situational", snapshot.SituationalModifier);
             insert.Parameters.AddWithValue("$clamped", (object?)snapshot.ClampedValue ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$rerolled", snapshot.RerolledCount);
             using var reader = insert.ExecuteReader();
             reader.Read();
             id = reader.GetInt64(0);
@@ -674,7 +757,7 @@ public sealed class AppDatabase : IDisposable
 
         tx.Commit();
         return new RollHistoryItem(id, tableId, snapshot.TableName, snapshot.DiceText, snapshot.RollValue, snapshot.ResultText, rolledUtc,
-            snapshot.SituationalModifier, snapshot.ClampedValue);
+            snapshot.SituationalModifier, snapshot.ClampedValue, snapshot.RerolledCount);
     }
 
     /// <summary>Recent rolls, newest first.</summary>
@@ -682,14 +765,14 @@ public sealed class AppDatabase : IDisposable
     {
         using var cmd = _connection.CreateCommand();
         cmd.CommandText =
-            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue FROM RollHistory ORDER BY Id DESC LIMIT $limit";
+            "SELECT Id, TableId, TableName, DiceText, RollValue, ResultText, RolledUtc, SituationalModifier, ClampedValue, RerolledCount FROM RollHistory ORDER BY Id DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$limit", limit);
         using var reader = cmd.ExecuteReader();
         var list = new List<RollHistoryItem>();
         while (reader.Read())
             list.Add(new RollHistoryItem(reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.GetString(2),
                 reader.GetString(3), reader.GetInt32(4), reader.GetString(5), ParseUtc(reader.GetString(6)), reader.GetInt32(7),
-                reader.IsDBNull(8) ? null : reader.GetInt32(8)));
+                reader.IsDBNull(8) ? null : reader.GetInt32(8), reader.GetInt32(9)));
         return list;
     }
 
@@ -734,6 +817,9 @@ public sealed class AppDatabase : IDisposable
 
     /// <summary>All timestamps are stored as round-trip ISO 8601 UTC text.</summary>
     private static string FormatUtc(DateTime utc) => utc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    /// <summary>A row key as Entries.RowKey and UsedResults.RowKey store it: lowercase, hyphenated, as migration 12 writes them.</summary>
+    private static string FormatRowKey(Guid key) => key.ToString("D");
 
     private static DateTime ParseUtc(string text) =>
         DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime();

@@ -46,7 +46,7 @@ public class FolderViewTests
     }
 
     [Fact]
-    public void Table_list_heading_shows_the_selected_scope_or_search_results_and_recent_is_labelled_recent_tables()
+    public void Table_list_heading_is_always_shown_and_names_the_selected_scope_or_search_results()
     {
         Sta.Run(() =>
         {
@@ -56,12 +56,14 @@ public class FolderViewTests
                 db.CreateFolder(c.Id, "Combat");
                 db.SaveTable(Fixtures.ScavengedItems(c.Id).Also(t => { t.Name = "Backgrounds"; t.FolderId = creation.Id; }));
             });
-            ui.SelectTable("Backgrounds"); // opening a table puts it in Recent, which makes the headings visible
             ui.Layout();
 
-            Assert.Equal("Recent tables", ui.One<TextBlock>(t => t.Name == "RecentTablesHeading").Text);
+            // Shown from the start (it no longer waits for a recent table), over the one table list.
             var heading = ui.One<TextBlock>(t => t.Name == "TableListHeading");
+            Assert.True(heading.IsVisible);
             Assert.Equal("All tables", heading.Text);
+            var list = ui.One<ListBox>(l => l.Name == "TablesList");
+            Assert.Single(list.Items);
 
             var folderNav = ui.One<ListBox>(l => l.Name == "FolderNavList");
             Select(folderNav, "Character Creation");
@@ -71,6 +73,7 @@ public class FolderViewTests
             Select(folderNav, "Combat");
             ui.Layout();
             Assert.Equal("Combat tables", heading.Text);
+            Assert.Empty(list.Items);                                                  // the folder filter still applies
 
             Select(folderNav, "Unfiled");
             ui.Layout();
@@ -79,7 +82,8 @@ public class FolderViewTests
             ui.One<TextBox>(t => t.Name == "TableFilterBox").Text = "back";
             ui.Layout();
             Assert.Equal("Search results", heading.Text);
-            Assert.True(ui.One<TextBlock>(t => t.Name == "RecentTablesHeading").IsVisible); // Recent stays collection-wide
+            Assert.Equal("Backgrounds", Assert.Single(list.Items.Cast<TableSummary>()).Name); // search ignores the folder
+            Assert.True(heading.IsVisible);
         });
     }
 

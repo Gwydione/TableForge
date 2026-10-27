@@ -27,8 +27,9 @@ public sealed class RecentRollViewModel(RollHistoryItem item)
     /// <summary>The table was deleted after this roll: the snapshot stays readable but cannot be opened.</summary>
     public bool IsDeleted => Item.TableId is null;
 
-    /// <summary>Time and a one-line result, e.g. "14:32 · Smell of burning flesh · Hissing".</summary>
-    public string Detail => $"{Item.RolledUtc.ToLocalTime():HH:mm} · {Item.ResultText.Replace("\n", " · ")}";
+    /// <summary>Time and a one-line result, e.g. "14:32 · Smell of burning flesh · Hissing" — "14:32 · Rerolled 2× · Goblin" after
+    /// rerolls past used Unique results, kept ahead of the result so trimming a long one never hides it.</summary>
+    public string Detail => $"{Item.RolledUtc.ToLocalTime():HH:mm} · {(Item.RerolledCount == 0 ? "" : Item.RerollNote + " · ")}{Item.ResultText.Replace("\n", " · ")}";
 
     /// <summary>The full snapshot, for the tooltip.</summary>
     public string FullText => IsDeleted ? Item.FullText + "\n\n(This table has been deleted.)" : Item.FullText;
@@ -221,6 +222,20 @@ public sealed class MainViewModel : ObservableObject
     public bool HasRecentTables => RecentTables.Count > 0;
     public bool HasRecentRolls => RecentRolls.Count > 0;
 
+    /// <summary>The Recent Rolls panel's header, e.g. "Recent rolls (3)".</summary>
+    public string RecentRollsHeading => $"Recent rolls ({RecentRolls.Count})";
+
+    /// <summary>
+    /// The Recent Rolls panel, at the foot of the main area: shown once there is a roll to show, beside the Roll screen (or no
+    /// screen), and hidden while a table is pasted or edited, which need the height.
+    /// </summary>
+    public bool ShowRecentRolls => HasRecentRolls && Current is not (ReviewViewModel or PasteViewModel);
+
+    private bool _isRecentRollsExpanded;
+
+    /// <summary>Whether the Recent Rolls panel is open: closed at start, then kept as the person leaves it for this session only.</summary>
+    public bool IsRecentRollsExpanded { get => _isRecentRollsExpanded; set => Set(ref _isRecentRollsExpanded, value); }
+
     public Collection? SelectedCollection
     {
         get => _selectedCollection;
@@ -313,7 +328,9 @@ public sealed class MainViewModel : ObservableObject
         private set
         {
             var old = _current;
-            if (Set(ref _current, value) && old is RollViewModel leaving) leaving.CancelRoll(); // a dice roll still in the air belongs to the screen being left
+            if (!Set(ref _current, value)) return;
+            if (old is RollViewModel leaving) leaving.CancelRoll(); // a dice roll still in the air belongs to the screen being left
+            Raise(nameof(ShowRecentRolls));
         }
     }
 
@@ -396,7 +413,8 @@ public sealed class MainViewModel : ObservableObject
             Refuse($"The collection could not be saved: {ex.Message}", []);
             return;
         }
-        Status = $"Exported \"{collection.Name}\" to {System.IO.Path.GetFileName(path)}.";
+        Status = $"Exported \"{collection.Name}\" to {System.IO.Path.GetFileName(path)}."
+            + (export.Version >= PortableFormat.UniqueRowsVersion ? " It has Unique results, so importing it needs Gidubba 1.4 or later." : "");
     }
 
     /// <summary>
@@ -694,6 +712,8 @@ public sealed class MainViewModel : ObservableObject
         RecentRolls.Clear();
         foreach (var item in _db.GetRollHistory()) RecentRolls.Add(new RecentRollViewModel(item));
         Raise(nameof(HasRecentRolls));
+        Raise(nameof(RecentRollsHeading));
+        Raise(nameof(ShowRecentRolls));
     }
 
     private void SelectWithoutOpening(TableSummary? table)
@@ -806,7 +826,8 @@ public sealed class MainViewModel : ObservableObject
         MarkUsed(table.Id);
         return new RollViewModel(table, _dice, _db.LoadTable, MarkUsed, RecordRoll,
             diceReady: DiceProviders is { } providers ? () => providers.CanRoll : null, copyText: _copyText, chooseSaveFile: _chooseSaveFile, overlay: _overlay,
-            exportPum: _reviewPumExport is null ? null : ExportTableToPum, autoFollow: AutoFollow);
+            exportPum: _reviewPumExport is null ? null : ExportTableToPum, autoFollow: AutoFollow,
+            usedResults: new UsedResultsStore(_db.GetUsedRowKeys, _db.MarkRowsUsed, _db.ResetUsedResults), confirm: _confirm);
     }
 
     private void MarkUsed(long tableId)

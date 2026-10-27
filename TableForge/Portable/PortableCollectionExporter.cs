@@ -6,8 +6,8 @@ using TableForge.Domain;
 
 namespace TableForge.Portable;
 
-/// <summary>What exporting a Collection gave: the file's bytes, or every reason it cannot be exported.</summary>
-public sealed record PortableExport(byte[]? Json, IReadOnlyList<string> Problems)
+/// <summary>What exporting a Collection gave: the file's bytes and its format version, or every reason it cannot be exported.</summary>
+public sealed record PortableExport(byte[]? Json, IReadOnlyList<string> Problems, int Version = 0)
 {
     public bool Succeeded => Json is not null;
 }
@@ -15,8 +15,8 @@ public sealed record PortableExport(byte[]? Json, IReadOnlyList<string> Problems
 /// <summary>
 /// Export Collection: one saved Collection as a <c>.tfcollection</c> file (UTF-8 JSON, no byte order mark), preserving TableForge's
 /// own semantics — unlike the external exporters, which translate one result set into someone else's format. Only the
-/// Collection's content travels (see <see cref="PortableCollection"/>): never database ids, timestamps, recent use, roll history
-/// or settings.
+/// Collection's content travels (see <see cref="PortableCollection"/>): never database ids, row keys, timestamps, recent use, roll
+/// history, used Unique results or settings. Which rows are Unique is content and travels; which have been used never does.
 /// <para>
 /// The output is deterministic: folders and tables are written in the order TableForge lists them (alphabetical, then oldest
 /// first) with ids f1, f2... and t1, t2... in that order, result sets and rows in their own order, and no timestamp.
@@ -42,7 +42,7 @@ public static class PortableCollectionExporter
 
         var json = Write(portable!);
         var check = PortableCollectionReader.Read(json);
-        return check.Succeeded ? new(json, []) : new(null, check.Problems);
+        return check.Succeeded ? new(json, [], PortableFormat.VersionFor(portable!)) : new(null, check.Problems);
     }
 
     /// <summary>A file name Windows accepts for the Collection, ending in .tfcollection.</summary>
@@ -120,6 +120,7 @@ public static class PortableCollectionExporter
                         Styles = entry.Styles,
                         LinkedTableId = link,
                         UnresolvedLinkName = entry.UnresolvedLinkName,
+                        IsUnique = entry.IsUnique, // the setting only: no row key, so nothing can tie the file to this database's used results
                         SortOrder = e,
                     });
                 }
@@ -251,6 +252,7 @@ public static class PortableCollectionExporter
             w.WriteString("unresolved", unresolved);
             w.WriteEndObject();
         }
+        if (entry.IsUnique) w.WriteBoolean("unique", true); // only ever in a version 3 file; a repeatable row writes nothing
         w.WriteEndObject();
     }
 

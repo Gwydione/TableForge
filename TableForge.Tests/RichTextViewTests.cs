@@ -313,6 +313,9 @@ public class RichTextViewTests
             ui.SelectTable("Boons");
             ui.Click("Roll");
 
+            ui.Main.IsRecentRollsExpanded = true;
+            ui.Layout();
+
             var recent = ui.One<ItemsControl>(i => i.Name == "RecentRollsList");
             Assert.Contains(ViewTests.FindAll<TextBlock>(recent), t => t.Text.Contains("The creature gains +2 Armor until the next dawn.", StringComparison.Ordinal));
             Assert.All(ViewTests.FindAll<TextBlock>(recent), t => Assert.All(t.Inlines.OfType<Run>(), r => Assert.NotEqual(FontWeights.Bold, r.FontWeight)));

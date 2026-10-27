@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 
 namespace TableForge.Data;
 
@@ -140,11 +141,35 @@ public static class DatabaseMigrations
         """
         ALTER TABLE Tables ADD COLUMN ManualSelection INTEGER NOT NULL DEFAULT 0 CHECK (ManualSelection IN (0, 1));
         """,
+        // 12: Unique Results. Entries.RowKey is each row's stable identity (a GUID as text): saving a table replaces its stored
+        // rows, so Entries.Id is never stable, but RowKey is carried through every edit and save. Every existing row is given its
+        // own here. Entries.IsUnique is the per-row opt-in; every existing row gets 0 (repeatable), so nothing rolls differently.
+        // UsedResults is state, never part of a table's definition: which of a table's rows have been used, by row key. Saving a
+        // table never writes it (it only prunes keys whose rows were deleted), and deleting the table removes it.
+        // RollHistory.RerolledCount is how many used results a recorded roll rejected before the one shown; every existing roll
+        // gets 0, which is what it was. Older versions refuse this database rather than re-saving tables and dropping the keys.
+        """
+        CREATE TABLE UsedResults (
+            TableId INTEGER NOT NULL REFERENCES Tables(Id) ON DELETE CASCADE,
+            RowKey  TEXT NOT NULL,
+            UsedUtc TEXT NOT NULL,
+            PRIMARY KEY (TableId, RowKey)
+        );
+        ALTER TABLE Entries ADD COLUMN RowKey TEXT NOT NULL DEFAULT '';
+        UPDATE Entries SET RowKey = lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2)
+            || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)));
+        ALTER TABLE RollHistory ADD COLUMN RerolledCount INTEGER NOT NULL DEFAULT 0 CHECK (RerolledCount >= 0);
+        ALTER TABLE Entries ADD COLUMN IsUnique INTEGER NOT NULL DEFAULT 0 CHECK (IsUnique IN (0, 1));
+        """,
     ];
 
     public static int CurrentVersion => Migrations.Length;
 
-    /// <summary>Migrates up to <paramref name="upToVersion"/> (default: everything). Older versions are used to test upgrades.</summary>
+    /// <summary>
+    /// Migrates up to <paramref name="upToVersion"/> (default: everything). Older versions are used to test upgrades.
+    /// Each migration is one transaction: its statements (see <see cref="ExecuteScript"/>) and its new user_version are committed
+    /// together, and any failure rolls all of it back, so a database is never left marked as a version it only partly has.
+    /// </summary>
     public static void Apply(SqliteConnection connection, int upToVersion = int.MaxValue)
     {
         var target = Math.Min(upToVersion, CurrentVersion);
@@ -154,13 +179,42 @@ public static class DatabaseMigrations
         for (var next = version + 1; next <= target; next++)
         {
             using var tx = connection.BeginTransaction();
-            using var cmd = connection.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = Migrations[next - 1];
-            cmd.ExecuteNonQuery();
-            cmd.CommandText = $"PRAGMA user_version = {next}"; // PRAGMA cannot be parameterized; next is an int we control
-            cmd.ExecuteNonQuery();
+            ExecuteScript(connection, tx, Migrations[next - 1]);
+            ExecuteScript(connection, tx, $"PRAGMA user_version = {next}"); // PRAGMA cannot be parameterized; next is an int we control
             tx.Commit();
+        }
+    }
+
+    /// <summary>
+    /// Runs <paramref name="script"/> in <paramref name="transaction"/> one statement at a time, each with its own command, and throws
+    /// on the first statement that fails. (One command running several statements cannot be trusted to: once an ADD COLUMN with a
+    /// CHECK has run, a later statement's failure is not reported and the rest of the script is silently skipped.)
+    /// Statements are found by SQLite's own parser — the tail sqlite3_prepare_v2 leaves after the first complete statement — never by
+    /// splitting on semicolons, so a semicolon inside a string, a quoted name, a comment or a trigger body is never a boundary.
+    /// Each statement is found only after the ones before it have run, because it may use a column or table they create.
+    /// </summary>
+    public static void ExecuteScript(SqliteConnection connection, SqliteTransaction transaction, string script)
+    {
+        var remaining = script;
+        while (true)
+        {
+            string statement, tail;
+            var rc = raw.sqlite3_prepare_v2(connection.Handle, remaining, out var prepared, out tail);
+            using (prepared)
+            {
+                SqliteException.ThrowExceptionForRC(rc, connection.Handle);
+                if (prepared is null || prepared.IsInvalid) return; // nothing but whitespace or comments is left
+                tail ??= "";
+                if (!remaining.EndsWith(tail, StringComparison.Ordinal))
+                    throw new InvalidOperationException("SQLite returned a statement boundary that is not in the script.");
+                statement = remaining[..^tail.Length];
+            }
+
+            using var cmd = connection.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = statement;
+            cmd.ExecuteNonQuery();
+            remaining = tail;
         }
     }
 

@@ -85,7 +85,7 @@ public class PortableCollectionDescriptionTests
 
         var file = Json(ExportBytes(db, c));
         Assert.Equal(2, (int?)file["formatVersion"]);
-        Assert.Equal(PortableFormat.NewestVersion, (int?)file["formatVersion"]);
+        Assert.Equal(PortableFormat.DescriptionsVersion, (int?)file["formatVersion"]); // still 2: nothing here needs version 3
         var described = file["tables"]!.AsArray().Where(t => t!["description"] is not null).ToList();
         Assert.Equal(Multiline, (string?)Assert.Single(described)!["description"]);
         Assert.Equal("Weather", (string?)described[0]!["name"]);
